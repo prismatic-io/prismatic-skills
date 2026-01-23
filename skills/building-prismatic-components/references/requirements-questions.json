@@ -1,0 +1,139 @@
+{
+  "start": "component_type",
+  "questions": {
+    "component_type": {
+      "id": "component_type",
+      "text": "What type of component are you building?",
+      "type": "choice",
+      "choices": [
+        "Utility/Logic Component",
+        "Application Connector"
+      ],
+      "next": ["component_name"]
+    },
+    "component_name": {
+      "id": "component_name",
+      "text": "What should the component be named? (lowercase with hyphens, e.g., 'canny', 'date-utils', 'hubspot-crm')",
+      "type": "text",
+      "allow_inference": true,
+      "inference_sources": ["component_type"],
+      "next": ["component_description"]
+    },
+    "component_description": {
+      "id": "component_description",
+      "text": "Provide a brief description of what the component does (1-2 sentences).",
+      "type": "text",
+      "allow_inference": true,
+      "inference_sources": ["component_type", "component_name"],
+      "next": ["utility_actions", "api_name"]
+    },
+
+    "utility_actions": {
+      "id": "utility_actions",
+      "text": "What actions should this utility component provide? Describe the operations it should support.",
+      "type": "text",
+      "condition": {
+        "question": "component_type",
+        "answer": "Utility/Logic Component"
+      },
+      "next": ["utility_inputs"]
+    },
+    "utility_inputs": {
+      "id": "utility_inputs",
+      "text": "What input types will these actions work with? (e.g., strings, dates, JSON objects, arrays)",
+      "type": "text",
+      "allow_inference": true,
+      "inference_sources": ["utility_actions"],
+      "next": ["additional_requirements"]
+    },
+
+    "api_name": {
+      "id": "api_name",
+      "text": "What is the name of the external API/service this connector will integrate with? (e.g., 'Canny', 'HubSpot', 'Stripe')",
+      "type": "text",
+      "allow_inference": true,
+      "inference_sources": ["component_name", "component_description"],
+      "condition": {
+        "question": "component_type",
+        "answer": "Application Connector"
+      },
+      "next": ["api_docs_url"]
+    },
+    "api_docs_url": {
+      "id": "api_docs_url",
+      "text": "Provide the URL to the API documentation (this is REQUIRED for researching the API). Example: https://developers.canny.io/api-reference",
+      "type": "text",
+      "condition": {
+        "question": "component_type",
+        "answer": "Application Connector"
+      },
+      "next": ["spawn_api_researcher"]
+    },
+    "spawn_api_researcher": {
+      "id": "spawn_api_researcher",
+      "type": "agent_task",
+      "agent": "external-api-researcher",
+      "description": "Research {api_name} API",
+      "prompt_template": "Research the {api_name} API documentation at {api_docs_url}.\n\nReturn a structured JSON specification with:\n- Authentication methods (OAuth2, API Key, etc.)\n- Base URL and versioning\n- Resources and their CRUD endpoints\n- Webhook support and events\n\nSave your findings to: {session_dir}/api-research.json",
+      "condition": {
+        "question": "component_type",
+        "answer": "Application Connector"
+      },
+      "next": ["confirm_auth_type"]
+    },
+    "confirm_auth_type": {
+      "id": "confirm_auth_type",
+      "text": "Based on the API research, what authentication method(s) should the component support?",
+      "type": "multi_choice",
+      "choices": [
+        "API Key",
+        "OAuth2 Authorization Code",
+        "OAuth2 Client Credentials",
+        "Bearer Token",
+        "Basic Auth",
+        "No Authentication"
+      ],
+      "condition": {
+        "question": "component_type",
+        "answer": "Application Connector"
+      },
+      "next": ["confirm_resources"]
+    },
+    "confirm_resources": {
+      "id": "confirm_resources",
+      "text": "Which resources/entities should the component support? (Agent will suggest based on API research)",
+      "type": "text",
+      "allow_inference": true,
+      "inference_sources": ["api_name", "api_docs_url"],
+      "condition": {
+        "question": "component_type",
+        "answer": "Application Connector"
+      },
+      "next": ["webhook_support"]
+    },
+    "webhook_support": {
+      "id": "webhook_support",
+      "text": "Does this API support webhooks? If yes, should the component include webhook triggers?",
+      "type": "choice",
+      "choices": [
+        "Yes - include webhook triggers",
+        "No - no webhook support needed",
+        "Unsure - will determine during implementation"
+      ],
+      "allow_inference": true,
+      "inference_sources": ["api_name"],
+      "condition": {
+        "question": "component_type",
+        "answer": "Application Connector"
+      },
+      "next": ["additional_requirements"]
+    },
+
+    "additional_requirements": {
+      "id": "additional_requirements",
+      "text": "Any additional requirements or constraints? (e.g., specific actions needed, rate limits to handle, special business logic)",
+      "type": "text",
+      "next": []
+    }
+  }
+}
