@@ -1,16 +1,25 @@
 {
   "name": "prismatic-skills",
   "owner": {
-    "name": "Prismatic"
+    "name": "Prismatic",
+    "email": "plugins@prismatic.io"
   },
   "metadata": {
-    "description": "Prismatic custom component and integration builder plugins"
+    "description": "Official Prismatic plugin marketplace for Claude Code"
   },
   "plugins": [
     {
       "name": "prismatic-skills",
-      "source": ".",
-      "description": "Build and deploy Prismatic custom components and Code Native Integrations"
+      "source": "./",
+      "description": "Build and deploy Prismatic custom components and Code Native Integrations",
+      "version": "1.0.0",
+      "category": "development",
+      "tags": ["prismatic", "integrations", "components", "cni"],
+      "strict": false,
+      "skills": [
+        "./skills/component-patterns",
+        "./skills/integration-patterns"
+      ]
     }
   ]
 }
