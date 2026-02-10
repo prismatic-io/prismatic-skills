@@ -1,0 +1,16 @@
+{
+  "name": "prismatic-skills",
+  "owner": {
+    "name": "Prismatic"
+  },
+  "metadata": {
+    "description": "Prismatic custom component and integration builder plugins"
+  },
+  "plugins": [
+    {
+      "name": "prismatic-skills",
+      "source": ".",
+      "description": "Build and deploy Prismatic custom components and Code Native Integrations"
+    }
+  ]
+}

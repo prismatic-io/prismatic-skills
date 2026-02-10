@@ -1,143 +1,92 @@
 # Prismatic Skills
 
-Claude Code skills and agents for building Prismatic integrations and custom components through conversation.
-
-## Contents
-
-| Type | Name | Description |
-|------|------|-------------|
-| Skill | `building-prismatic-integrations` | Build and deploy Prismatic Code Native Integrations, Automations, and Workflows. Handles TypeScript generation, component discovery, OAuth, deployment, testing, and iteration through a 7-phase workflow. |
-| Skill | `building-prismatic-components` | Build and deploy Prismatic custom components. Handles utility components and application connectors with API research, OAuth2 authentication, TypeScript generation, and deployment through a 6-phase workflow. |
-| Agent | `external-api-researcher` | Research external APIs to gather authentication methods, endpoints, data models, and webhook capabilities needed for component generation. |
+Claude Code plugin for building Prismatic custom components and Code Native Integrations through conversation.
 
 ## Prerequisites
 
 - **Prism CLI**: Install via `npm install -g @prismatic-io/prism`
 - **Prismatic Account**: Active account with integration/component permissions
 - **Python 3**: Required for workflow scripts
-- **Claude Code**: CLI or extension with skill support
+- **Claude Code**: CLI or extension with plugin support
 
 ## Installation
 
-### Option 1: Project Skills (Symlinks)
-
-Clone this repository and create symlinks to register skills for a specific project:
+Add the marketplace and install the plugin in Claude Code:
 
 ```bash
-# Clone the repository
-git clone https://github.com/prismatic-io/prismatic-skills.git
-
-# In your project directory, create symlinks
-mkdir -p .claude/skills .claude/agents
-ln -s /path/to/prismatic-skills/skills/building-prismatic-integrations .claude/skills/
-ln -s /path/to/prismatic-skills/skills/building-prismatic-components .claude/skills/
-ln -s /path/to/prismatic-skills/agents/external-api-researcher.md .claude/agents/
+/plugin marketplace add prismatic-io/prismatic-skills
+/plugin install prismatic-skills@prismatic-skills
 ```
 
-### Option 2: Personal Skills
+### Development / Testing
 
-Copy skills to your personal Claude directory for global access:
+For local development, load the plugin directly:
 
 ```bash
-# Copy skills to personal directory
-cp -r skills/building-prismatic-integrations ~/.claude/skills/
-cp -r skills/building-prismatic-components ~/.claude/skills/
-cp agents/external-api-researcher.md ~/.claude/agents/
+claude --plugin-dir /path/to/prismatic-skills
 ```
 
-### Option 3: ZIP Installation
+## Available Commands
 
-Download pre-built packages from the `dist/` directory or build them yourself:
+### `/prismatic-skills:build-component`
 
-```bash
-# Build distribution packages
-./scripts/build-dist.sh
-
-# Install a skill from ZIP (extract to ~/.claude/skills/)
-unzip dist/building-prismatic-integrations.zip -d ~/.claude/skills/
-```
-
-## Usage
-
-### Building Integrations
-
-Start a conversation with Claude and invoke the skill:
+Build and deploy a Prismatic custom component.
 
 ```
-User: /building-prismatic-integrations
-User: Build an integration that syncs Salesforce contacts to HubSpot
+/prismatic-skills:build-component Canny API connector
 ```
 
-The skill guides you through:
-1. **Setup** - Verify Prism CLI and create session directory
-2. **Requirements** - Interactive questionnaire to capture needs
-3. **Scaffold** - Generate project structure with component manifests
-4. **Code Generation** - Create TypeScript files (flows, config pages, etc.)
-5. **Build/Deploy/Test** - Compile, deploy to Prismatic, and test
-6. **Iterate** - Fix issues and refine
-7. **Deliver** - Package for distribution
-
-### Building Components
-
-```
-User: /building-prismatic-components
-User: Build a custom component for the Canny API
-```
-
-The skill guides you through:
-1. **Setup** - Verify Prism CLI and create session directory
-2. **Requirements** - Determine component type (utility vs connector)
-3. **API Research** - For connectors, spawn agent to research the API
-4. **Scaffold** - Generate component structure
+Workflow:
+1. **Setup** - Verify Prism CLI and authentication
+2. **Requirements** - Interactive questionnaire (component type, API details)
+3. **API Research** - For connectors, research the external API
+4. **Scaffold** - Generate component structure via Prism CLI
 5. **Code Generation** - Implement actions, triggers, connections
-6. **Build/Publish/Test** - Compile and deploy to Prismatic
-7. **Iterate** - Fix issues and refine
+6. **Build & Publish** - Compile and deploy to Prismatic
 
-### Researching APIs
+### `/prismatic-skills:build-integration`
 
-The `external-api-researcher` agent is automatically invoked when building connectors, but can also be used directly:
+Build and deploy a Prismatic Code Native Integration (CNI).
 
 ```
-User: Research the Stripe API for building a Prismatic component
+/prismatic-skills:build-integration Salesforce to Slack sync
 ```
 
-## Distribution
+Workflow:
+1. **Setup** - Verify Prism CLI and authentication
+2. **Requirements** - Interactive questionnaire (systems, triggers, data flow)
+3. **Credential Collection** - Gather OAuth/API credentials if needed
+4. **Scaffold** - Generate project structure with component manifests
+5. **Code Generation** - Create TypeScript files (flows, config pages, etc.)
+6. **Build, Deploy & Test** - Compile, deploy, and test flows
+7. **Iterate** - Fix issues, rebuild, redeploy
 
-Build ZIP packages for distribution:
+## Agents
 
-```bash
-# Build all distribution packages
-./scripts/build-dist.sh
-
-# Output in dist/
-# ├── building-prismatic-integrations.zip
-# ├── building-prismatic-components.zip
-# ├── external-api-researcher.zip
-# └── prismatic-skills-all.zip
-```
-
-Each skill ZIP contains the skill folder at the root level, following Anthropic's packaging guidelines.
+| Agent | Description |
+|-------|-------------|
+| `component-builder` | Builds custom components from requirements to deployment |
+| `cni-builder` | Builds Code Native Integrations from requirements to deployment |
+| `external-api-researcher` | Researches external APIs for component generation |
 
 ## Repository Structure
 
 ```
 prismatic-skills/
-├── skills/
-│   ├── building-prismatic-integrations/
-│   │   ├── SKILL.md              # Skill definition and workflow
-│   │   ├── references/           # Documentation and patterns
-│   │   └── scripts/              # Python workflow scripts
-│   └── building-prismatic-components/
-│       ├── SKILL.md              # Skill definition and workflow
-│       ├── references/           # Documentation and examples
-│       └── scripts/              # Python workflow scripts
+├── .claude-plugin/
+│   ├── plugin.json                # Plugin manifest
+│   └── marketplace.json           # Marketplace catalog
+├── commands/
+│   ├── build-component.md         # /prismatic-skills:build-component
+│   └── build-integration.md       # /prismatic-skills:build-integration
 ├── agents/
-│   └── external-api-researcher.md  # Agent definition
-├── .claude/
-│   ├── skills/                   # Symlinks to skills/
-│   └── agents/                   # Symlinks to agents/
-├── scripts/
-│   └── build-dist.sh             # Distribution build script
+│   ├── component-builder.md
+│   ├── cni-builder.md
+│   └── external-api-researcher.md
+├── skills/
+│   ├── component-patterns/        # Component reference docs
+│   └── integration-patterns/      # CNI reference docs
+├── scripts/                       # Python workflow scripts
 └── README.md
 ```
 
