@@ -57,7 +57,7 @@ slack-salesforce-sync/
 
 ```bash
 # Scaffold and install both manifests
-scripts/scaffold_project.py slack-salesforce-sync --components slack,salesforce
+scripts/integrations/scaffold_project.py slack-salesforce-sync --components slack,salesforce
 ```
 
 This creates the project structure and installs manifests at `src/manifests/`.
@@ -410,9 +410,9 @@ if (notificationType === "slack") {
 Search for components before scaffolding:
 
 ```bash
-python scripts/search_components.py salesforce
-python scripts/search_components.py slack
-python scripts/search_components.py hubspot
+python scripts/integrations/search_components.py salesforce
+python scripts/integrations/search_components.py slack
+python scripts/integrations/search_components.py hubspot
 ```
 
 This shows component keys to use with `--components` flag.

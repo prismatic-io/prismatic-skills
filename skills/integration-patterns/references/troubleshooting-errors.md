@@ -193,7 +193,7 @@ npm install --save-dev @types/node
 ls dist/
 
 # Check for syntax errors
-python scripts/validate_typescript.py <integration-dir>
+python scripts/integrations/validate_typescript.py <integration-dir>
 
 # Validate integration structure
 cat dist/index.js | grep "export default"
@@ -409,7 +409,7 @@ cd <project-dir>
 npx cni-component-manifest slack
 
 # Or scaffold with manifests from the start
-python scripts/scaffold_project.py <name> --components slack
+python scripts/integrations/scaffold_project.py <name> --components slack
 ```
 
 Example package.json update:
@@ -528,7 +528,7 @@ If errors persist:
 
 - **"Component not found"**: Component key incorrect when downloading source
 - **"Missing dependency"**: Review component's package.json and add needed deps to your CNI
-- **"Cannot find module"**: Install dependencies with `python scripts/install_dependencies.py`
+- **"Cannot find module"**: Install dependencies with `python scripts/integrations/install_dependencies.py`
 - **"Type errors in extracted code"**: Add proper TypeScript types to wrapper functions
 
 For detailed explanations and additional errors, see the official Prismatic documentation.

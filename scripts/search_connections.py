@@ -1,1 +1,0 @@
-/Users/jakehagle/dev/prismatic-skills/scripts/shared/search_connections.py

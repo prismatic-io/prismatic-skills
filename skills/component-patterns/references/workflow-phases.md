@@ -20,7 +20,7 @@ Phase 1: Setup ─→ Phase 2: Requirements ─┬─→ [Utility] ─→ Phase 
 
 **Purpose:** Verify the development environment is ready.
 
-**Script:** `scripts/setup_prerequisites.py <COMPONENT_NAME>`
+**Script:** `scripts/prerequisites.py <COMPONENT_NAME>`
 
 **What it does:**
 1. Checks if Prism CLI is installed
@@ -99,7 +99,7 @@ Session directory: /path/to/components/canny/.prismatic
 
 **Purpose:** Create the component directory structure using prism CLI.
 
-**Script:** `scripts/scaffold_component.py <NAME>`
+**Script:** `scripts/components/scaffold_component.py <NAME>`
 
 **What it does:**
 1. Runs `prism components:init <name>` to create connector-style scaffold
@@ -179,7 +179,7 @@ Edit these files:
 
 ### Build
 
-**Script:** `scripts/build_component.py <COMPONENT_DIR>`
+**Script:** `scripts/components/build_component.py <COMPONENT_DIR>`
 
 **What it does:**
 1. Installs npm dependencies if needed
@@ -188,7 +188,7 @@ Edit these files:
 
 ### Publish
 
-**Script:** `scripts/publish_component.py <COMPONENT_DIR>`
+**Script:** `scripts/components/publish_component.py <COMPONENT_DIR>`
 
 **What it does:**
 1. Runs `prism components:publish`
@@ -196,7 +196,7 @@ Edit these files:
 
 ### Validate
 
-**Script:** `scripts/validate_component.py <COMPONENT_DIR>`
+**Script:** `scripts/components/validate_component.py <COMPONENT_DIR>`
 
 **What it does:**
 1. Validates component structure (required files exist)
@@ -215,9 +215,9 @@ Edit these files:
 **Process:**
 1. Identify issue from test output or user feedback
 2. Edit source files to fix
-3. Rebuild: `scripts/build_component.py`
-4. Re-publish: `scripts/publish_component.py`
-5. Re-validate: `scripts/validate_component.py`
+3. Rebuild: `scripts/components/build_component.py`
+4. Re-publish: `scripts/components/publish_component.py`
+5. Re-validate: `scripts/components/validate_component.py`
 
 **Common iteration patterns:**
 - Fix TypeScript errors

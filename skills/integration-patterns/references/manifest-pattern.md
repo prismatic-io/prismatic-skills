@@ -29,7 +29,7 @@ Complete guide for using Prismatic component manifests in Code Native Integratio
 Pass components to the scaffold script:
 
 ```bash
-scripts/scaffold_project.py my-integration --components slack,salesforce
+scripts/integrations/scaffold_project.py my-integration --components slack,salesforce
 ```
 
 This creates:
@@ -57,7 +57,7 @@ npx cni-component-manifest hubspot
 Use the search script to find available components:
 
 ```bash
-python scripts/search_components.py salesforce
+python scripts/integrations/search_components.py salesforce
 ```
 
 ---
