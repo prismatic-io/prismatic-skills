@@ -1,7 +1,7 @@
 ---
 name: build-component
 description: Build and deploy a Prismatic custom component
-allowed-tools: Bash, Read, AskUserQuestion
+allowed-tools: Bash, Read, AskUserQuestion, Grep, Glob, Edit, Write, Task
 ---
 
 Build a Prismatic custom component for $ARGUMENTS.

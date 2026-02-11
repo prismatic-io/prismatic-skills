@@ -1,7 +1,7 @@
 ---
 name: cni-builder
 description: Builds Prismatic Code Native Integrations (CNI). Handles TypeScript generation, component manifest installation, OAuth configuration, deployment, testing, and iteration.
-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, Task
+tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, Task, WebFetch, WebSearch
 skills:
   - integration-patterns
 model: inherit
