@@ -49,19 +49,18 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/gather_requirements.py \
 
 When `gather_requirements.py` outputs `status: "agent_task"`:
 
-1. Spawn the `external-api-researcher` sub-agent using the Task tool
+1. Spawn the agent specified in `task.agent` using the Task tool
    - Use the `task.prompt` from the output as the prompt
    - Replace any `{session_dir}` in the prompt with the actual session directory path
-   - The researcher will use WebFetch to analyze the API documentation and return structured findings
 
-2. After the researcher completes, save the research results to `<session_dir>/api-research.json` if the researcher hasn't already done so.
+2. After the agent completes, save the research results to `<session_dir>/api-research.json` if the agent hasn't already done so.
 
 3. Mark the question as answered:
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/write_answer.py <requirements_file> spawn_api_researcher completed
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/write_answer.py <requirements_file> <question_id> completed
    ```
 
-4. Re-run `gather_requirements.py` to continue with the remaining questions (auth type confirmation, resources, webhooks, etc.).
+4. Re-run `gather_requirements.py` to continue with remaining questions.
 
 ## Phase 4: Build
 

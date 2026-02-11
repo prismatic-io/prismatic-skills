@@ -1,5 +1,12 @@
 {
   "start": "systems",
+  "completion": {
+    "next_action": {
+      "type": "scaffold",
+      "command": "python scripts/integrations/scaffold_project.py <integration-name> --components <component-keys-from-answers>",
+      "instruction": "Run scaffold_project.py to create the integration project. The integration name comes from the original command arguments. Extract component keys from source_component and destination_component answers (use the .key field if they are objects). Pass any collected credentials as --credentials JSON."
+    }
+  },
   "questions": {
     "systems": {
       "id": "systems",
@@ -110,7 +117,7 @@
     "source_api_research": {
       "id": "source_api_research",
       "type": "agent_task",
-      "agent": "external-api-researcher",
+      "agent": "prismatic-skills:external-api-researcher",
       "description": "Research {source_system} API",
       "prompt_template": "Research the {source_system} API using ONLY the official documentation at {source_api_docs_url}.\n\nStart from that URL and follow links within the same domain to find authentication, endpoint, and webhook documentation. Do not search the web or visit third-party sources.\n\nReturn a structured JSON specification with:\n- Authentication methods (OAuth2, API Key, etc.)\n- Base URL and versioning\n- Resources and their CRUD endpoints\n- Webhook support and events\n\nSave your findings to: {session_dir}/source-api-research.json",
       "condition": {
@@ -178,7 +185,7 @@
     "destination_api_research": {
       "id": "destination_api_research",
       "type": "agent_task",
-      "agent": "external-api-researcher",
+      "agent": "prismatic-skills:external-api-researcher",
       "description": "Research {destination_system} API",
       "prompt_template": "Research the {destination_system} API using ONLY the official documentation at {destination_api_docs_url}.\n\nStart from that URL and follow links within the same domain to find authentication, endpoint, and webhook documentation. Do not search the web or visit third-party sources.\n\nReturn a structured JSON specification with:\n- Authentication methods (OAuth2, API Key, etc.)\n- Base URL and versioning\n- Resources and their CRUD endpoints\n- Webhook support and events\n\nSave your findings to: {session_dir}/destination-api-research.json",
       "condition": {
