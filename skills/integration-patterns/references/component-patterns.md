@@ -38,7 +38,7 @@ For ALL of these integrations:
 ### 1. Search for Components
 
 ```bash
-python scripts/search_components.py salesforce
+python scripts/integrations/search_components.py salesforce
 ```
 
 Returns component keys needed for installation.
@@ -46,7 +46,7 @@ Returns component keys needed for installation.
 ### 2. Install Manifests During Scaffolding
 
 ```bash
-scripts/scaffold_project.py my-integration --components salesforce,slack
+scripts/integrations/scaffold_project.py my-integration --components salesforce,slack
 ```
 
 Or manually after scaffolding:

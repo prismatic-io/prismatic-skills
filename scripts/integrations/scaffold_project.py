@@ -40,7 +40,7 @@ import tempfile
 SHARED_DIR = os.path.join(os.path.dirname(__file__), '..', 'shared')
 sys.path.insert(0, SHARED_DIR)
 
-from project_directory import get_project_directory
+from project_directory import get_project_root
 from timing import print_timing_summary, timed_step
 
 
@@ -130,7 +130,7 @@ def scaffold_project(name):
     Strategy: Init in a temp directory, then move contents to target.
     This preserves any existing .prismatic/ session directory.
     """
-    project_dir = get_project_directory()
+    project_dir = get_project_root()
     project_path = os.path.join(project_dir, name)
 
     # Check if this is already a fully initialized project

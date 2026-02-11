@@ -682,8 +682,8 @@ Component manifests are auto-generated TypeScript wrappers that provide type-saf
 
 **For integrations with external systems (Salesforce, Slack, databases, AWS, etc.):**
 
-1. ✅ **Search:** `scripts/search_components.py <system>`
-2. ✅ **Scaffold with manifests:** `scripts/scaffold_project.py <name> --components slack,salesforce`
+1. ✅ **Search:** `scripts/integrations/search_components.py <system>`
+2. ✅ **Scaffold with manifests:** `scripts/integrations/scaffold_project.py <name> --components slack,salesforce`
 3. ✅ **Register:** Create `componentRegistry.ts`
 4. ✅ **Configure:** Use connection helpers in `configPages.ts`
 5. ✅ **Use:** Access via `context.components.<key>.<action>()`
@@ -699,7 +699,7 @@ Component manifests are auto-generated TypeScript wrappers that provide type-saf
 **During scaffolding (recommended):**
 
 ```bash
-scripts/scaffold_project.py my-integration --components slack,salesforce,hubspot
+scripts/integrations/scaffold_project.py my-integration --components slack,salesforce,hubspot
 ```
 
 **Or manually:**
@@ -855,7 +855,7 @@ const result = await context.components.slack.postMessage({
 Use the search script to discover available components:
 
 ```bash
-python scripts/search_components.py <keyword>
+python scripts/integrations/search_components.py <keyword>
 ```
 
 This returns component keys for use with `--components` flag.
@@ -941,7 +941,7 @@ Catch TypeScript errors before full build, saving time in the development cycle.
 Before running the full build, optionally validate TypeScript syntax:
 
 ```bash
-python scripts/validate_typescript.py <project-dir>
+python scripts/integrations/validate_typescript.py <project-dir>
 ```
 
 **This quick check (~5-10 seconds) catches:**
@@ -963,7 +963,7 @@ python scripts/validate_typescript.py <project-dir>
 ### Workflow
 
 1. Generate/modify code
-2. Run `python scripts/validate_typescript.py <project-dir>`
+2. Run `python scripts/integrations/validate_typescript.py <project-dir>`
 3. If errors found:
    - Fix immediately
    - Re-run validation

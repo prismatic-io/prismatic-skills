@@ -1,5 +1,12 @@
 {
   "start": "component_type",
+  "completion": {
+    "next_action": {
+      "type": "scaffold",
+      "command": "python scripts/components/scaffold_component.py {component_name}",
+      "instruction": "Run scaffold_component.py to create the component structure using prism CLI. For utility components, Phase 4 will remove unused connector files."
+    }
+  },
   "questions": {
     "component_type": {
       "id": "component_type",
@@ -72,27 +79,9 @@
     "spawn_api_researcher": {
       "id": "spawn_api_researcher",
       "type": "agent_task",
-      "agent": "external-api-researcher",
+      "agent": "prismatic-skills:external-api-researcher",
       "description": "Research {api_name} API",
-      "prompt_template": "Research the {api_name} API documentation at {api_docs_url}.\n\nReturn a structured JSON specification with:\n- Authentication methods (OAuth2, API Key, etc.)\n- Base URL and versioning\n- Resources and their CRUD endpoints\n- Webhook support and events\n\nSave your findings to: {session_dir}/api-research.json",
-      "condition": {
-        "question": "component_type",
-        "answer": "Application Connector"
-      },
-      "next": ["confirm_auth_type"]
-    },
-    "confirm_auth_type": {
-      "id": "confirm_auth_type",
-      "text": "Based on the API research, what authentication method(s) should the component support?",
-      "type": "multi_choice",
-      "choices": [
-        "API Key",
-        "OAuth2 Authorization Code",
-        "OAuth2 Client Credentials",
-        "Bearer Token",
-        "Basic Auth",
-        "No Authentication"
-      ],
+      "prompt_template": "Research the {api_name} API using ONLY the official documentation at {api_docs_url}.\n\nStart from that URL and follow links within the same domain to find authentication, endpoint, and webhook documentation. Do not search the web or visit third-party sources.\n\nReturn a structured JSON specification with:\n- Authentication methods (OAuth2, API Key, etc.)\n- Base URL and versioning\n- Resources and their CRUD endpoints\n- Webhook support and events\n\nSave your findings to: {session_dir}/api-research.json",
       "condition": {
         "question": "component_type",
         "answer": "Application Connector"

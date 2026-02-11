@@ -84,6 +84,7 @@ def evaluate_condition(condition, answers):
     - {"question": "q1", "answer": "value"} - exact match or contains for multi-choice
     - {"question": "q1", "answer_is": "empty"} - true if answer is empty/skipped/None
     - {"question": "q1", "answer_is": "not_empty"} - true if answer has a value
+    - {"question": "q1", "answer_not": "value"} - true if answer is NOT the given value
     """
     if not condition:
         return True
@@ -107,6 +108,16 @@ def evaluate_condition(condition, answers):
             return not is_empty
         else:
             return False
+
+    # Handle answer_not condition (negative match)
+    answer_not = condition.get("answer_not")
+    if answer_not is not None:
+        if question_id not in answers:
+            return False
+        user_answer = answers[question_id]
+        if isinstance(user_answer, list):
+            return answer_not not in user_answer
+        return user_answer != answer_not
 
     # Standard exact match condition
     if question_id not in answers:
@@ -419,20 +430,26 @@ def main():
         return 2
 
     if next_question is None:
-        # All questions answered!
-        component_name = answers.get("component_name", "unknown")
+        # All questions answered - build completion from DAG metadata
+        completion = dag.get("completion")
+        if not completion or "next_action" not in completion:
+            print("Error: questionnaire JSON is missing a 'completion' block with 'next_action'", file=sys.stderr)
+            return 2
+
+        next_action_template = completion["next_action"]
+
+        # Template-substitute answer values into next_action strings
+        next_action = {}
+        for key, value in next_action_template.items():
+            if isinstance(value, str):
+                next_action[key] = substitute_template(value, answers)
+            else:
+                next_action[key] = value
 
         output = {
             "status": "complete",
             "answers": answers,
-            "next_action": {
-                "type": "scaffold",
-                "command": f"python scripts/scaffold_component.py {component_name}",
-                "instruction": (
-                    "Run scaffold_component.py to create the component structure using prism CLI. "
-                    "For utility components, Phase 4 will remove unused connector files."
-                ),
-            },
+            "next_action": next_action,
         }
         print(json.dumps(output, indent=2))
         print("\nPhase 2 complete - all requirements gathered", file=sys.stderr)

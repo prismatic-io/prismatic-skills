@@ -188,34 +188,18 @@ If the API supports webhooks:
 }
 ```
 
-## Invoking the Research Agent
+## How API Research is Triggered
 
-The component builder skill uses the `external-api-researcher` agent to perform API research:
+The `/build-component` orchestrating command handles API research using the [chain subagents pattern](https://code.claude.com/docs/en/sub-agents#chain-subagents). During requirements gathering, when `gather_requirements.py` outputs `status: "agent_task"`, the orchestrator spawns the `external-api-researcher` sub-agent from the main conversation context.
 
-```
-Task(
-  subagent_type: "external-api-researcher",
-  description: "Research {API_NAME} API",
-  prompt: """
-Research the {API_NAME} API documentation at {API_DOCS_URL}.
-
-Return a structured JSON specification with:
-- Authentication methods (OAuth2, API Key, etc.)
-- Base URL and versioning
-- Resources and their CRUD endpoints
-- Webhook support and events
-
-Save your findings to: {SESSION_DIR}/api-research.json
-"""
-)
-```
-
-The agent uses WebFetch internally to read documentation pages and follows links to:
+The researcher uses WebFetch internally to read documentation pages and follows links to:
 
 - Authentication/Authorization pages
 - Individual endpoint references
 - Webhook documentation
 - SDK examples (can reveal patterns)
+
+After the researcher completes, the orchestrator marks the research step as answered and continues gathering remaining requirements before spawning the `component-builder` for code generation.
 
 ## Output Format
 

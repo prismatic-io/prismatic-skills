@@ -31,7 +31,7 @@ The setup script verifies the development environment is ready:
 ### Running Setup
 
 ```bash
-scripts/setup_prerequisites.py <INTEGRATION_NAME>
+scripts/prerequisites.py <INTEGRATION_NAME>
 ```
 
 ### Error Resolution
@@ -319,7 +319,7 @@ Use the requirements data in Phase 3 to guide:
 
 ## Phase 3: Code Generation
 
-Note: Project scaffolding happens after Phase 2. Run `scripts/scaffold_project.py <name> --components <comp1,comp2>` to create the project structure and install component manifests.
+Note: Project scaffolding happens after Phase 2. Run `scripts/integrations/scaffold_project.py <name> --components <comp1,comp2>` to create the project structure and install component manifests.
 
 **Identify components from requirements:**
 
@@ -327,10 +327,10 @@ Based on the requirements gathered in Phase 2, identify which 3rd party componen
 
 ```bash
 # Search for available components
-python scripts/search_components.py <keyword>
+python scripts/integrations/search_components.py <keyword>
 
 # Scaffold with manifests
-scripts/scaffold_project.py <name> --components slack,salesforce
+scripts/integrations/scaffold_project.py <name> --components slack,salesforce
 ```
 
 **Copy requirements to the project after scaffolding:**
@@ -448,13 +448,13 @@ See [trigger-metadata-spec.md](trigger-metadata-spec.md) for complete specificat
 1. **Identify needed components during Phase 2:**
 
    ```bash
-   python scripts/search_components.py <keyword>
+   python scripts/integrations/search_components.py <keyword>
    ```
 
 2. **Install manifests during scaffolding:**
 
    ```bash
-   scripts/scaffold_project.py <name> --components slack,salesforce
+   scripts/integrations/scaffold_project.py <name> --components slack,salesforce
    ```
 
 3. **Register manifests in componentRegistry.ts:**
@@ -512,7 +512,7 @@ Error: Scoped config variable with stableKey 'xxx' not found
 1. Ensure the component is published: `npm run publish` in component directory
 2. Create the organization connection using `create_organization_connection.py`:
    ```bash
-   python scripts/create_organization_connection.py \
+   python scripts/integrations/create_organization_connection.py \
      --component-key <component> \
      --connection-key <connection> \
      --name "My Connection" \
@@ -536,7 +536,7 @@ npm run build && npm run publish
 ### Step 4.1: Build
 
 ```bash
-scripts/build_integration.py <dir>
+scripts/integrations/build_integration.py <dir>
 ```
 
 If build fails:
@@ -548,7 +548,7 @@ If build fails:
 ### Step 4.2: Deploy
 
 ```bash
-scripts/deploy_integration.py <dir>
+scripts/integrations/deploy_integration.py <dir>
 ```
 
 Returns:
@@ -570,7 +570,7 @@ Guide user to:
 #### Basic Testing (Scheduled/Manual Flows)
 
 ```bash
-scripts/test_integration.py <integration-id>
+scripts/integrations/test_integration.py <integration-id>
 ```
 
 #### Webhook Flow Testing (Automatic Payloads)
@@ -578,7 +578,7 @@ scripts/test_integration.py <integration-id>
 **The script automatically uses trigger metadata to provide appropriate test payloads:**
 
 ```bash
-scripts/test_integration.py <integration-id> <flow-name> --integration-dir <path-to-source>
+scripts/integrations/test_integration.py <integration-id> <flow-name> --integration-dir <path-to-source>
 ```
 
 **How it works:**
@@ -598,7 +598,7 @@ scripts/test_integration.py <integration-id> <flow-name> --integration-dir <path
 If integration has only one flow, you can omit the flow name:
 
 ```bash
-scripts/test_integration.py <integration-id> --integration-dir <path-to-source>
+scripts/integrations/test_integration.py <integration-id> --integration-dir <path-to-source>
 ```
 
 The script will automatically discover the flow name and load appropriate trigger metadata.
@@ -609,13 +609,13 @@ The script will automatically discover the flow name and load appropriate trigge
 
 ```bash
 # JSON payload
-scripts/test_integration.py <id> <flow> --payload /path/to/payload.json
+scripts/integrations/test_integration.py <id> <flow> --payload /path/to/payload.json
 
 # XML payload
-scripts/test_integration.py <id> <flow> --payload /path/to/data.xml --content-type application/xml
+scripts/integrations/test_integration.py <id> <flow> --payload /path/to/data.xml --content-type application/xml
 
 # Custom content type
-scripts/test_integration.py <id> <flow> --payload /path/to/data.txt --content-type text/plain
+scripts/integrations/test_integration.py <id> <flow> --payload /path/to/data.txt --content-type text/plain
 ```
 
 #### Other Testing Options
@@ -683,7 +683,7 @@ The agent MUST create `test-data/` directory with trigger metadata and payload f
 ### Create Package
 
 ```bash
-scripts/package_for_download.py <dir> <version>
+scripts/integrations/package_for_download.py <dir> <version>
 ```
 
 ### Provide Download

@@ -154,7 +154,7 @@ def main():
     parser.add_argument("name", help="Name for the session (e.g., 'canny', 'hubspot-crm')")
     parser.add_argument(
         "--type", choices=["component", "integration"],
-        default="component", help="Type of workflow (default: component)"
+        required=True, help="Type of workflow (component or integration)"
     )
     args = parser.parse_args()
 
