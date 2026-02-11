@@ -78,27 +78,9 @@ Session directory: /path/to/components/canny/.prismatic
 
 **Purpose:** Gather information about the external API before generating code.
 
-**Tool:** Task tool with `external-api-researcher` agent
+**How it works:** The `/build-component` orchestrating command spawns the `external-api-researcher` sub-agent from the main conversation context. This follows the [chain subagents pattern](https://code.claude.com/docs/en/sub-agents#chain-subagents) — the orchestrator handles setup/requirements in the main context, then delegates research and building to separate sub-agents.
 
-**How to invoke:**
-
-```
-Task(
-  subagent_type: "external-api-researcher",
-  description: "Research {API_NAME} API",
-  prompt: """
-Research the {API_NAME} API documentation at {API_DOCS_URL}.
-
-Return a structured JSON specification with:
-- Authentication methods (OAuth2, API Key, etc.)
-- Base URL and versioning
-- Resources and their CRUD endpoints
-- Webhook support and events
-
-Save your findings to: {SESSION_DIR}/api-research.json
-"""
-)
-```
+**Trigger:** During requirements gathering, `gather_requirements.py` outputs `status: "agent_task"` when it reaches the `spawn_api_researcher` step. The orchestrating command then spawns the researcher.
 
 **What the agent researches:**
 
@@ -109,7 +91,7 @@ Save your findings to: {SESSION_DIR}/api-research.json
 
 **Output:** `{SESSION_DIR}/api-research.json` with structured findings
 
-**Next:** Phase 3c (Scaffold)
+**Next:** Remaining requirements questions (auth confirmation, resources, webhooks), then Phase 3 (Scaffold)
 
 ---
 

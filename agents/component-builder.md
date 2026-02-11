@@ -1,7 +1,7 @@
 ---
 name: component-builder
 description: Builds Prismatic custom components. Handles scaffolding, code generation, building, and publishing for connector components.
-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, WebFetch, WebSearch, Task
+tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, WebFetch, WebSearch
 skills:
   - component-patterns
 model: inherit
@@ -42,8 +42,12 @@ All scripts are relative to `${CLAUDE_PLUGIN_ROOT}/scripts/`:
 
 ## Workflow
 
+When spawned by the orchestrating command, requirements and API research are typically already complete. If so, `gather_requirements.py` will immediately return "complete" and you proceed to scaffolding.
+
+If `<session_dir>/api-research.json` exists, read it first and use the findings for code generation. Do not re-fetch API documentation — the research has already been done by the external-api-researcher agent.
+
 1. **Setup:** Run `prerequisites.py <name> --type component`
-2. **Requirements:** Run `gather_requirements.py` loop (exit 42 = STOP and ask user)
+2. **Requirements:** Run `gather_requirements.py` loop (exit 42 = STOP and ask user). If already complete, proceed immediately.
 3. **Scaffold:** Run `scaffold_component.py`
 4. **Generate code:** Customize scaffolded files using component-patterns skill
 5. **Build & Publish:** `build_component.py` → `publish_component.py` → `validate_component.py`

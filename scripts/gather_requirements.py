@@ -84,6 +84,7 @@ def evaluate_condition(condition, answers):
     - {"question": "q1", "answer": "value"} - exact match or contains for multi-choice
     - {"question": "q1", "answer_is": "empty"} - true if answer is empty/skipped/None
     - {"question": "q1", "answer_is": "not_empty"} - true if answer has a value
+    - {"question": "q1", "answer_not": "value"} - true if answer is NOT the given value
     """
     if not condition:
         return True
@@ -107,6 +108,16 @@ def evaluate_condition(condition, answers):
             return not is_empty
         else:
             return False
+
+    # Handle answer_not condition (negative match)
+    answer_not = condition.get("answer_not")
+    if answer_not is not None:
+        if question_id not in answers:
+            return False
+        user_answer = answers[question_id]
+        if isinstance(user_answer, list):
+            return answer_not not in user_answer
+        return user_answer != answer_not
 
     # Standard exact match condition
     if question_id not in answers:

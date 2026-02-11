@@ -221,10 +221,10 @@ def filter_connections(connections, keyword):
     return [
         conn
         for conn in connections
-        if keyword_lower in conn.get("label", "").lower()
-        or keyword_lower in conn.get("component", "").lower()
-        or keyword_lower in conn.get("connectionDescription", "").lower()
-        or keyword_lower in conn.get("category", "").lower()
+        if keyword_lower in (conn.get("label") or "").lower()
+        or keyword_lower in (conn.get("component") or "").lower()
+        or keyword_lower in (conn.get("connectionDescription") or "").lower()
+        or keyword_lower in (conn.get("category") or "").lower()
     ]
 
 

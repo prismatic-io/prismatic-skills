@@ -51,7 +51,7 @@
       "type": "text",
       "allow_inference": true,
       "inference_sources": ["systems", "data_flow"],
-      "next": ["source_component"]
+      "next": ["source_component", "destination_system"]
     },
     "source_component": {
       "id": "source_component",
@@ -62,7 +62,8 @@
       "choice_label": "label",
       "store_full_object": true,
       "allow_skip": true,
-      "next": ["source_webhook_details", "source_connection_type"]
+      "condition": { "question": "trigger_type", "answer_not": "webhook" },
+      "next": ["source_api_docs_url", "source_connection_type"]
     },
     "source_connection_type": {
       "id": "source_connection_type",
@@ -92,34 +93,31 @@
         "question": "source_connection_type",
         "answer_is": "not_empty"
       },
-      "next": ["source_webhook_auth", "source_connection"]
+      "next": ["source_connection"]
     },
-    "source_webhook_details": {
-      "id": "source_webhook_details",
-      "text": "No component found for the source system. What is the incoming webhook payload format?",
-      "type": "choice",
-      "choices": ["JSON", "XML", "Form Data", "Plain Text"],
+    "source_api_docs_url": {
+      "id": "source_api_docs_url",
+      "text": "Provide the API documentation URL for the source system (e.g., https://developers.example.com/api)",
+      "type": "text",
       "allow_inference": true,
-      "inference_sources": ["source_system"],
+      "inference_sources": ["systems", "data_flow"],
       "condition": {
         "question": "source_component",
         "answer_is": "empty"
       },
-      "next": ["source_webhook_auth"]
+      "next": ["source_api_research"]
     },
-    "source_webhook_auth": {
-      "id": "source_webhook_auth",
-      "text": "Does the incoming webhook require authentication/verification?",
-      "type": "choice",
-      "choices": [
-        "No authentication",
-        "API Key in header",
-        "HMAC Signature verification",
-        "Basic Auth"
-      ],
-      "allow_inference": true,
-      "inference_sources": ["source_system"],
-      "next": ["source_connection"]
+    "source_api_research": {
+      "id": "source_api_research",
+      "type": "agent_task",
+      "agent": "external-api-researcher",
+      "description": "Research {source_system} API",
+      "prompt_template": "Research the {source_system} API using ONLY the official documentation at {source_api_docs_url}.\n\nStart from that URL and follow links within the same domain to find authentication, endpoint, and webhook documentation. Do not search the web or visit third-party sources.\n\nReturn a structured JSON specification with:\n- Authentication methods (OAuth2, API Key, etc.)\n- Base URL and versioning\n- Resources and their CRUD endpoints\n- Webhook support and events\n\nSave your findings to: {session_dir}/source-api-research.json",
+      "condition": {
+        "question": "source_component",
+        "answer_is": "empty"
+      },
+      "next": ["destination_system"]
     },
     "source_connection": {
       "id": "source_connection",
@@ -163,7 +161,31 @@
       "choice_label": "label",
       "store_full_object": true,
       "allow_skip": true,
-      "next": ["destination_connection_type"]
+      "next": ["destination_api_docs_url", "destination_connection_type"]
+    },
+    "destination_api_docs_url": {
+      "id": "destination_api_docs_url",
+      "text": "Provide the API documentation URL for the destination system (e.g., https://developers.example.com/api)",
+      "type": "text",
+      "allow_inference": true,
+      "inference_sources": ["systems", "data_flow"],
+      "condition": {
+        "question": "destination_component",
+        "answer_is": "empty"
+      },
+      "next": ["destination_api_research"]
+    },
+    "destination_api_research": {
+      "id": "destination_api_research",
+      "type": "agent_task",
+      "agent": "external-api-researcher",
+      "description": "Research {destination_system} API",
+      "prompt_template": "Research the {destination_system} API using ONLY the official documentation at {destination_api_docs_url}.\n\nStart from that URL and follow links within the same domain to find authentication, endpoint, and webhook documentation. Do not search the web or visit third-party sources.\n\nReturn a structured JSON specification with:\n- Authentication methods (OAuth2, API Key, etc.)\n- Base URL and versioning\n- Resources and their CRUD endpoints\n- Webhook support and events\n\nSave your findings to: {session_dir}/destination-api-research.json",
+      "condition": {
+        "question": "destination_component",
+        "answer_is": "empty"
+      },
+      "next": ["transformations"]
     },
     "destination_connection_type": {
       "id": "destination_connection_type",
