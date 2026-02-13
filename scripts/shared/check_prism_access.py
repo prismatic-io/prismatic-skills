@@ -29,7 +29,6 @@ ERROR PATTERNS TO DETECT:
 import subprocess
 import sys
 
-import prism_auth
 from prism_retry import is_auth_error, is_network_error, run_prism_query
 
 
@@ -37,14 +36,6 @@ def check_prism_access():
     """Test if Prism CLI can access Prismatic API."""
     print("🔍 Testing Prism CLI connectivity...")
     print("")
-
-    # Get credentials from Prism CLI
-    credentials = prism_auth.get_credentials()
-    if credentials["token"]:
-        print("✓ Loaded authentication credentials")
-        print("  Token: <present>")
-        print(f"  URL: {credentials['url'] or 'https://app.prismatic.io (default)'}")
-        print("")
 
     try:
         result = run_prism_query(["prism", "me"], timeout=30)

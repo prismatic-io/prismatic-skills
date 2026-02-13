@@ -61,6 +61,14 @@ Workflow:
 6. **Build, Deploy & Test** - Compile, deploy, and test flows
 7. **Iterate** - Fix issues, rebuild, redeploy
 
+### `/prismatic-skills:orby`
+
+Ask Orby, the Prismatic platform guide, a question or request about your Prismatic environment.
+
+```
+/prismatic-skills:orby What integrations do I have?
+```
+
 ## Agents
 
 | Agent | Description |
@@ -68,6 +76,7 @@ Workflow:
 | `component-builder` | Builds custom components from requirements to deployment |
 | `cni-builder` | Builds Code Native Integrations from requirements to deployment |
 | `external-api-researcher` | Researches external APIs for component generation |
+| `orby` | Prismatic platform guide for environment queries, API operations, and documentation |
 
 ## Repository Structure
 
@@ -76,16 +85,21 @@ prismatic-skills/
 ├── .claude-plugin/
 │   ├── plugin.json                # Plugin manifest
 │   └── marketplace.json           # Marketplace catalog
+├── .mcp.json                      # MCP server configuration
 ├── commands/
 │   ├── build-component.md         # /prismatic-skills:build-component
-│   └── build-integration.md       # /prismatic-skills:build-integration
+│   ├── build-integration.md       # /prismatic-skills:build-integration
+│   └── orby.md                    # /prismatic-skills:orby
 ├── agents/
 │   ├── component-builder.md
 │   ├── cni-builder.md
-│   └── external-api-researcher.md
+│   ├── external-api-researcher.md
+│   └── orby.md
 ├── skills/
 │   ├── component-patterns/        # Component reference docs
-│   └── integration-patterns/      # CNI reference docs
+│   ├── integration-patterns/      # CNI reference docs
+│   ├── prismatic-api/             # Prismatic API & GraphQL reference
+│   └── prismatic-docs/            # Prismatic product documentation
 ├── scripts/                       # Python workflow scripts
 └── README.md
 ```

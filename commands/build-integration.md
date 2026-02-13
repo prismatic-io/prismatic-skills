@@ -15,6 +15,22 @@ Build a Prismatic Code Native Integration for $ARGUMENTS.
 - If the user provides an API docs URL in their request, hold onto it — do NOT use it to eagerly launch research. The questionnaire will ask for it at the right time.
 - If a component already exists, use it. No research needed.
 
+## Phase Gates
+
+These are hard constraints. Violating them will cause failures.
+
+**During Phase 2 (Requirements Gathering):**
+- NEVER use MCP tools (`prism_integrations_add_connection_config_var`, `prism_install_component_manifest`, etc.) — they require a scaffolded project that does not exist yet
+- NEVER call `search_connections.py` for auth types — that script lists org-level connections, not component connection types. The DAG handles component connections via `extract_connections.py` automatically
+- NEVER execute inline GraphQL queries — all API interactions are handled by DAG scripts
+- Trust the DAG: it has built-in `dynamic_choice` questions that handle component/connection lookups automatically
+
+**Before Phase 4 (Scaffold):**
+- NEVER create directories, write TypeScript files, or install manifests manually
+
+**Before Phase 5 (Code Generation):**
+- NEVER generate code until scaffolding + manifest installation are complete
+
 ## Phase 1: Setup
 
 Run prerequisites:

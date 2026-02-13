@@ -57,7 +57,7 @@ EXIT CODES:
 import json
 import sys
 
-from prismatic_api import PrismaticAPIError, get_api
+from graphql import graphql, GraphQLError
 
 # GraphQL query for listing connections
 LIST_CONNECTIONS_QUERY = """
@@ -100,16 +100,13 @@ query allComponents($after: String) {
 """
 
 
-def list_connections_api(api):
+def list_connections_api():
     """Fetch all connections using the GraphQL API.
-
-    Args:
-        api: PrismaticAPI instance
 
     Returns:
         List of connection dicts
     """
-    data = api.graphql(LIST_CONNECTIONS_QUERY, {})
+    data = graphql(LIST_CONNECTIONS_QUERY, {})
     nodes = data.get("scopedConfigVariables", {}).get("nodes", [])
 
     connections = []
@@ -123,18 +120,15 @@ def list_connections_api(api):
         # Extract component key if available
         connection_obj = node.get("connection")
         if connection_obj and connection_obj.get("component"):
-            conn["component"] = connection_obj["component"].get("key")
+            conn["component"] = connection_obj["component"].get("key") or ""
 
         connections.append(conn)
 
     return connections
 
 
-def list_all_components_api(api):
+def list_all_components_api():
     """Fetch all components for label enrichment.
-
-    Args:
-        api: PrismaticAPI instance
 
     Returns:
         Dict mapping component key to {label, description, category}
@@ -147,7 +141,7 @@ def list_all_components_api(api):
         if cursor:
             variables["after"] = cursor
 
-        data = api.graphql(LIST_COMPONENTS_QUERY, variables)
+        data = graphql(LIST_COMPONENTS_QUERY, variables)
         components_data = data.get("components", {})
         nodes = components_data.get("nodes", [])
         all_components.extend(nodes)
@@ -159,13 +153,13 @@ def list_all_components_api(api):
 
     # Build lookup dict
     return {
-        comp.get("key", ""): {
-            "label": comp.get("label", ""),
-            "description": comp.get("description", ""),
-            "category": comp.get("category", ""),
+        (comp.get("key") or ""): {
+            "label": (comp.get("label") or ""),
+            "description": (comp.get("description") or ""),
+            "category": (comp.get("category") or ""),
         }
         for comp in all_components
-        if "key" in comp
+        if comp.get("key")
     }
 
 
@@ -174,14 +168,14 @@ def enrich_connections(connections, component_labels):
     enriched = []
 
     for conn in connections:
-        component_key = conn.get("component", "")
+        component_key = conn.get("component") or ""
         component_info = component_labels.get(component_key, {})
-        managed_by = conn.get("managedBy", "UNKNOWN")
-        conn_description = conn.get("description", "")
-        stable_key = conn.get("stableKey", "")
+        managed_by = conn.get("managedBy") or "UNKNOWN"
+        conn_description = conn.get("description") or ""
+        stable_key = conn.get("stableKey") or ""
 
         # Base label from component
-        base_label = component_info.get("label", component_key.title())
+        base_label = (component_info.get("label") or "") or component_key.title()
 
         # Build a disambiguated display label
         # Always include: full name, type, and stable key subset
@@ -205,8 +199,8 @@ def enrich_connections(connections, component_labels):
                 "component": component_key,
                 "managedBy": managed_by,
                 "connectionDescription": conn_description,
-                "componentDescription": component_info.get("description", ""),
-                "category": component_info.get("category", ""),
+                "componentDescription": (component_info.get("description") or ""),
+                "category": (component_info.get("category") or ""),
             }
         )
     return enriched
@@ -327,14 +321,12 @@ def main():
     keyword = sys.argv[1] if len(sys.argv) > 1 else None
 
     try:
-        api = get_api()
-
         # Fetch connections
-        connections = list_connections_api(api)
+        connections = list_connections_api()
 
         # Enrich with component labels
         try:
-            component_labels = list_all_components_api(api)
+            component_labels = list_all_components_api()
         except Exception:
             component_labels = {}  # Non-fatal
 
@@ -354,7 +346,7 @@ def main():
 
         return 0
 
-    except PrismaticAPIError as e:
+    except GraphQLError as e:
         print(f"❌ API error: {e}", file=sys.stderr)
         return 1
 

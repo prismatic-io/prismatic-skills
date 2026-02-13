@@ -479,22 +479,22 @@ def main():
         print_final_status(False)
         return 3
 
-    # Step 2: Install component manifests (if specified)
+    # Step 2: Install npm dependencies
+    print_section("Installing Dependencies")
+    install_npm_dependencies(project_path)
+
+    # Step 3: Install component manifests (if specified)
     if components:
         print_section("Installing Component Manifests")
         if not install_all_manifests(components, project_path):
             print_final_status(False, project_path, components)
             return 4
 
-    # Step 3: Write credentials to .env (if specified)
+    # Step 4: Write credentials to .env (if specified)
     if credentials:
         print_section("Writing Credentials")
         if not write_credentials_to_env(credentials, project_path):
             print("⚠️  Credentials writing failed, but continuing...")
-
-    # Step 4: Install npm dependencies
-    print_section("Installing Dependencies")
-    install_npm_dependencies(project_path)
 
     # Success!
     print_final_status(True, project_path, components, credentials)

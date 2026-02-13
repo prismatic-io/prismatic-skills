@@ -38,6 +38,8 @@ def main():
     answers_file = sys.argv[1]
     question_id = sys.argv[2]
     answer_raw = sys.argv[3]
+    if answer_raw == "--json" and len(sys.argv) > 4:
+        answer_raw = sys.argv[4]
 
     # Try to parse answer as JSON (for arrays/objects), fall back to string
     try:

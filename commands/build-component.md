@@ -1,12 +1,18 @@
 ---
 name: build-component
 description: Build and deploy a Prismatic custom component
-allowed-tools: Bash, Read, AskUserQuestion, Grep, Glob, Edit, Write, Task
+context: fork
+agent: component-builder
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, Task
 ---
 
 Build a Prismatic custom component for $ARGUMENTS.
 
-You are an orchestrator. Run setup and requirements gathering in the main conversation, then delegate heavy work to sub-agents. All scripts are relative to `${CLAUDE_PLUGIN_ROOT}/scripts/`.
+## STOP — Read Before Proceeding
+
+- Do NOT spawn the `external-api-researcher` agent at the start. Do NOT parallelize research with prerequisites.
+- The questionnaire DAG (`gather_requirements.py`) searches for existing Prismatic components automatically and will emit an `agent_task` when API research is actually needed.
+- If the user provides an API docs URL in their request, hold onto it — do NOT use it to eagerly launch research. The questionnaire will ask for it at the right time.
 
 ## Phase 1: Setup
 
@@ -16,66 +22,28 @@ Run prerequisites:
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/prerequisites.py <component-name> --type component
 ```
 
-Capture `session_dir` and `requirements_file` from the JSON output at the end.
+Capture `session_dir` and `requirements_file` from the JSON output.
 
-## Phase 2: Requirements Gathering
+**Do NOT manually create session directories with `mkdir`. Always use `prerequisites.py`.**
 
-Run `gather_requirements.py` in a loop. On each iteration:
+## Workflow
 
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/gather_requirements.py \
-  ${CLAUDE_PLUGIN_ROOT}/scripts/questions/component.json \
-  <requirements_file>
-```
+1. Run prerequisites check (see Phase 1 above — the `--type component` flag is required)
+2. Gather requirements via the DAG questionnaire — it handles component search and conditionally triggers API research
+3. Scaffold component with `scaffold_component.py`
+4. Generate code using component-patterns skill
+5. Build, publish, and validate
+6. Return summary of what was created
 
-### Exit code handling
-
-1. Check the exit code:
-   - **Exit 0**: Parse the JSON output and check the `status` field (see below).
-   - **Exit 42**: Present the EXACT question to the user with AskUserQuestion. Do NOT infer. Wait for their answer. Write the answer with `write_answer.py`, then re-run `gather_requirements.py`.
-   - **Exit 2**: Error — report and stop.
-
-2. If exit 0, check the `status` field:
-   - **`"question"` with `allow_inference: true`**: You MAY infer if confident. Otherwise ask the user. Write the answer with `write_answer.py`, then re-run.
-   - **`"question"` with `allow_inference` absent or `false`**: Ask the user with AskUserQuestion. Write the answer, then re-run.
-   - **`"agent_task"`**: Proceed to Phase 3 (API Research).
-   - **`"complete"`**: Proceed to Phase 4 (Build).
-
-3. **For `choice` / `multi_choice` questions**: Write the answer using the **EXACT text** from the `choices` array. Never paraphrase or abbreviate (e.g., write `"Application Connector"`, not `"connector"`).
-
-4. Write the answer and re-run `gather_requirements.py`.
-
-## Phase 3: API Research (Application Connectors only)
+## Agent Task Handling
 
 When `gather_requirements.py` outputs `status: "agent_task"`:
 
 1. Spawn the agent specified in `task.agent` using the Task tool
    - Use the `task.prompt` from the output as the prompt
    - Replace any `{session_dir}` in the prompt with the actual session directory path
-
-2. After the agent completes, save the research results to `<session_dir>/api-research.json` if the agent hasn't already done so.
-
-3. Mark the question as answered:
+2. After the agent completes, mark the question as answered:
    ```bash
    python3 ${CLAUDE_PLUGIN_ROOT}/scripts/write_answer.py <requirements_file> <question_id> completed
    ```
-
-4. Re-run `gather_requirements.py` to continue with remaining questions.
-
-## Phase 4: Build
-
-Spawn the `component-builder` sub-agent using the Task tool with a prompt like:
-
-> Build the Prismatic component '<component-name>'.
-> Session directory: <session_dir>
-> Requirements: <session_dir>/requirements.json
-> API research: <session_dir>/api-research.json (READ THIS FILE for endpoint details)
->
-> Requirements and API research are already complete. Do NOT re-research the API.
-> Skip to scaffolding (Phase 3 in your workflow), then generate code, build, publish, and validate.
-
-The builder will scaffold the component, generate code, build, publish, and validate.
-
-## Phase 5: Iterate
-
-If the builder reports issues or the user wants changes, resume the `component-builder` sub-agent with the specific issue to address.
+3. Re-run `gather_requirements.py` to continue with remaining questions.

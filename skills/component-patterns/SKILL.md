@@ -1,5 +1,6 @@
 ---
 name: component-patterns
+version: 1.0.0
 description: Architecture patterns, code generation guides, and reference documentation for building Prismatic custom components.
 user-invocable: false
 ---

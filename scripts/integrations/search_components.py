@@ -38,7 +38,7 @@ import sys
 SHARED_DIR = os.path.join(os.path.dirname(__file__), '..', 'shared')
 sys.path.insert(0, SHARED_DIR)
 
-from prismatic_api import PrismaticAPIError, get_api
+from graphql import graphql, GraphQLError
 
 # GraphQL query for searching components (includes connection types)
 SEARCH_COMPONENTS_QUERY = """
@@ -77,11 +77,10 @@ query searchComponents($filterQuery: JSONString, $after: String) {
 """
 
 
-def search_components_api(api, search_term):
+def search_components_api(search_term):
     """Search for components using the GraphQL API.
 
     Args:
-        api: PrismaticAPI instance
         search_term: Keyword to search for
 
     Returns:
@@ -100,7 +99,7 @@ def search_components_api(api, search_term):
         if cursor:
             variables["after"] = cursor
 
-        data = api.graphql(SEARCH_COMPONENTS_QUERY, variables)
+        data = graphql(SEARCH_COMPONENTS_QUERY, variables)
         components_data = data.get("components", {})
         nodes = components_data.get("nodes", [])
         all_components.extend(nodes)
@@ -248,8 +247,7 @@ def search_components(search_term):
     print(f"⏳ Searching for '{search_term}'...", file=sys.stderr)
 
     try:
-        api = get_api()
-        components = search_components_api(api, search_term)
+        components = search_components_api(search_term)
 
         if not components:
             print(f"No components found for '{search_term}'", file=sys.stderr)
@@ -266,7 +264,7 @@ def search_components(search_term):
 
         return 0
 
-    except PrismaticAPIError as e:
+    except GraphQLError as e:
         print(f"❌ API error: {e}", file=sys.stderr)
         return 2
 
