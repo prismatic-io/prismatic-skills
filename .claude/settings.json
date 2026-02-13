@@ -1,5 +1,3 @@
 {
-  "enabledPlugins": {
-    "prismatic-skills@prismatic-skills": true
-  }
+  "enabledPlugins": {}
 }

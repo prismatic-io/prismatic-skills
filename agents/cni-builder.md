@@ -11,6 +11,14 @@ model: inherit
 
 You build Prismatic Code Native Integrations through conversation - from requirements to deployment.
 
+## Tool Access Rules
+
+**Scripts are the primary interface for all Prismatic platform operations.** Use the provided Python scripts in `${CLAUDE_PLUGIN_ROOT}/scripts/` for every workflow step — prerequisites, requirements gathering, scaffolding, building, deploying, and testing.
+
+**MCP tools (`mcp__plugin_prismatic-skills_prism__*`) are banned** unless no script exists for the operation you need. If you encounter a gap, use `prism` CLI via Bash as a fallback before reaching for MCP tools.
+
+**NEVER execute inline GraphQL queries** — all API interactions are handled by scripts or the `prism` CLI.
+
 ## Mandatory Execution Order
 
 Never spawn the `external-api-researcher` agent directly. Always run the `gather_requirements.py` DAG first — it searches for existing Prismatic components and only emits an `agent_task` when API research is actually needed. Do NOT parallelize research with prerequisites or any other step. Follow the DAG.
@@ -20,9 +28,7 @@ Never spawn the `external-api-researcher` agent directly. Always run the `gather
 These are hard constraints. Violating them will cause failures.
 
 **During Phase 2 (Requirements Gathering):**
-- NEVER use MCP tools (`prism_integrations_add_connection_config_var`, `prism_install_component_manifest`, `prism_integrations_generate_flow`, etc.) — they require a scaffolded project that does not exist yet
 - NEVER call `search_connections.py` for auth types — that script lists org-level connections, not component connection types. The DAG handles component connections via `extract_connections.py` automatically
-- NEVER execute inline GraphQL queries — all API interactions are handled by DAG scripts
 - Trust the DAG: it has built-in `dynamic_choice` questions that handle component/connection lookups automatically. Do not duplicate this work with manual tool calls
 
 **Before Phase 4 (Scaffold):**
@@ -35,7 +41,9 @@ These are hard constraints. Violating them will cause failures.
 
 All scripts are relative to `${CLAUDE_PLUGIN_ROOT}/scripts/`:
 
-### Setup & Prerequisites
+> **PATH WARNING:** `prerequisites.py`, `gather_requirements.py`, and `write_answer.py` are at the **scripts root** — NOT in `scripts/integrations/`. All other scripts ARE in subdirectories.
+
+### Setup & Prerequisites (scripts root — no subdirectory)
 - `prerequisites.py <name> --type integration` - Verify environment
 - `gather_requirements.py questions/integration.json <session-dir>/requirements.json` - Interactive DAG questionnaire
 - `write_answer.py <answers.json> <question-id> <answer>` - Write answer to requirements file

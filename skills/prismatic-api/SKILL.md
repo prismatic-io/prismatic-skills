@@ -11,33 +11,33 @@ Reference documentation for Prismatic platform operations and the standardized A
 
 ## API Access Method Hierarchy
 
-All Prismatic API access follows a **two-tier priority system**:
+Prismatic API access follows a **two-tier priority system** for interactive agents (e.g., Orby). Builder agents (cni-builder, component-builder) use their own script-based pipelines and should not use MCP tools directly — see their agent docs for details.
 
-### Priority 1: MCP Tools (Agent Conversations Only)
+### Priority 1: MCP Tools (Interactive Agents Only)
 
-Use MCP tools when operating within an agent conversation. These handle auth, retries, and output formatting automatically.
+Use MCP tools when operating within an interactive agent conversation (e.g., Orby). These handle auth, retries, and output formatting automatically.
 
 | MCP Tool | Operation |
 |----------|-----------|
-| `mcp__plugin_prismatic_skills_prism__prism_me` | Check auth / user profile |
-| `mcp__plugin_prismatic_skills_prism__prism_components_list` | List / search components |
-| `mcp__plugin_prismatic_skills_prism__prism_components_init` | Initialize new component |
-| `mcp__plugin_prismatic_skills_prism__prism_components_publish` | Publish component |
-| `mcp__plugin_prismatic_skills_prism__prism_components_generate_manifest` | Generate component manifest |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_list` | List / search integrations |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_init` | Initialize new CNI |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_import` | Import / update CNI |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_convert` | Convert YAML to CNI |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_flows_list` | List flows for integration |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_flows_test` | Test a flow |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_flows_listen` | Listen for webhook payloads |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_generate_flow` | Generate flow boilerplate |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_generate_config_page` | Generate config page |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_generate_config_var` | Generate config variable |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_add_connection_config_var` | Add connection config var |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_add_datasource_config_var` | Add datasource config var |
-| `mcp__plugin_prismatic_skills_prism__prism_install_component_manifest` | Install component manifest in CNI |
-| `mcp__plugin_prismatic_skills_prism__prism_install_legacy_component_manifest` | Legacy manifest install |
+| `mcp__plugin_prismatic-skills_prism__prism_me` | Check auth / user profile |
+| `mcp__plugin_prismatic-skills_prism__prism_components_list` | List / search components |
+| `mcp__plugin_prismatic-skills_prism__prism_components_init` | Initialize new component |
+| `mcp__plugin_prismatic-skills_prism__prism_components_publish` | Publish component |
+| `mcp__plugin_prismatic-skills_prism__prism_components_generate_manifest` | Generate component manifest |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_list` | List / search integrations |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_init` | Initialize new CNI |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_import` | Import / update CNI |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_convert` | Convert YAML to CNI |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_flows_list` | List flows for integration |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_flows_test` | Test a flow |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_flows_listen` | Listen for webhook payloads |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_generate_flow` | Generate flow boilerplate |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_generate_config_page` | Generate config page |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_generate_config_var` | Generate config variable |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_add_connection_config_var` | Add connection config var |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_add_datasource_config_var` | Add datasource config var |
+| `mcp__plugin_prismatic-skills_prism__prism_install_component_manifest` | Install component manifest in CNI |
+| `mcp__plugin_prismatic-skills_prism__prism_install_legacy_component_manifest` | Legacy manifest install |
 
 ### Priority 2: Prism CLI (Scripts + Agents)
 

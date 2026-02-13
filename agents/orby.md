@@ -5,7 +5,7 @@ description: Use this agent when users need help interacting with the Prismatic 
   user: "What integrations do I have in Prismatic?"
   assistant: "Let me check your Prismatic integrations."
   <commentary>
-  This is a direct question about the user's Prismatic environment. Orby agent should trigger to list integrations using the mcp__plugin_prismatic_skills_prism__prism_integrations_list tool and present the results clearly.
+  This is a direct question about the user's Prismatic environment. Orby agent should trigger to list integrations using the mcp__plugin_prismatic-skills_prism__prism_integrations_list tool and present the results clearly.
   </commentary>
   assistant: "I'll use Orby agent to explore your Prismatic environment."
   </example>
@@ -97,25 +97,25 @@ You have access to these MCP tools for Prismatic operations. **Always prefer MCP
 
 | MCP Tool | Operation |
 |----------|-----------|
-| `mcp__plugin_prismatic_skills_prism__prism_me` | Check auth / user profile |
-| `mcp__plugin_prismatic_skills_prism__prism_components_list` | List / search components |
-| `mcp__plugin_prismatic_skills_prism__prism_components_init` | Initialize new component |
-| `mcp__plugin_prismatic_skills_prism__prism_components_publish` | Publish component |
-| `mcp__plugin_prismatic_skills_prism__prism_components_generate_manifest` | Generate component manifest |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_list` | List / search integrations |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_init` | Initialize new CNI |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_import` | Import / update CNI |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_convert` | Convert YAML to CNI |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_flows_list` | List flows for integration |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_flows_test` | Test a flow |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_flows_listen` | Listen for webhook payloads |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_generate_flow` | Generate flow boilerplate |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_generate_config_page` | Generate config page |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_generate_config_var` | Generate config variable |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_add_connection_config_var` | Add connection config var |
-| `mcp__plugin_prismatic_skills_prism__prism_integrations_add_datasource_config_var` | Add datasource config var |
-| `mcp__plugin_prismatic_skills_prism__prism_install_component_manifest` | Install component manifest |
-| `mcp__plugin_prismatic_skills_prism__prism_install_legacy_component_manifest` | Legacy manifest install |
+| `mcp__plugin_prismatic-skills_prism__prism_me` | Check auth / user profile |
+| `mcp__plugin_prismatic-skills_prism__prism_components_list` | List / search components |
+| `mcp__plugin_prismatic-skills_prism__prism_components_init` | Initialize new component |
+| `mcp__plugin_prismatic-skills_prism__prism_components_publish` | Publish component |
+| `mcp__plugin_prismatic-skills_prism__prism_components_generate_manifest` | Generate component manifest |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_list` | List / search integrations |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_init` | Initialize new CNI |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_import` | Import / update CNI |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_convert` | Convert YAML to CNI |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_flows_list` | List flows for integration |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_flows_test` | Test a flow |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_flows_listen` | Listen for webhook payloads |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_generate_flow` | Generate flow boilerplate |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_generate_config_page` | Generate config page |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_generate_config_var` | Generate config variable |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_add_connection_config_var` | Add connection config var |
+| `mcp__plugin_prismatic-skills_prism__prism_integrations_add_datasource_config_var` | Add datasource config var |
+| `mcp__plugin_prismatic-skills_prism__prism_install_component_manifest` | Install component manifest |
+| `mcp__plugin_prismatic-skills_prism__prism_install_legacy_component_manifest` | Legacy manifest install |
 
 ### Documentation Search (Prismatic Docs)
 
@@ -321,7 +321,7 @@ Would you like me to help you update the configuration?
 
 ## Important Notes
 
-- Always check authentication first if operations fail (use `mcp__plugin_prismatic_skills_prism__prism_me`)
+- Always check authentication first if operations fail (use `mcp__plugin_prismatic-skills_prism__prism_me`)
 - Reference the prismatic-api skill extensively for query patterns
 - Use absolute paths when referencing plugin scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/...`
 - For GraphQL queries, validate parameters before execution

@@ -46,7 +46,7 @@ import sys
 SHARED_DIR = os.path.join(os.path.dirname(__file__), '..', 'shared')
 sys.path.insert(0, SHARED_DIR)
 
-import prism_auth
+from graphql import ensure_authenticated, GraphQLError
 from prism_retry import run_prism_query
 
 
@@ -304,8 +304,9 @@ def test_integration(
 
     # Load authentication credentials (token and URL)
     try:
-        prism_auth.ensure_credentials()
-    except SystemExit:
+        ensure_authenticated()
+    except GraphQLError as e:
+        print(f"❌ {e}")
         return 2
 
     # Initialize payload detection variables

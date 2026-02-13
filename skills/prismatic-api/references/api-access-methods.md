@@ -36,7 +36,7 @@ MCP tools are available **only in agent conversations** (not in Python scripts).
 | `prism_install_component_manifest` | `componentKey`, `directory?` | Install manifest in CNI |
 | `prism_install_legacy_component_manifest` | `componentKey` | Legacy manifest install |
 
-**Full tool name format**: `mcp__plugin_prismatic_skills_prism__prism_{tool_name}`
+**Full tool name format**: `mcp__plugin_prismatic-skills_prism__prism_{tool_name}`
 
 ### MCP vs Prism CLI Boundary
 
