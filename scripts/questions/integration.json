@@ -86,7 +86,7 @@
         "question": "source_component",
         "answer_is": "not_empty"
       },
-      "next": ["source_provide_credentials"]
+      "next": ["source_connection"]
     },
     "source_provide_credentials": {
       "id": "source_provide_credentials",
@@ -97,10 +97,10 @@
         "Skip for now (add manually to .env later)"
       ],
       "condition": {
-        "question": "source_connection_type",
-        "answer_is": "not_empty"
+        "question": "source_connection",
+        "answer": "Create new connection in integration"
       },
-      "next": ["source_connection"]
+      "next": ["destination_system"]
     },
     "source_api_docs_url": {
       "id": "source_api_docs_url",
@@ -135,7 +135,11 @@
         "Create new connection in integration",
         "No connection needed (public API)"
       ],
-      "next": ["source_connection_existing", "destination_system"]
+      "condition": {
+        "question": "source_connection_type",
+        "answer_is": "not_empty"
+      },
+      "next": ["source_connection_existing", "source_provide_credentials", "destination_system"]
     },
     "source_connection_existing": {
       "id": "source_connection_existing",
@@ -208,7 +212,7 @@
         "question": "destination_component",
         "answer_is": "not_empty"
       },
-      "next": ["destination_provide_credentials"]
+      "next": ["destination_connection"]
     },
     "destination_provide_credentials": {
       "id": "destination_provide_credentials",
@@ -219,10 +223,10 @@
         "Skip for now (add manually to .env later)"
       ],
       "condition": {
-        "question": "destination_connection_type",
-        "answer_is": "not_empty"
+        "question": "destination_connection",
+        "answer": "Create new connection in integration"
       },
-      "next": ["destination_connection"]
+      "next": ["transformations"]
     },
     "destination_connection": {
       "id": "destination_connection",
@@ -233,7 +237,11 @@
         "Create new connection in integration",
         "No connection needed (public API)"
       ],
-      "next": ["destination_connection_existing", "transformations"]
+      "condition": {
+        "question": "destination_connection_type",
+        "answer_is": "not_empty"
+      },
+      "next": ["destination_connection_existing", "destination_provide_credentials", "transformations"]
     },
     "destination_connection_existing": {
       "id": "destination_connection_existing",

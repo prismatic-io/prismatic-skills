@@ -4,5 +4,8 @@
   "description": "Build and deploy Prismatic custom components and Code Native Integrations",
   "author": {
     "name": "Prismatic"
-  }
+  },
+  "repository": "https://github.com/prismatic-io/prismatic-gtm-skills",
+  "license": "MIT",
+  "keywords": ["prismatic", "integrations", "components", "cni"]
 }

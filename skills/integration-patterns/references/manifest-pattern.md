@@ -314,22 +314,58 @@ interface SalesforceQueryResponse {
 }
 ```
 
+### Response Wrapper: `{ data: ... }`
+
+**Critical:** Component action results are wrapped in a `{ data: ... }` object. The actual API response is inside `result.data`, not on `result` itself.
+
+Each manifest action file includes an `examplePayload` that shows this structure:
+
+```typescript
+// From src/manifests/slack/actions/postBlockMessage.ts
+examplePayload: {
+  data: {           // <-- results are always nested under .data
+    ok: true,
+    ts: "1646951430.367539",
+    channel: "C011B7U3R9U",
+    message: { ... },
+  },
+},
+```
+
 ### Casting Results
+
+Always cast to `{ data: YourType }` to account for the wrapper:
 
 ```typescript
 onExecution: async (context, params) => {
-  // Cast the result to expected type
-  const result = await context.components.slack.postMessage({
+  // Cast the result, accounting for the { data } wrapper
+  const result = (await context.components.slack.postMessage({
     connection: context.configVars["Slack Connection"],
     channelName: "general",
     message: "Hello!",
-  }) as SlackPostMessageResponse;
+  })) as { data: SlackPostMessageResponse };
 
-  // Now result is properly typed
-  context.logger.info(`Message sent with timestamp: ${result.ts}`);
+  // Access the actual response via .data
+  context.logger.info(`Message sent with timestamp: ${result.data.ts}`);
 
-  return { data: result };
+  return { data: result.data };
 };
+```
+
+**Common mistake** - casting directly without the wrapper:
+
+```typescript
+// WRONG - result.ts will be undefined
+const result = (await context.components.slack.postMessage({
+  ...params,
+})) as SlackPostMessageResponse;
+console.log(result.ts); // undefined!
+
+// CORRECT - access via .data
+const result = (await context.components.slack.postMessage({
+  ...params,
+})) as { data: SlackPostMessageResponse };
+console.log(result.data.ts); // "1646951430.367539"
 ```
 
 ### Reading Manifest Types
@@ -337,16 +373,16 @@ onExecution: async (context, params) => {
 The manifest action files in `src/manifests/<component>/actions/` contain:
 
 1. **Input parameter types** - What the action expects
-2. **JSDoc comments** - Often describe return structure
+2. **`examplePayload`** - Shows the exact `{ data: ... }` response shape
 3. **Type exports** - Some manifests export input/output types
 
-**Example inspection:**
+**Always check `examplePayload`** in the manifest action file to understand the response structure:
 
 ```typescript
 // Check src/manifests/slack/actions/postMessage.ts for:
 // - Required parameters (connection, channelName, message)
 // - Optional parameters (username, iconUrl, threadTs)
-// - Return value structure
+// - examplePayload.data for the response shape
 ```
 
 ---

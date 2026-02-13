@@ -21,13 +21,16 @@ import sys
 SHARED_DIR = os.path.join(os.path.dirname(__file__), '..', 'shared')
 sys.path.insert(0, SHARED_DIR)
 
-import prism_auth
+from graphql import ensure_authenticated, GraphQLError
 from prism_retry import is_auth_error, is_network_error, run_prism_query
 
 
 def check_prism_cli():
     """Check if Prism CLI is installed."""
-    prism_auth.get_credentials()
+    try:
+        ensure_authenticated()
+    except GraphQLError:
+        pass  # check_network_and_auth() handles the diagnostic
 
     try:
         result = subprocess.run(

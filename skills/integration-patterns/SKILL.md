@@ -1,5 +1,6 @@
 ---
 name: integration-patterns
+version: 1.0.0
 description: Architecture patterns, manifest usage, code generation guides, and reference documentation for building Prismatic Code Native Integrations.
 user-invocable: false
 ---

@@ -1,8 +1,6 @@
 __pycache__
 *.pyc
 node_modules/
-components/
-integrations/
 .DS_Store
 dist/
 .prismatic/

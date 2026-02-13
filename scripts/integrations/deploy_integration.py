@@ -25,7 +25,7 @@ import time
 SHARED_DIR = os.path.join(os.path.dirname(__file__), '..', 'shared')
 sys.path.insert(0, SHARED_DIR)
 
-import prism_auth
+from graphql import ensure_authenticated, GraphQLError
 from prism_retry import run_prism_mutation
 
 
@@ -48,8 +48,9 @@ def deploy_integration(project_dir):
 
     # Load authentication credentials (token and URL)
     try:
-        prism_auth.ensure_credentials()
-    except SystemExit:
+        ensure_authenticated()
+    except GraphQLError as e:
+        print(f"❌ {e}")
         return 2
 
     cmd = ["prism", "integrations:import"]

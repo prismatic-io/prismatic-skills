@@ -46,19 +46,55 @@ import subprocess
 import sys
 
 
+def resolve_variable(answers, var_path):
+    """
+    Resolve a dot-notation variable path against the answers dict.
+    Example: "destination_component.connections" traverses answers["destination_component"]["connections"]
+    Falls back to JSON string parsing if intermediate values are strings.
+    Returns the resolved value, or None if not found.
+    """
+    parts = var_path.split(".")
+    current = answers
+
+    for part in parts:
+        if isinstance(current, dict):
+            if part in current:
+                current = current[part]
+            else:
+                return None
+        elif isinstance(current, str):
+            # Try parsing as JSON in case a prior answer was stored as a JSON string
+            try:
+                parsed = json.loads(current)
+                if isinstance(parsed, dict) and part in parsed:
+                    current = parsed[part]
+                else:
+                    return None
+            except (json.JSONDecodeError, TypeError):
+                return None
+        else:
+            return None
+
+    return current
+
+
 def substitute_template(template, answers):
     """
     Replace {variable} placeholders in a template string with answer values.
+    Supports dot notation: {destination_component.connections} traverses nested dicts.
     Example: "Research {api_name} API" -> "Research Canny API"
     """
     if not isinstance(template, str):
         return template
 
     def replacer(match):
-        var_name = match.group(1)
-        return str(answers.get(var_name, match.group(0)))
+        var_path = match.group(1)
+        value = resolve_variable(answers, var_path)
+        if value is None:
+            return match.group(0)
+        return str(value)
 
-    return re.sub(r"\{(\w+)\}", replacer, template)
+    return re.sub(r"\{([\w.]+)\}", replacer, template)
 
 
 def load_json_file(filepath, is_answers_file=False):
@@ -180,19 +216,25 @@ def find_next_question(dag, answers):
 def substitute_variables(command, answers):
     """
     Replace {variable} placeholders in command with answer values.
+    Supports dot notation: {destination_component.connections} traverses nested dicts.
+    Dict/list values are serialized as JSON strings (for CLI argument passing).
     Example: ["python", "search.py", "{system}"] -> ["python", "search.py", "Salesforce"]
     """
     substituted = []
     for part in command:
         if isinstance(part, str) and "{" in part and "}" in part:
-            # Find all {var} patterns and replace them
-            import re
 
             def replacer(match):
-                var_name = match.group(1)
-                return str(answers.get(var_name, match.group(0)))
+                var_path = match.group(1)
+                value = resolve_variable(answers, var_path)
+                if value is None:
+                    return match.group(0)
+                # Serialize dict/list as JSON strings for CLI arguments
+                if isinstance(value, (dict, list)):
+                    return json.dumps(value)
+                return str(value)
 
-            substituted.append(re.sub(r"\{(\w+)\}", replacer, part))
+            substituted.append(re.sub(r"\{([\w.]+)\}", replacer, part))
         else:
             substituted.append(part)
     return substituted
@@ -368,6 +410,13 @@ def prepare_question_output(question, answers):
 
         output["choices"] = choices
 
+        # Handle skip_if_empty: if no choices and flag is set, auto-skip this question
+        if question.get("skip_if_empty") and not choices:
+            return {
+                "status": "auto_skipped",
+                "question_id": question.get("id"),
+            }, None
+
         # Pass through store_full_object flag to agent with explicit instruction
         if store_full_object:
             output["store_full_object"] = True
@@ -422,44 +471,60 @@ def main():
                     file=sys.stderr,
                 )
 
-    # Find next unanswered question
-    next_question, error = find_next_question(dag, answers)
+    # Find next unanswered question, handling auto-skips in a loop
+    while True:
+        next_question, error = find_next_question(dag, answers)
 
-    if error:
-        print(f"{error}", file=sys.stderr)
-        return 2
-
-    if next_question is None:
-        # All questions answered - build completion from DAG metadata
-        completion = dag.get("completion")
-        if not completion or "next_action" not in completion:
-            print("Error: questionnaire JSON is missing a 'completion' block with 'next_action'", file=sys.stderr)
+        if error:
+            print(f"{error}", file=sys.stderr)
             return 2
 
-        next_action_template = completion["next_action"]
+        if next_question is None:
+            # All questions answered - build completion from DAG metadata
+            completion = dag.get("completion")
+            if not completion or "next_action" not in completion:
+                print("Error: questionnaire JSON is missing a 'completion' block with 'next_action'", file=sys.stderr)
+                return 2
 
-        # Template-substitute answer values into next_action strings
-        next_action = {}
-        for key, value in next_action_template.items():
-            if isinstance(value, str):
-                next_action[key] = substitute_template(value, answers)
-            else:
-                next_action[key] = value
+            next_action_template = completion["next_action"]
 
-        output = {
-            "status": "complete",
-            "answers": answers,
-            "next_action": next_action,
-        }
-        print(json.dumps(output, indent=2))
-        print("\nPhase 2 complete - all requirements gathered", file=sys.stderr)
-        return 0
+            # Template-substitute answer values into next_action strings
+            next_action = {}
+            for key, value in next_action_template.items():
+                if isinstance(value, str):
+                    next_action[key] = substitute_template(value, answers)
+                else:
+                    next_action[key] = value
 
-    # Prepare question for output
-    question_output, error = prepare_question_output(next_question, answers)
-    if error:
-        print(f"{error}", file=sys.stderr)
-        return 2
+            output = {
+                "status": "complete",
+                "answers": answers,
+                "next_action": next_action,
+            }
+            print(json.dumps(output, indent=2))
+            print("\nPhase 2 complete - all requirements gathered", file=sys.stderr)
+            return 0
+
+        # Prepare question for output
+        question_output, error = prepare_question_output(next_question, answers)
+        if error:
+            print(f"{error}", file=sys.stderr)
+            return 2
+
+        # Handle auto_skipped questions: write "skipped" and loop to find next question
+        if question_output.get("status") == "auto_skipped":
+            question_id = question_output["question_id"]
+            answers[question_id] = "skipped"
+            with open(answers_file, "w") as f:
+                json.dump(answers, f, indent=2)
+            print(
+                f"Auto-skipped '{question_id}' (skip_if_empty, no choices available)",
+                file=sys.stderr,
+            )
+            continue
+
+        # Not auto-skipped, break out of the loop to handle normally
+        break
 
     # Handle agent_task type - output task instructions and exit 0 (proceed)
     if question_output.get("status") == "agent_task":

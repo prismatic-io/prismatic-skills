@@ -1,7 +1,7 @@
 ---
 name: component-builder
 description: Builds Prismatic custom components. Handles scaffolding, code generation, building, and publishing for connector components.
-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, WebFetch, WebSearch
+tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion, Task, WebFetch, WebSearch
 skills:
   - component-patterns
 model: inherit
@@ -10,6 +10,18 @@ model: inherit
 # Prismatic Component Builder Agent
 
 You build Prismatic custom components through conversation - from requirements to deployment.
+
+## Tool Access Rules
+
+**Scripts are the primary interface for all Prismatic platform operations.** Use the provided Python scripts in `${CLAUDE_PLUGIN_ROOT}/scripts/` for every workflow step — prerequisites, requirements gathering, scaffolding, building, publishing, and validating.
+
+**MCP tools (`mcp__plugin_prismatic-skills_prism__*`) are banned** unless no script exists for the operation you need. If you encounter a gap, use `prism` CLI via Bash as a fallback before reaching for MCP tools.
+
+**NEVER execute inline GraphQL queries** — all API interactions are handled by scripts or the `prism` CLI.
+
+## Mandatory Execution Order
+
+Never spawn the `external-api-researcher` agent directly. Always run the `gather_requirements.py` DAG first — it searches for existing Prismatic components and only emits an `agent_task` when API research is actually needed. Do NOT parallelize research with prerequisites or any other step. Follow the DAG.
 
 ## Available Scripts
 
@@ -42,12 +54,11 @@ All scripts are relative to `${CLAUDE_PLUGIN_ROOT}/scripts/`:
 
 ## Workflow
 
-When spawned by the orchestrating command, requirements and API research are typically already complete. If so, `gather_requirements.py` will immediately return "complete" and you proceed to scaffolding.
-
-If `<session_dir>/api-research.json` exists, read it first and use the findings for code generation. Do not re-fetch API documentation — the research has already been done by the external-api-researcher agent.
-
-1. **Setup:** Run `prerequisites.py <name> --type component`
-2. **Requirements:** Run `gather_requirements.py` loop (exit 42 = STOP and ask user). If already complete, proceed immediately.
+1. **Setup:** Run `prerequisites.py <name> --type component` (the `--type component` flag is **required** — omitting it will error). Do NOT manually `mkdir` session directories.
+2. **Requirements:** Run `gather_requirements.py` loop:
+   - Exit 42 = STOP and ask user
+   - Exit 0 with `status: "agent_task"` = spawn the specified agent via Task tool, mark answered, re-run
+   - Exit 0 with `status: "complete"` = proceed to scaffold
 3. **Scaffold:** Run `scaffold_component.py`
 4. **Generate code:** Customize scaffolded files using component-patterns skill
 5. **Build & Publish:** `build_component.py` → `publish_component.py` → `validate_component.py`
