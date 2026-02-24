@@ -39,7 +39,9 @@ Run prerequisites:
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/prerequisites.py <integration-name> --type integration
 ```
 
-Capture `session_dir` and `requirements_file` from the JSON output.
+Capture `name`, `session_dir`, and `requirements_file` from the JSON output.
+- `name` — Use this exact value as the `<name>` argument for ALL subsequent scripts (including `scaffold_project.py`). It must match across phases so the project directory aligns with the session.
+- `session_dir` and `requirements_file` — Used ONLY for Phase 2 requirements gathering (`gather_requirements.py` paths and `{session_dir}` template replacement in agent tasks). Do NOT pass `session_dir` to any other script.
 
 **Do NOT manually create session directories with `mkdir`. Always use `prerequisites.py`.**
 

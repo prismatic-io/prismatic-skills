@@ -33,6 +33,8 @@ These are hard constraints. Violating them will cause failures.
 
 **Before Phase 4 (Scaffold):**
 - NEVER create directories, write TypeScript files, or install manifests manually — `scaffold_project.py` handles all of this
+- NEVER pass `session_dir` or any directory path to `scaffold_project.py` — it accepts ONLY a bare integration name as its positional argument and determines the project directory automatically
+- ALWAYS use the exact `name` from the Phase 1 `prerequisites.py` output — this ensures the scaffold project directory matches the session directory
 
 **Before Phase 5 (Code Generation):**
 - NEVER generate code until scaffolding + manifest installation are complete — imports will fail without manifests
@@ -49,7 +51,7 @@ All scripts are relative to `${CLAUDE_PLUGIN_ROOT}/scripts/`:
 - `write_answer.py <answers.json> <question-id> <answer>` - Write answer to requirements file
 
 ### Development
-- `integrations/scaffold_project.py <name> --components <comp1,comp2> [--credentials '<json>']` - Create project structure with manifests
+- `integrations/scaffold_project.py <name> --components <comp1,comp2> [--credentials '<json>']` - Create project structure with manifests. `<name>` must be the exact integration name from Phase 1 (e.g., `salesforce-slack-sync`), NOT a path. Components MUST be comma-separated with no spaces (e.g., `--components slack,salesforce`).
 - `integrations/install_dependencies.py <dir>` - Install npm packages
 - `integrations/search_components.py <keyword>` - Find available components
 - `integrations/extract_connections.py <connections-json>` - Extract connection options
@@ -76,7 +78,13 @@ All scripts are relative to `${CLAUDE_PLUGIN_ROOT}/scripts/`:
    - Exit 0 with `status: "agent_task"` = spawn the specified agent via Task tool, mark answered, re-run
    - Exit 0 with `status: "complete"` = proceed to scaffold
 3. **Credential Collection:** If user selects OAuth, run `get_credential_prompts.py` and collect credentials
-4. **Scaffold:** Run `scaffold_project.py <name> --components <comp1,comp2> [--credentials '<json>']`
+4. **Scaffold:** Run `scaffold_project.py` with the integration name from Phase 1 (NOT `session_dir` or any path):
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/scaffold_project.py <name> --components <comp1,comp2> [--credentials '<json>']
+   ```
+   - `<name>` = the exact `name` from Phase 1 prerequisites output (e.g., `salesforce-slack-sync`), NOT a directory path
+   - `--components` = comma-separated, NO spaces (e.g., `--components slack,salesforce` NOT `--components slack salesforce`)
+   - The script determines the project directory automatically from the working directory
 5. **Generate Code:** Create componentRegistry.ts, configPages.ts, flows.ts, index.ts, documentation.md, test-data/
 6. **Build & Deploy:** `build_integration.py` → `deploy_integration.py`
 7. **Test:** `test_integration.py <id> [flow]`

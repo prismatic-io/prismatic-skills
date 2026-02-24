@@ -420,11 +420,22 @@ def parse_args(args):
             i += 2
         elif not args[i].startswith("-"):
             if integration_name is not None:
-                print(f"❌ Unexpected argument: {args[i]}")
+                if "/" in args[i] or "\\" in args[i] or args[i].startswith("."):
+                    print(f"❌ Unexpected path argument: {args[i]}")
+                    print("")
+                    print("scaffold_project.py does NOT accept a directory path.")
+                    print("It determines the project location automatically from the current working directory.")
+                    print("")
+                    print(f"Correct usage: python scaffold_project.py {integration_name} --components <comp1,comp2>")
+                else:
+                    print(f"❌ Unexpected argument: {args[i]}")
+                    print("")
+                    print("If this is meant as a component, use --components with comma-separated values:")
+                    print(f"  python scaffold_project.py {integration_name} --components {args[i]}")
                 print("")
                 print("Supported options:")
-                print("  <integration-name>              Integration name (required)")
-                print("  --components <comp1,comp2,...>  Components to install manifests for")
+                print("  <integration-name>              Integration name (required, NOT a path)")
+                print("  --components <comp1,comp2,...>  Comma-separated components (NO spaces)")
                 print("  --credentials '<json>'          JSON object with OAuth/API credentials for .env")
                 sys.exit(1)
             integration_name = args[i]
