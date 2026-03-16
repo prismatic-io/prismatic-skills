@@ -3,8 +3,18 @@
   "completion": {
     "next_action": {
       "type": "scaffold",
-      "command": "python scripts/components/scaffold_component.py {component_name}",
-      "instruction": "Run scaffold_component.py to create the component structure using prism CLI. For utility components, Phase 4 will remove unused connector files."
+      "command": "npx tsx scripts/components/scaffold-component.ts {component_name}",
+      "instruction": "Run scaffold-component.ts to create the component structure using prism CLI. For utility components, Phase 4 will remove unused connector files."
+    }
+  },
+  "required_shape": {
+    "Utility/Logic Component": {
+      "required_answers": ["component_type", "component_name", "component_description", "utility_actions"],
+      "conditional_answers": {}
+    },
+    "Application Connector": {
+      "required_answers": ["component_type", "component_name", "component_description", "api_name", "api_docs_url", "confirm_resources", "webhook_support"],
+      "conditional_answers": {}
     }
   },
   "questions": {
@@ -24,6 +34,8 @@
       "type": "text",
       "allow_inference": true,
       "inference_sources": ["component_type"],
+      "validation_pattern": "^[a-z][a-z0-9-]*$",
+      "validation_message": "Must be lowercase alphanumeric with hyphens (e.g., 'canny', 'hubspot-crm')",
       "next": ["component_description"]
     },
     "component_description": {
@@ -32,6 +44,8 @@
       "type": "text",
       "allow_inference": true,
       "inference_sources": ["component_type", "component_name"],
+      "validation_pattern": ".{10,}",
+      "validation_message": "Description must be at least 10 characters",
       "next": ["utility_actions", "api_name"]
     },
 
@@ -60,6 +74,8 @@
       "type": "text",
       "allow_inference": true,
       "inference_sources": ["component_name", "component_description"],
+      "validation_pattern": "^[A-Z]",
+      "validation_message": "API name should start with a capital letter (e.g., 'Canny', not 'canny')",
       "condition": {
         "question": "component_type",
         "answer": "Application Connector"
@@ -70,18 +86,20 @@
       "id": "api_docs_url",
       "text": "Provide the URL to the API documentation (this is REQUIRED for researching the API). Example: https://developers.canny.io/api-reference",
       "type": "text",
+      "validation_pattern": "^https?://",
+      "validation_message": "Must be a valid URL starting with http:// or https://",
       "condition": {
         "question": "component_type",
         "answer": "Application Connector"
       },
-      "next": ["spawn_api_researcher"]
+      "next": ["api_research"]
     },
-    "spawn_api_researcher": {
-      "id": "spawn_api_researcher",
-      "type": "agent_task",
-      "agent": "prismatic-skills:external-api-researcher",
+    "api_research": {
+      "id": "api_research",
+      "type": "inline_task",
       "description": "Research {api_name} API",
-      "prompt_template": "Research the {api_name} API using ONLY the official documentation at {api_docs_url}.\n\nStart from that URL and follow links within the same domain to find authentication, endpoint, and webhook documentation. Do not search the web or visit third-party sources.\n\nReturn a structured JSON specification with:\n- Authentication methods (OAuth2, API Key, etc.)\n- Base URL and versioning\n- Resources and their CRUD endpoints\n- Webhook support and events\n\nSave your findings to: {session_dir}/api-research.json",
+      "instructions": "Research the {api_name} API using WebFetch on {api_docs_url}. Follow links within the same domain to find authentication, endpoint, and webhook documentation. Do not search the web or visit third-party sources.\n\nSave structured JSON to {session_dir}/api-research.json with:\n- apiName\n- baseUrl\n- documentationUrl\n- authentication.methods (array), authentication.recommended (string)\n- resources (array with name, description, endpoints)\n- webhooks.supported (boolean), webhooks.events (array), webhooks.security\n- rateLimiting",
+      "output_file": "{session_dir}/api-research.json",
       "condition": {
         "question": "component_type",
         "answer": "Application Connector"

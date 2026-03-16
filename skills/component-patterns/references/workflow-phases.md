@@ -20,7 +20,7 @@ Phase 1: Setup ─→ Phase 2: Requirements ─┬─→ [Utility] ─→ Phase 
 
 **Purpose:** Verify the development environment is ready.
 
-**Script:** `scripts/prerequisites.py <COMPONENT_NAME>`
+**Script:** `scripts/prerequisites.ts <COMPONENT_NAME> --type component`
 
 **What it does:**
 1. Checks if Prism CLI is installed
@@ -45,7 +45,7 @@ Session directory: /path/to/components/canny/.prismatic
 
 **Purpose:** Capture user requirements through structured questions.
 
-**Script:** `scripts/gather_requirements.py references/requirements-questions.json <SESSION_DIR>/requirements.json`
+**Script:** `scripts/gather-requirements.ts references/requirements-questions.json <SESSION_DIR>/requirements.json`
 
 **Key behavior:**
 - Exit code `0` = Proceed (inference allowed or complete)
@@ -80,7 +80,7 @@ Session directory: /path/to/components/canny/.prismatic
 
 **How it works:** The `/build-component` orchestrating command spawns the `external-api-researcher` sub-agent from the main conversation context. This follows the [chain subagents pattern](https://code.claude.com/docs/en/sub-agents#chain-subagents) — the orchestrator handles setup/requirements in the main context, then delegates research and building to separate sub-agents.
 
-**Trigger:** During requirements gathering, `gather_requirements.py` outputs `status: "agent_task"` when it reaches the `spawn_api_researcher` step. The orchestrating command then spawns the researcher.
+**Trigger:** During requirements gathering, `gather-requirements.ts` outputs `status: "agent_task"` when it reaches the `spawn_api_researcher` step. The orchestrating command then spawns the researcher.
 
 **What the agent researches:**
 
@@ -99,7 +99,7 @@ Session directory: /path/to/components/canny/.prismatic
 
 **Purpose:** Create the component directory structure using prism CLI.
 
-**Script:** `scripts/components/scaffold_component.py <NAME>`
+**Script:** `scripts/components/scaffold-component.ts <NAME>`
 
 **What it does:**
 1. Runs `prism components:init <name>` to create connector-style scaffold
@@ -179,7 +179,7 @@ Edit these files:
 
 ### Build
 
-**Script:** `scripts/components/build_component.py <COMPONENT_DIR>`
+**Script:** `scripts/components/build-component.ts <COMPONENT_DIR>`
 
 **What it does:**
 1. Installs npm dependencies if needed
@@ -188,7 +188,7 @@ Edit these files:
 
 ### Publish
 
-**Script:** `scripts/components/publish_component.py <COMPONENT_DIR>`
+**Script:** `scripts/components/publish-component.ts <COMPONENT_DIR>`
 
 **What it does:**
 1. Runs `prism components:publish`
@@ -196,7 +196,7 @@ Edit these files:
 
 ### Validate
 
-**Script:** `scripts/components/validate_component.py <COMPONENT_DIR>`
+**Script:** `scripts/components/validate-component.ts <COMPONENT_DIR>`
 
 **What it does:**
 1. Validates component structure (required files exist)
@@ -215,9 +215,9 @@ Edit these files:
 **Process:**
 1. Identify issue from test output or user feedback
 2. Edit source files to fix
-3. Rebuild: `scripts/components/build_component.py`
-4. Re-publish: `scripts/components/publish_component.py`
-5. Re-validate: `scripts/components/validate_component.py`
+3. Rebuild: `scripts/components/build-component.ts`
+4. Re-publish: `scripts/components/publish-component.ts`
+5. Re-validate: `scripts/components/validate-component.ts`
 
 **Common iteration patterns:**
 - Fix TypeScript errors

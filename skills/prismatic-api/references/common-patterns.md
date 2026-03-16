@@ -132,7 +132,7 @@ All Prismatic IDs are **base64-encoded strings** (e.g., `Q29tcG9uZW50OjEyMzQ=`).
 
 - Rate limits return HTTP 429
 - Retry with exponential backoff (recommended: 1-10s delays, 5 max attempts)
-- The `shared/graphql.py` wrapper (via `prism_retry.py`) handles this automatically
+- The `shared/graphql.ts` wrapper (via `prism-retry.ts`) handles this automatically
 
 ## Common Workflows
 

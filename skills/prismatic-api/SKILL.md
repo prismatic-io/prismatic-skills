@@ -41,20 +41,20 @@ Use MCP tools when operating within an interactive agent conversation (e.g., Orb
 
 ### Priority 2: Prism CLI (Scripts + Agents)
 
-For Python scripts and operations not covered by MCP tools:
+For scripts and operations not covered by MCP tools:
 
-**Built-in commands** (via `prism_retry.py`):
+**Built-in commands** (via `prism-retry.ts`):
 ```bash
 prism integrations:list --extended --output json
 prism components:publish --directory ./my-component
 prism integrations:import --directory ./my-integration
 ```
 
-**Custom GraphQL queries** (via `shared/graphql.py`):
-```python
-from shared.graphql import graphql, GraphQLError
+**Custom GraphQL queries** (via `shared/graphql.ts`):
+```typescript
+import { graphql, GraphQLError } from "./shared/graphql.js";
 
-data = graphql('query { customers { nodes { id name } } }')
+const data = graphql('query { customers { nodes { id name } } }');
 ```
 
 Or directly via CLI:
@@ -68,11 +68,11 @@ prism graphql:query 'query($id: ID!) { customer(id: $id) { name } }' \
 
 ```
 Agent calling directly?  → Use MCP tool if available, else `prism` via Bash
-Python script?           → Use shared/graphql.py for custom queries,
-                           prism_retry.py for built-in CLI commands
+Script?                  → Use shared/graphql.ts for custom queries,
+                           prism-retry.ts for built-in CLI commands
 ```
 
-**Rule: NEVER create inline GraphQL clients** — always use `shared/graphql.py`.
+**Rule: NEVER create inline GraphQL clients** — always use `shared/graphql.ts` imports.
 
 ## CLI Usage Rules
 

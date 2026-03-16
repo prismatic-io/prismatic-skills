@@ -1,0 +1,30 @@
+// Template: Custom Component Entry Point
+// Slots: COMPONENT_KEY, COMPONENT_LABEL, COMPONENT_DESCRIPTION, COMPONENT_ICON_PATH
+//
+// Usage: Fill the slots, then import your actions, connections, and triggers.
+
+import { component } from "@prismatic-io/spectral";
+import actions from "./actions";
+{{#if HAS_CONNECTIONS}}
+import connections from "./connections";
+{{/if}}
+{{#if HAS_TRIGGERS}}
+import triggers from "./triggers";
+{{/if}}
+
+export default component({
+  key: "{{COMPONENT_KEY}}",
+  public: false,
+  display: {
+    label: "{{COMPONENT_LABEL}}",
+    description: "{{COMPONENT_DESCRIPTION}}",
+    iconPath: "{{COMPONENT_ICON_PATH:icon.png}}",
+  },
+  actions,
+  {{#if HAS_CONNECTIONS}}
+  connections,
+  {{/if}}
+  {{#if HAS_TRIGGERS}}
+  triggers,
+  {{/if}}
+});

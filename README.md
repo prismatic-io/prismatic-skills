@@ -6,7 +6,7 @@ Claude Code plugin for building and managing [Prismatic](https://www.prismatic.i
 
 - **Prism CLI**: Install via `npm install -g @prismatic-io/prism` (also provides the bundled MCP server)
 - **Prismatic Account**: Active account with integration/component permissions
-- **Python 3**: Required for workflow scripts
+- **Node.js 18+**: Required for workflow scripts (run via `tsx`)
 - **Claude Code**: CLI or extension with plugin support
 
 ## Installation
@@ -103,43 +103,43 @@ The plugin includes four knowledge bases that agents draw on:
 
 ## Scripts
 
-Builder agents are driven by Python scripts in `scripts/` that handle every phase of the workflow. Agents call these scripts rather than performing platform operations directly.
+Builder agents are driven by TypeScript scripts in `scripts/` that handle every phase of the workflow. Agents call these scripts via `npx tsx` rather than performing platform operations directly.
 
 **Workflow scripts** (root level):
 
-- `prerequisites.py` - Verify Prism CLI, authentication, and create a session directory
-- `gather_requirements.py` - DAG-based interactive questionnaire that walks through requirements in dependency order, skipping irrelevant questions automatically
-- `write_answer.py` - Write an answer to the requirements file for programmatic use
+- `prerequisites.ts` - Verify Prism CLI, authentication, and create a session directory
+- `gather-requirements.ts` - DAG-based interactive questionnaire that walks through requirements in dependency order, skipping irrelevant questions automatically
+- `write-answer.ts` - Write an answer to the requirements file for programmatic use
 
 **Component scripts** (`scripts/components/`):
 
-- `scaffold_component.py` - Create component project structure via Prism CLI
-- `build_component.py` - Compile TypeScript with webpack
-- `publish_component.py` - Deploy component to Prismatic
-- `validate_component.py` - Validate the published component
+- `scaffold-component.ts` - Create component project structure via Prism CLI
+- `build-component.ts` - Compile TypeScript with webpack
+- `publish-component.ts` - Deploy component to Prismatic
+- `validate-component.ts` - Validate the published component
 
 **Integration scripts** (`scripts/integrations/`):
 
-- `scaffold_project.py` - Create CNI project with component manifests
-- `search_components.py` - Find available Prismatic components
-- `extract_connections.py` - Extract connection options from components
-- `get_credential_prompts.py` - Get credential fields for a connection
-- `build_integration.py` - Compile TypeScript
-- `deploy_integration.py` - Deploy to Prismatic
-- `test_integration.py` - Test flow execution
-- `install_dependencies.py` - Install npm packages
-- `validate_typescript.py` - TypeScript validation
-- `troubleshoot.py` - Quick diagnostics
-- `package_for_download.py` - Create downloadable package
+- `scaffold-project.ts` - Create CNI project with component manifests
+- `search-components.ts` - Find available Prismatic components
+- `extract-connections.ts` - Extract connection options from components
+- `get-credential-prompts.ts` - Get credential fields for a connection
+- `build-integration.ts` - Compile TypeScript
+- `deploy-integration.ts` - Deploy to Prismatic
+- `test-integration.ts` - Test flow execution
+- `install-dependencies.ts` - Install npm packages
+- `validate-typescript.ts` - TypeScript validation
+- `troubleshoot.ts` - Quick diagnostics
+- `package-for-download.ts` - Create downloadable package
 
 **Shared utilities** (`scripts/shared/`):
 
-- `graphql.py` - GraphQL query execution via Prism CLI
-- `prism_retry.py` - CLI command retry logic
-- `project_directory.py` - Session directory management
-- `search_connections.py` - Find integration-agnostic connections
-- `check_prism_access.py` - Verify Prism CLI authentication
-- `timing.py` - Performance timing utilities
+- `graphql.ts` - GraphQL query execution via Prism CLI
+- `prism-retry.ts` - CLI command retry logic
+- `project-directory.ts` - Session directory management
+- `search-connections.ts` - Find integration-agnostic connections
+- `check-prism-access.ts` - Verify Prism CLI authentication
+- `timing.ts` - Performance timing utilities
 
 ## Repository Structure
 
@@ -164,9 +164,9 @@ prismatic-skills/
 │   ├── prismatic-api/               # GraphQL & API reference
 │   └── prismatic-docs/              # Documentation search reference
 ├── scripts/
-│   ├── prerequisites.py             # Environment setup
-│   ├── gather_requirements.py       # DAG-based questionnaire
-│   ├── write_answer.py              # Programmatic answer writing
+│   ├── prerequisites.ts             # Environment setup
+│   ├── gather-requirements.ts       # DAG-based questionnaire
+│   ├── write-answer.ts              # Programmatic answer writing
 │   ├── components/                  # Component lifecycle scripts
 │   ├── integrations/                # Integration lifecycle scripts
 │   ├── shared/                      # Shared utilities

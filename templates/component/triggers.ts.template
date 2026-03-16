@@ -1,0 +1,75 @@
+// Template: Component Triggers (Webhooks)
+// Slots: COMPONENT_KEY, WEBHOOK_EVENTS
+//
+// CRITICAL: Always implement BOTH lifecycle hooks:
+//   - onInstanceDeploy: register the webhook with the external API
+//   - onInstanceDelete: deregister the webhook from the external API
+//
+// Usage: Fill in the webhook registration/deregistration logic.
+
+import { trigger, input, HttpResponse } from "@prismatic-io/spectral";
+import { createClient, apiRequest } from "./client";
+
+const webhook = trigger({
+  display: {
+    label: "{{COMPONENT_LABEL}} Webhook",
+    description: "Receive webhook events from {{COMPONENT_LABEL}}",
+  },
+  inputs: {
+    connection: input({
+      label: "Connection",
+      type: "connection",
+      required: true,
+    }),
+    {{#if WEBHOOK_EVENTS}}
+    events: input({
+      label: "Webhook Events",
+      type: "string",
+      required: false,
+      comments: "Comma-separated list of events to subscribe to",
+      default: "{{WEBHOOK_EVENTS}}",
+    }),
+    {{/if}}
+  },
+
+  // Process incoming webhook payloads
+  perform: async (context, payload, params) => {
+    const body = payload.body?.data ?? payload.rawBody?.data;
+    return {
+      payload: {
+        body,
+        contentType: payload.headers?.["content-type"] ?? "application/json",
+      },
+    };
+  },
+
+  // Called when an instance using this trigger is deployed
+  onInstanceDeploy: async (context, params) => {
+    const client = createClient(params.connection);
+    const webhookUrl = params.webhookUrls["{{COMPONENT_KEY}}-webhook"];
+
+    // Register webhook with external API
+    // const result = await apiRequest(client, "POST", "/webhooks", {
+    //   url: webhookUrl,
+    //   events: params.events?.split(",").map(e => e.trim()),
+    // });
+
+    // Store webhook ID for cleanup
+    // await context.instanceState.set("webhookId", result.id);
+  },
+
+  // Called when an instance using this trigger is deleted
+  onInstanceDelete: async (context, params) => {
+    const client = createClient(params.connection);
+
+    // Retrieve stored webhook ID
+    // const webhookId = await context.instanceState.get("webhookId");
+
+    // Deregister webhook from external API
+    // if (webhookId) {
+    //   await apiRequest(client, "DELETE", `/webhooks/${webhookId}`);
+    // }
+  },
+});
+
+export default { webhook };

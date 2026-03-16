@@ -1,0 +1,47 @@
+// Template: Component Actions
+// Slots: ACTIONS (array of {key, label, description, inputs, performBody})
+//
+// Required patterns:
+//   - Extract credentials from params.connection.fields
+//   - Return { data: <result> } from perform
+//   - Type all inputs with input() definitions
+//
+// Usage: Define one action per API resource operation.
+
+import { action, input } from "@prismatic-io/spectral";
+import { createClient } from "./client";
+
+{{#each ACTIONS}}
+const {{key}} = action({
+  display: {
+    label: "{{label}}",
+    description: "{{description}}",
+  },
+  inputs: {
+    connection: input({
+      label: "Connection",
+      type: "connection",
+      required: true,
+    }),
+    {{#each inputs}}
+    {{key}}: input({
+      label: "{{label}}",
+      type: "{{type:string}}",
+      required: {{required:true}},
+      {{#if comments}}comments: "{{comments}}",{{/if}}
+    }),
+    {{/each}}
+  },
+  perform: async (context, params) => {
+    const client = createClient(params.connection);
+    // {{performBody}}
+    return { data: result };
+  },
+});
+{{/each}}
+
+export default {
+  {{#each ACTIONS}}
+  {{key}},
+  {{/each}}
+};

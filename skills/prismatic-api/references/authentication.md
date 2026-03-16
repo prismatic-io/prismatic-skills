@@ -99,20 +99,20 @@ curl "https://app.prismatic.io/auth/revoke" --request POST \
   --data '{"refresh_token": "YOUR_REFRESH_TOKEN"}'
 ```
 
-## Python Scripts (Plugin)
+## Scripts (Plugin)
 
-For GraphQL queries in Python scripts, use `shared/graphql.py`:
+For GraphQL queries in scripts, use `shared/graphql.ts`:
 
-```python
-from shared.graphql import graphql, ensure_authenticated, GraphQLError
+```typescript
+import { graphql, ensureAuthenticated, GraphQLError } from "./shared/graphql.js";
 
-ensure_authenticated()  # Pre-flight check
-data = graphql('query { authenticatedUser { email } }')
+ensureAuthenticated();  // Pre-flight check
+const data = graphql('query { authenticatedUser { email } }');
 ```
 
 Authentication is handled entirely by the Prism CLI. The user must be logged in via `prism login`. The `graphql()` function delegates to `prism graphql:query`, which manages tokens automatically.
 
-**Retry behavior** (via `prism_retry.py`):
+**Retry behavior** (via `prism-retry.ts`):
 
 - Network errors: 5 attempts, exponential backoff (1-10s)
 - Auth errors: Fail fast (no retry)

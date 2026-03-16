@@ -1,0 +1,95 @@
+// Template: Component Connections
+// Slots: CONNECTION_TYPE (oauth2 | apikey | bearer | basic)
+//
+// Usage: Choose one connection type. Fill in the fields for your API.
+
+import { connection, input } from "@prismatic-io/spectral";
+
+{{#if CONNECTION_TYPE_OAUTH2}}
+const {{COMPONENT_KEY}}OAuth2 = connection({
+  key: "{{COMPONENT_KEY}}-oauth2",
+  label: "{{COMPONENT_LABEL}} OAuth2",
+  oauth2Type: "authorization_code",
+  inputs: {
+    authorizeUrl: input({
+      label: "Authorize URL",
+      type: "string",
+      required: true,
+      default: "{{AUTHORIZE_URL}}",
+      comments: "OAuth2 authorization endpoint",
+    }),
+    tokenUrl: input({
+      label: "Token URL",
+      type: "string",
+      required: true,
+      default: "{{TOKEN_URL}}",
+      comments: "OAuth2 token endpoint",
+    }),
+    clientId: input({
+      label: "Client ID",
+      type: "string",
+      required: true,
+    }),
+    clientSecret: input({
+      label: "Client Secret",
+      type: "password",
+      required: true,
+    }),
+    scopes: input({
+      label: "Scopes",
+      type: "string",
+      required: false,
+      default: "{{SCOPES}}",
+      comments: "Space-separated OAuth2 scopes",
+    }),
+  },
+});
+
+export default [{{COMPONENT_KEY}}OAuth2];
+{{/if}}
+
+{{#if CONNECTION_TYPE_APIKEY}}
+const {{COMPONENT_KEY}}ApiKey = connection({
+  key: "{{COMPONENT_KEY}}-api-key",
+  label: "{{COMPONENT_LABEL}} API Key",
+  inputs: {
+    apiKey: input({
+      label: "API Key",
+      type: "password",
+      required: true,
+    }),
+    endpoint: input({
+      label: "API Endpoint",
+      type: "string",
+      required: true,
+      default: "{{BASE_URL}}",
+      comments: "Base URL for API requests",
+    }),
+  },
+});
+
+export default [{{COMPONENT_KEY}}ApiKey];
+{{/if}}
+
+{{#if CONNECTION_TYPE_BEARER}}
+const {{COMPONENT_KEY}}Bearer = connection({
+  key: "{{COMPONENT_KEY}}-bearer",
+  label: "{{COMPONENT_LABEL}} Bearer Token",
+  inputs: {
+    token: input({
+      label: "Bearer Token",
+      type: "password",
+      required: true,
+    }),
+    endpoint: input({
+      label: "API Endpoint",
+      type: "string",
+      required: true,
+      default: "{{BASE_URL}}",
+      comments: "Base URL for API requests",
+    }),
+  },
+});
+
+export default [{{COMPONENT_KEY}}Bearer];
+{{/if}}

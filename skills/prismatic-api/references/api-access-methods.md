@@ -4,7 +4,7 @@ Detailed reference for the two-tier Prismatic API access hierarchy.
 
 ## MCP Tools (Priority 1)
 
-MCP tools are available **only in agent conversations** (not in Python scripts). They handle authentication, retries, and output formatting automatically.
+MCP tools are available **only in agent conversations** (not in scripts). They handle authentication, retries, and output formatting automatically.
 
 ### When to Use MCP Tools
 
@@ -45,7 +45,7 @@ MCP tools are wrappers around `prism` CLI commands. The key difference:
 - **MCP tools**: Agent-only, structured output, tool approval UI
 - **Prism CLI**: Available everywhere (agents, scripts, terminal), raw output
 
-Operations NOT covered by MCP tools (use Prism CLI or `graphql.py` instead):
+Operations NOT covered by MCP tools (use Prism CLI or `graphql.ts` instead):
 - Customer CRUD
 - Instance management (create, deploy, configure)
 - Execution log queries
@@ -56,23 +56,22 @@ Operations NOT covered by MCP tools (use Prism CLI or `graphql.py` instead):
 
 ### Built-in Commands
 
-For standard operations, use Prism CLI commands through `prism_retry.py`:
+For standard operations, use Prism CLI commands through `prism-retry.ts`:
 
-```python
-from prism_retry import run_prism_query, run_prism_mutation
+```typescript
+import { runPrismQuery, runPrismMutation } from "./shared/prism-retry.js";
 
-# List operations (read)
-result = run_prism_query(
+// List operations (read)
+const result = runPrismQuery(
     ["prism", "integrations:list", "--extended", "--output", "json"],
-    timeout=30,
-)
+    { timeout: 30000 },
+);
 
-# Mutation operations (write)
-result = run_prism_mutation(
+// Mutation operations (write)
+const result = runPrismMutation(
     ["prism", "integrations:import"],
-    cwd=project_dir,
-    timeout=60,
-)
+    { cwd: projectDir, timeout: 60000 },
+);
 ```
 
 **CLI flag rules**:
@@ -80,41 +79,41 @@ result = run_prism_mutation(
 - `--extended` and `--columns` are mutually exclusive — prefer `--extended`
 - Never use `npx prism` — `prism` must be installed globally
 
-### Custom GraphQL via `shared/graphql.py`
+### Custom GraphQL via `shared/graphql.ts`
 
 For operations that need GraphQL queries (customer management, instance config, execution logs):
 
-```python
-from shared.graphql import graphql, ensure_authenticated, GraphQLError
+```typescript
+import { graphql, ensureAuthenticated, GraphQLError } from "./shared/graphql.js";
 
-# Pre-flight auth check
-ensure_authenticated()
+// Pre-flight auth check
+ensureAuthenticated();
 
-# Simple query
-data = graphql('query { customers { nodes { id name externalId } } }')
+// Simple query
+const data = graphql('query { customers { nodes { id name externalId } } }');
 
-# Query with variables
-data = graphql(
+// Query with variables
+const data = graphql(
     'query($customerId: ID!) { instances(customer: $customerId) { nodes { id name } } }',
-    variables={"customerId": "Q3VzdG9tZXI6..."},
-)
+    { customerId: "Q3VzdG9tZXI6..." },
+);
 
-# Mutation with variables
-data = graphql(
-    '''mutation($name: String!, $externalId: String!) {
+// Mutation with variables
+const data = graphql(
+    `mutation($name: String!, $externalId: String!) {
         createCustomer(input: { name: $name, externalId: $externalId }) {
             customer { id name }
             errors { field messages }
         }
-    }''',
-    variables={"name": "Acme Corp", "externalId": "acme-001"},
-    timeout=60,
-)
+    }`,
+    { name: "Acme Corp", externalId: "acme-001" },
+    60000,
+);
 ```
 
 ### Direct CLI GraphQL
 
-When you need a one-off query from an agent conversation without a Python script:
+When you need a one-off query from an agent conversation without a script:
 
 ```bash
 # Simple query
@@ -128,10 +127,10 @@ prism graphql:query \
 
 ## Operations Coverage Matrix
 
-| Operation | MCP Tool | CLI Command | graphql.py |
+| Operation | MCP Tool | CLI Command | graphql.ts |
 |-----------|----------|-------------|------------|
 | List components | `prism_components_list` | `prism components:list` | - |
-| Search components | `prism_components_list` | - | `search_components.py` |
+| Search components | `prism_components_list` | - | `search-components.ts` |
 | Publish component | `prism_components_publish` | `prism components:publish` | - |
 | List integrations | `prism_integrations_list` | `prism integrations:list` | - |
 | Import integration | `prism_integrations_import` | `prism integrations:import` | - |
@@ -150,19 +149,19 @@ prism graphql:query \
 
 The previous codebase had 4 inconsistent API access patterns:
 1. MCP tools (agent conversations)
-2. Prism CLI wrappers (via `prism_retry.py`)
-3. Python GraphQL client (`prismatic_api.py` with custom Auth0 token exchange)
-4. Inline GraphQL in `create_organization_connection.py`
+2. Prism CLI wrappers (via `prism-retry.ts`)
+3. Custom GraphQL client with Auth0 token exchange
+4. Inline GraphQL in individual scripts
 
 These were consolidated to a two-tier system:
 1. **MCP tools** (agent conversations — unchanged)
-2. **Prism CLI** (scripts + agents), with `shared/graphql.py` as a thin wrapper around `prism graphql:query`
+2. **Prism CLI** (scripts + agents), with `shared/graphql.ts` as a thin wrapper around `prism graphql:query`
 
 ### What Was Removed
 
-- `prismatic_api.py` — Custom Auth0 token exchange + HTTP client (~400 lines). Replaced by `graphql.py` (~80 lines) which delegates auth to Prism CLI.
-- `prism_auth.py` — Credential extraction utilities (~160 lines). No longer needed since `prism` commands handle auth natively.
-- Inline `get_prism_credentials()` and `graphql_request()` in `create_organization_connection.py` — Replaced by `shared/graphql.py` imports.
+- Custom Auth0 token exchange + HTTP client. Replaced by `graphql.ts` (~80 lines) which delegates auth to Prism CLI.
+- Credential extraction utilities. No longer needed since `prism` commands handle auth natively.
+- Inline GraphQL helpers in individual scripts. Replaced by `shared/graphql.ts` imports.
 
 ### Why
 
