@@ -1,0 +1,14 @@
+{
+  "name": "prismatic-skills",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Build and deploy Prismatic custom components and Code Native Integrations",
+  "dependencies": {
+    "commander": "^12.1.0",
+    "yaml": "^2.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0"
+  }
+}

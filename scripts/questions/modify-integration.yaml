@@ -1,0 +1,68 @@
+# modify-integration.yaml — Modification intent spec
+#
+# Version 3: Thin intent spec that works WITH the extracted state snapshot.
+# Used AFTER extract-state.ts has populated the "before" snapshot.
+#
+# The agent reads the snapshot to know what exists, then uses this spec
+# to capture what the user wants to CHANGE. For details (error handling
+# options, retry config, etc.), the agent dynamically loads the relevant
+# domain file from integration.yaml's domain files.
+#
+# Design principle: this spec captures INTENT; integration.yaml provides
+# the vocabulary for the details. The populated state is a read-only
+# reference — not a build input.
+
+version: 3
+
+completion:
+  action: apply_modifications
+  description: "Apply targeted modifications to the existing integration"
+
+required:
+  always:
+    - modification_scope
+    - modification_description
+
+groups:
+  - id: intent
+    label: "Modification Intent"
+    items: [modification_scope, modification_description]
+
+  - id: new_flow
+    label: "New Flow Configuration"
+    note: >
+      When adding a flow, the agent walks the user through flow-scoped items
+      from integration.yaml — but ONLY for the new flow. It does NOT re-ask
+      about existing flows or integration-level settings.
+    items: []
+
+items:
+  modification_scope:
+    question: "What part of the integration do you want to modify?"
+    type: multi_choice
+    inference: allowed
+    choices:
+      - "Add a new flow"
+      - "Modify a flow's behavior"
+      - "Change error handling / retry config"
+      - "Add or change a component"
+      - "Modify config pages"
+      - "Add lifecycle hooks"
+      - "Add state management"
+      - "Fix a bug"
+    agent_context: >
+      Based on the current integration state I extracted, here's what exists.
+      The agent presents the extracted state summary and asks what the user
+      wants to change. Multiple scopes can be selected if the modification
+      spans several areas (e.g., adding a component AND modifying config pages).
+
+  modification_description:
+    question: "Describe the specific changes you want."
+    type: text
+    inference: allowed
+    validate: ".{10,}"
+    agent_context: >
+      The user describes what should change in their own words. The agent
+      maps this description to specific spec items and code patterns.
+      Combined with the extracted state, the agent can identify exactly
+      which files and config blocks need to change.

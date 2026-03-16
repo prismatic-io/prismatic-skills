@@ -1,0 +1,65 @@
+# Flow planning and per-flow metadata
+# scope: integration for planning, scope: flow for per-flow metadata
+
+flow_count:
+  question: "How many flows does this integration need?"
+  type: choice
+  choices: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+  inference: allowed
+  scope: integration
+  default: "1"
+  note: "No platform limit on flow count. 10+ is rare but valid."
+  agent_context: >
+    Flows are independent execution paths within a single integration. A simple webhook-to-Slack
+    integration needs just one flow. A bidirectional sync (e.g., Salesforce orders to NetSuite AND
+    NetSuite inventory back to Salesforce) needs two. Each flow gets its own trigger, error config,
+    and execution logic, but they share the same config pages, connections, and component registry.
+  implications:
+    "1": >
+      Single flow — simplest architecture. All flow-scoped answers are stored at the root
+      level. Code lives in a single flows.ts file.
+    "2": >
+      Multi-flow integration. Each flow gets its own file in src/flows/. Shared config
+      (connections, config pages) is defined once. Flow-scoped answers are stored per flow.
+
+flow_definitions:
+  question: "Describe each flow: name, purpose, and trigger type"
+  type: text
+  inference: allowed
+  scope: integration
+  depends_on: [flow_count]
+  condition:
+    flow_count: { not: "1" }
+  note: >
+    PARSING FORMAT: Agent must extract from free text:
+    1. flow_name — human-readable (e.g., "Order Sync")
+    2. stable_key — kebab-case slug (e.g., "order-sync")
+    3. trigger_type — webhook, scheduled, or polling
+    4. brief description
+    Example: "Order Sync (webhook): Receives new orders from Shopify"
+    Agent creates answers.flows[stable_key] entries from this.
+  agent_context: >
+    For multi-flow integrations, each flow needs a name (human-readable for the UI),
+    a stable key (kebab-case, used in code and URLs), a trigger type, and a brief
+    description. The stable key becomes the flow's directory name in src/flows/ and
+    its identifier in test-data/.
+
+flow_name:
+  question: "What is the name of this flow?"
+  type: text
+  inference: allowed
+  scope: flow
+
+flow_description:
+  question: "What should this flow do? Describe the actions it takes in the destination system."
+  type: text
+  inference: allowed
+  scope: flow
+  condition:
+    flow_count: { not: "1" }
+  agent_context: >
+    Each flow needs a clear description of what it does — what data it receives,
+    how it transforms it, and what actions it takes in the destination system.
+    This is the business logic specification for code generation. For example:
+    "Receives new Shopify orders via webhook, maps order line items to NetSuite
+    SalesOrder records, and creates them via the SuiteTalk REST API."

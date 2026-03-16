@@ -1,0 +1,65 @@
+{
+  "start": "source_type",
+  "completion": {
+    "next_action": {
+      "type": "convert",
+      "instruction": "Scaffold a new CNI project, then adapt the source logic into CNI structure. Run validate-phase.ts after conversion, then build and deploy."
+    }
+  },
+  "required_shape": {
+    "_default": {
+      "required_answers": ["source_type", "source_location"],
+      "conditional_answers": {}
+    }
+  },
+  "questions": {
+    "source_type": {
+      "id": "source_type",
+      "text": "What type of source are you converting from?",
+      "type": "choice",
+      "choices": [
+        "YAML integration (from Prismatic)",
+        "Existing TypeScript code",
+        "Code snippet (paste or describe)",
+        "API description (build from scratch with existing context)"
+      ],
+      "allow_inference": true,
+      "inference_sources": [],
+      "next": ["source_location"]
+    },
+    "source_location": {
+      "id": "source_location",
+      "text": "Where is the source? Provide a file path, integration ID, or describe what to convert.",
+      "type": "text",
+      "validation_pattern": ".{3,}",
+      "validation_message": "Please provide a path, ID, or description",
+      "next": ["enhancements"]
+    },
+    "enhancements": {
+      "id": "enhancements",
+      "text": "What improvements should be made during conversion?",
+      "type": "multi_choice",
+      "choices": [
+        "Add error handling",
+        "Add config pages for user customization",
+        "Add test data and documentation",
+        "Improve TypeScript typing"
+      ],
+      "allow_skip": true,
+      "next": ["connection_handling"]
+    },
+    "connection_handling": {
+      "id": "connection_handling",
+      "text": "How should connections/authentication be handled?",
+      "type": "choice",
+      "choices": [
+        "Keep existing connection setup",
+        "Migrate to organization-managed connections",
+        "Create new connection configuration"
+      ],
+      "allow_inference": true,
+      "inference_sources": ["source_type", "source_location"],
+      "next": []
+    }
+  }
+}

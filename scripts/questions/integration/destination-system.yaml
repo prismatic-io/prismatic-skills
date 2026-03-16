@@ -1,0 +1,167 @@
+# Destination system — component, connection, credentials, API docs
+
+destination_system:
+  question: "What is the DESTINATION system name?"
+  type: text
+  inference: allowed
+  scope: integration
+  agent_context: >
+    The destination system is where data is sent — the system that receives the transformed
+    data from the flow. Name the specific product (e.g., "Slack", "NetSuite", "Zendesk"),
+    not a generic category.
+
+same_system_check:
+  question: "Source and destination are the same system. Reuse the same component and connection?"
+  type: choice
+  inference: prohibited
+  scope: integration
+  choices:
+    - "reuse"
+    - "separate"
+  depends_on: [source_system, destination_system]
+  condition:
+    destination_system: { equals_answer: source_system }
+  auto_populate:
+    when: "reuse"
+    copy:
+      destination_component: source_component
+      destination_connection_type: source_connection_type
+      destination_connection: source_connection
+  agent_context: >
+    When source and destination are the same system (e.g., Salesforce-to-Salesforce data
+    transformation), you can reuse the same component and connection. This avoids duplicate
+    config page entries and keeps the architecture simple. If you need different auth for
+    read vs write (e.g., different API permissions), choose separate configurations.
+  implications:
+    "reuse": >
+      Auto-copies source component, connection type, and connection strategy to the
+      destination. One set of credentials, one config page entry. Simplest approach.
+    "separate": >
+      Separate component search and connection setup for the destination. Use when
+      you need different permissions, different auth methods, or different API access
+      for the destination side.
+
+destination_component:
+  question: "Search for existing Prismatic components for the destination system."
+  type: lookup
+  inference: prohibited
+  scope: integration
+  skippable: true
+  lookup:
+    script: scripts/integrations/search-components.ts
+    args: ["${destination_system}"]
+  depends_on: [destination_system]
+  condition:
+    same_system_check: { not: "reuse" }
+  agent_context: >
+    Same as source component search — checking if Prismatic has a pre-built component
+    for the destination system. Components provide typed actions for sending data
+    (e.g., slackActions.postMessage, salesforceActions.createRecord), connection helpers,
+    and data sources for config page dropdowns.
+  docs:
+    - https://prismatic.io/docs/integrations/code-native/existing-components.md
+
+destination_connection_type:
+  question: "Which connection/auth type for the destination component?"
+  type: lookup
+  inference: prohibited
+  scope: integration
+  skippable: true
+  skip_if_empty: true
+  lookup:
+    note: "Extract connection types from the destination_component search results. Present each connection option (e.g., OAuth2, API Key, Basic Auth) to the user."
+    source: destination_component.connections
+  depends_on: [destination_component]
+  condition:
+    destination_component: { not_empty: true }
+  note: >
+    Store the FULL connection object from the lookup result (e.g.,
+    {"key":"oauth2","label":"Slack OAuth 2.0","auth_type":"OAuth2"}),
+    not just the key string. The key is needed for manifest helper imports
+    during code generation (e.g., slackOauth2 comes from connections/oauth2).
+
+destination_connection:
+  question: "How should the destination connection be managed?"
+  type: choice
+  inference: prohibited
+  scope: integration
+  choices:
+    - org_activated
+    - customer_activated
+    - manifest_based
+    - no_connection
+  depends_on: [destination_connection_type]
+  condition:
+    destination_connection_type: { not_empty: true }
+  note: >
+    Each choice produces different code:
+    - Organization-activated → organizationActivatedConnection() in scopedConfigVars
+    - Customer-activated → customerActivatedConnection() in configPages
+    - Create new → manifest connection helper (e.g., slackOauth2()) on configPage
+    - No connection → no connection config needed
+    WARNING: Build-only/demo connections cannot be used with organizationActivatedConnection().
+  agent_context: >
+    Same connection strategy choice as the source side — who manages the credentials and
+    how are they stored? The same four options apply. For destination systems, "Create new
+    connection" is the most common choice because customers typically need to authorize their
+    own accounts (e.g., a customer authorizes posting to their Slack workspace).
+  implications:
+    "org_activated": >
+      One shared connection for all instances. Managed centrally. Cannot use build-only
+      connections.
+    "customer_activated": >
+      Each customer authorizes their own account. Most common for SaaS destinations.
+    "manifest_based": >
+      Connection created via manifest helper on config page. Customer completes OAuth
+      or enters credentials during setup. Most flexible.
+    "no_connection": >
+      No auth required for the destination.
+  docs:
+    - https://prismatic.io/docs/integrations/connections.md
+  cookbook_section: "Connection Strategy Code Paths"
+
+destination_connection_existing:
+  question: "Select an existing connection for the destination system."
+  type: lookup
+  inference: prohibited
+  scope: integration
+  lookup:
+    script: scripts/shared/search-connections.ts
+    args: ["${destination_system}"]
+  depends_on: [destination_connection]
+  condition:
+    destination_connection: { in: ["org_activated", "customer_activated"] }
+  note: >
+    WARNING: Build-only or demo connections (description contains "build only" or "demo")
+    CANNOT be used with organizationActivatedConnection(). They will fail at deploy with
+    "cannot reference build-only connection container". If only build-only connections
+    exist, tell the user and switch to "Create new connection in integration" instead.
+
+destination_provide_credentials:
+  question: "Provide OAuth/API credentials for the destination system now?"
+  type: choice
+  inference: prohibited
+  scope: integration
+  choices:
+    - "yes"
+    - "skip"
+  depends_on: [destination_connection]
+  condition:
+    destination_connection: "manifest_based"
+  agent_context: >
+    Same as source credentials — providing them now means the integration works immediately
+    after deploy. Skip if you don't have them on hand, but you'll need to edit .env manually later.
+
+destination_api_docs_url:
+  question: "API documentation URL for the destination system"
+  type: text
+  inference: allowed
+  scope: integration
+  validate: "^https?://"
+  depends_on: [destination_component]
+  condition:
+    destination_component: { empty: true }
+  agent_context: >
+    When no Prismatic component exists for the destination, we need API docs to generate
+    direct HTTP calls. The agent fetches this URL to discover endpoints, auth methods,
+    and request/response shapes.

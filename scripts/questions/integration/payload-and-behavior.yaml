@@ -1,0 +1,66 @@
+# Payload shape, config page elements, transformations, and additional requirements
+
+webhook_payload_shape:
+  question: "What fields are in the webhook payload? (e.g., dealName, amount, salesRep — or paste a sample JSON)"
+  type: text
+  inference: allowed
+  scope: flow
+  skippable: true
+  condition:
+    trigger_type: webhook
+  note: >
+    Used to generate the TypeScript interface for the payload and realistic
+    test-data/sample-payload.json. If the user provides a sample JSON object,
+    store it as-is. If they list field names, store as comma-separated.
+    If skipped, the agent will use generic field names in generated code.
+  agent_context: >
+    Knowing the payload shape lets the agent generate a typed TypeScript interface, realistic
+    test data, and precise field mappings. If you paste a raw JSON sample, the agent can
+    extract field names, types, and nesting automatically. If skipped, the generated code
+    uses generic field names that you'd replace later.
+
+config_page_elements:
+  question: "Beyond the connection, what should appear on the config page? (e.g., channel selector, API endpoint, toggle)"
+  type: text
+  inference: allowed
+  scope: integration
+  skippable: true
+  note: >
+    Components often provide data sources that populate dropdowns (e.g., Slack
+    selectChannels). List any user-configurable values here. The agent will use
+    manifest data source helpers for component-backed elements and configVar()
+    for simple text/boolean/number values.
+    Config vars support permissionAndVisibilityType: "customer" | "embedded" | "organization"
+    and visibleToOrgDeployer (boolean) for controlling visibility.
+    For per-user config, Prismatic supports userLevelConfigPages (same shape as configPages)
+    — set on integration definition alongside configPages. Used when individual users
+    need their own config (e.g., personal notification preferences).
+    If skipped, the agent will generate config pages with ONLY the connection and
+    any data sources referenced by the connection (e.g., selectChannels for Slack).
+    Additional config vars (text fields, toggles, dropdowns) will not be generated.
+    The agent should mention this tradeoff when presenting the skip option.
+  agent_context: >
+    Config page elements are what customers see when they set up an instance. Beyond the
+    connection (which is always there), you can add dropdowns backed by API data sources
+    (e.g., Slack channel picker), text fields for API endpoints, boolean toggles for features,
+    or number inputs for limits. Components often provide data source helpers that call the
+    API at setup time to populate dropdowns with real data from the customer's account.
+  docs:
+    - https://prismatic.io/docs/integrations/code-native/config-wizard.md
+    - https://prismatic.io/docs/integrations/config-wizard/config-variables.md
+
+transformations:
+  question: "Any data transformations needed? (field mapping, filtering, enrichment)"
+  type: text
+  inference: allowed
+  scope: integration
+  agent_context: >
+    Describe any data transformations between source and destination — field renaming,
+    value mapping, filtering records, enriching data with lookups, formatting dates,
+    currency conversion, etc. This shapes the transformation logic in onExecution.
+
+additional_requirements:
+  question: "Additional requirements or constraints? (rate limits, business logic, compliance)"
+  type: text
+  scope: integration
+  skippable: true

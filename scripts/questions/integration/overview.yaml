@@ -1,0 +1,99 @@
+# Integration overview — systems, triggers, schedules, data flow
+
+systems:
+  question: "What systems are you connecting? (e.g., 'Salesforce to Slack')"
+  type: text
+  inference: allowed
+  scope: integration
+  agent_context: >
+    This is the starting point — name the two (or more) systems this integration bridges.
+    The answer drives component search, connection setup, and the overall architecture.
+    Be specific: "Salesforce" not "CRM", "Slack" not "messaging app."
+
+trigger_type:
+  question: "What triggers this integration?"
+  type: choice
+  choices: [webhook, scheduled, polling, ai_agent]
+  inference: allowed
+  scope: flow
+  note: >
+    webhook = external system pushes data to Prismatic endpoint.
+    scheduled = runs on a cron schedule (standard trigger with schedule).
+    polling = runs on schedule with getState()/setState() for change detection.
+    ai_agent = flow is invoked programmatically by an AI agent via API call.
+    Manual invocation is always available for any webhook flow via UI/API — it is
+    not a separate trigger type.
+  agent_context: >
+    The trigger type determines how data enters the flow. Webhooks are event-driven —
+    the external system pushes data to a Prismatic-generated URL. Scheduled runs on a
+    cron timer. Polling is a scheduled variant that remembers where it left off using
+    persistent state, so it can detect only new/changed records each run. AI agent means
+    the flow is called programmatically by an AI agent (e.g., via the Prismatic API) —
+    there is no schedule and no webhook subscription; the agent decides when to invoke it.
+  implications:
+    webhook: >
+      External system pushes data to a Prismatic-generated endpoint URL. Lowest latency —
+      data arrives in near-real-time. Requires the source system to support outbound webhooks.
+      Each deployed instance gets its own unique URL (unless using shared endpoints).
+    scheduled: >
+      Runs on a cron schedule (every 5 minutes, hourly, daily, etc.). The flow pulls data
+      from the source system each run. Simple but may process duplicate records without
+      additional filtering logic.
+    polling: >
+      Like scheduled, but with built-in state management (getState/setState) for change
+      detection. Tracks a cursor or timestamp between runs so each execution only processes
+      new records. Best for APIs without webhook support.
+    ai_agent: >
+      The flow is invoked programmatically by an AI agent via the Prismatic API. Maps to a
+      manual flow — no schedule, no onTrigger, no webhook subscription. The AI agent calls
+      the flow's endpoint directly when it needs to. The flow receives its input as the
+      trigger payload from the API call. Useful for tool-use patterns where an LLM decides
+      when to run an integration step.
+  docs:
+    - https://prismatic.io/docs/integrations/triggers.md
+  cookbook_section: "answer: trigger_type → flow structure"
+
+schedule_value:
+  question: "How often should the integration run?"
+  type: choice
+  choices:
+    - "*/1 * * * *"
+    - "*/5 * * * *"
+    - "*/15 * * * *"
+    - "0 * * * *"
+    - "0 0 * * *"
+    - "0 0 * * 0"
+    - "configVar"
+    - "custom"
+  inference: allowed
+  scope: flow
+  condition:
+    trigger_type: { in: [scheduled, polling] }
+  note: >
+    configVar = customer-configurable schedule via config page.
+    custom = agent will ask for exact cron expression.
+  agent_context: >
+    This sets the cron schedule for the flow. The "configVar" option is popular because
+    it lets each customer choose their own frequency via the config page — one customer
+    might want every 5 minutes while another prefers hourly. Prismatic evaluates standard
+    5-field cron expressions.
+
+schedule_timezone:
+  question: "What timezone for the schedule? (e.g., America/Chicago, UTC)"
+  type: text
+  inference: allowed
+  scope: flow
+  default: "America/Chicago"
+  skippable: true
+  condition:
+    trigger_type: { in: [scheduled, polling] }
+
+data_flow:
+  question: "What data flows between systems? Describe records, fields, or operations."
+  type: text
+  inference: allowed
+  scope: integration
+  agent_context: >
+    Describe what data moves and in what direction — "new deals from Salesforce get posted
+    as Slack messages" or "orders from Shopify sync to NetSuite as sales orders." This
+    shapes the payload interfaces, field mappings, and transformation logic in the generated code.

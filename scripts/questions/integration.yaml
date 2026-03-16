@@ -1,0 +1,272 @@
+# integration.yaml — Requirements spec for building a Prismatic CNI
+#
+# Version 4: Three-source verified audit (spectral types, docs, platform backend).
+#
+# Multi-flow support. Each item has a `scope` annotation:
+#   scope: integration — asked once for the whole integration (stored at root)
+#   scope: flow        — asked per flow (stored under answers.flows[flowId])
+#
+# For single-flow integrations (flow_count=1), flow-scoped items are stored
+# at root level for backward compatibility.
+#
+# ── Progressive Loading ──────────────────────────────────────────────
+#
+# This master file is the TABLE OF CONTENTS — groups, required items,
+# and the include manifest. Item definitions live in domain files under
+# integration/, loaded on demand.
+#
+# Scripts (validate-requirements.ts) use load-spec.ts to merge all
+# domain files at once — they need the full picture for validation.
+#
+# The agent uses progressive disclosure:
+#   1. Read THIS file first → know the groups, required items, and include list
+#   2. Read each domain file ONLY when entering that section of conversation
+#   3. Skip domain files entirely when conditions eliminate the group
+#      (e.g., single-flow → skip flow-planning.yaml,
+#       webhook trigger → queue-config.yaml may be skippable)
+#
+# Domain files (each is a flat map of item_id → item_definition):
+#   integration/flow-planning.yaml      — flow_count, flow_definitions, flow_name, flow_description
+#   integration/overview.yaml           — systems, trigger_type, schedule_*, data_flow
+#   integration/flow-config.yaml        — sync mode, endpoint type, routing, security, org API keys
+#   integration/source-system.yaml      — source component, connection, credentials
+#   integration/destination-system.yaml — destination component, connection, credentials
+#   integration/payload-and-behavior.yaml — payload shape, config elements, transformations
+#   integration/error-handling.yaml     — immediate retry (errorConfig)
+#   integration/execution-retry.yaml    — delayed retry (retryConfig)
+#   integration/queue-config.yaml       — concurrency control (queueConfig) — flat shape
+#   integration/lifecycle-hooks.yaml    — deploy/delete handlers, webhook lifecycle
+#   integration/state-management.yaml   — persistent state across executions
+#
+# ── Spec Conventions ─────────────────────────────────────────────────
+#
+# Approach A: Smart spec, dumb agent — all valid options and conditions
+# are declared here so the agent follows them mechanically.
+#
+# inference: allowed  — agent may infer from context if confident
+# inference: prohibited — agent MUST ask the user (AskUserQuestion)
+# Items without inference default to "allowed"
+#
+# Condition operators supported:
+#   { key: "value" }           — exact match (or array includes)
+#   { key: { not: "value" } }  — not equal
+#   { key: { in: [a, b] } }   — value is one of the listed options
+#   { key: { empty: true } }   — value is empty/missing
+#   { key: { not_empty: true }} — value exists
+#   { key: { equals_answer: "other_key" } } — matches another answer
+#   { key: { contains: "value" } } — array answer contains value
+
+version: 4
+
+completion:
+  action: scaffold
+  description: "Scaffold the integration project with component manifests"
+
+required:
+  always:
+    - systems
+    - flow_count
+    - trigger_type
+    - data_flow
+    - source_system
+    - destination_system
+    - source_component
+    - source_connection_type
+    - source_connection
+    - destination_component
+    - destination_connection_type
+    - destination_connection
+    - transformations
+    - error_handler_type
+  when:
+    - condition: { flow_count: { not: "1" } }
+      items: [flow_description]
+    - condition: { trigger_type: { in: [scheduled, polling] } }
+      items: [schedule_value]
+    - condition: { error_handler_type: retry }
+      items: [error_retry_max_attempts, error_retry_delay_seconds, error_retry_ignore_final]
+    - condition: { execution_retry_enabled: "Yes" }
+      items: [execution_retry_max_attempts, execution_retry_delay_minutes, execution_retry_backoff]
+    - condition: { endpoint_security: organization }
+      items: [organization_api_keys]
+    - condition: { endpoint_type: { in: [instance_specific, shared_instance] } }
+      items: [preprocess_flow_routing, routing_flow_name_field]
+    - condition: { endpoint_type: shared_instance }
+      items: [routing_external_customer_id_field]
+
+groups:
+  # Overview first — "what are you building?" before "how many flows?"
+  - id: overview
+    label: "Integration Overview"
+    docs:
+      - https://prismatic.io/docs/integrations/code-native.md
+      - https://prismatic.io/docs/integrations/code-native/flows.md
+      - https://prismatic.io/docs/integrations/triggers.md
+    items: [systems, trigger_type, schedule_value, schedule_timezone, data_flow]
+
+  - id: flow_planning
+    label: "Flow Planning"
+    items: [flow_count, flow_definitions]
+
+  - id: flow_config
+    label: "Flow Configuration"
+    docs:
+      - https://prismatic.io/docs/integrations/code-native/endpoint-config.md
+      - https://prismatic.io/docs/integrations/triggers/endpoint-configuration.md
+      - https://prismatic.io/docs/integrations/triggers/webhook/synchronous-and-asynchronous.md
+    items:
+      - is_synchronous
+      - sync_response_shape
+      - endpoint_type
+      - preprocess_flow_routing
+      - routing_flow_name_field
+      - routing_external_customer_id_field
+      - endpoint_security
+      - organization_api_keys
+
+  - id: source
+    label: "Source System"
+    docs:
+      - https://prismatic.io/docs/integrations/connections.md
+      - https://prismatic.io/docs/integrations/code-native/existing-components.md
+      # Dynamic: https://prismatic.io/docs/components/${source_component_key}.md
+    items:
+      - source_system
+      - source_component
+      - source_connection_type
+      - source_connection
+      - source_connection_existing
+      - source_provide_credentials
+      - source_api_docs_url
+
+  - id: destination
+    label: "Destination System"
+    docs:
+      - https://prismatic.io/docs/integrations/connections.md
+      - https://prismatic.io/docs/integrations/code-native/existing-components.md
+      # Dynamic: https://prismatic.io/docs/components/${destination_component_key}.md
+    items:
+      - destination_system
+      - same_system_check
+      - destination_component
+      - destination_connection_type
+      - destination_connection
+      - destination_connection_existing
+      - destination_provide_credentials
+      - destination_api_docs_url
+
+  - id: payload_and_config
+    label: "Payload & Config Page"
+    docs:
+      - https://prismatic.io/docs/integrations/code-native/config-wizard.md
+      - https://prismatic.io/docs/integrations/config-wizard/config-variables.md
+      - https://prismatic.io/docs/integrations/data-sources.md
+    items: [webhook_payload_shape, config_page_elements]
+
+  - id: behavior
+    label: "Business Logic & Behavior"
+    items: [transformations, additional_requirements]
+
+  - id: error_handling
+    label: "Immediate Retry (seconds apart)"
+    docs:
+      - https://prismatic.io/docs/monitor-instances/retry-and-replay/automatic-retry.md
+    info: >
+      What happens when onExecution throws — retry within the same invocation,
+      seconds apart. Maps to flow.errorConfig (StepErrorConfig). In CNI, a flow
+      has a single onExecution function, so this applies to the entire flow.
+    items:
+      - error_handler_type
+      - error_retry_max_attempts
+      - error_retry_delay_seconds
+      - error_retry_backoff
+      - error_retry_ignore_final
+
+  - id: execution_retry
+    label: "Delayed Retry (minutes apart, fresh invocation)"
+    docs:
+      - https://prismatic.io/docs/monitor-instances/retry-and-replay.md
+      - https://prismatic.io/docs/monitor-instances/retry-and-replay/automatic-retry.md
+    info: >
+      If immediate retries fail, this re-invokes the entire flow from scratch
+      minutes later with the original payload. Only for async flows.
+      Platform rejects retryConfig on synchronous flows.
+      Maps to flow.retryConfig. Max backoff delay: 24 hours.
+    items:
+      - execution_retry_enabled
+      - execution_retry_max_attempts
+      - execution_retry_delay_minutes
+      - execution_retry_backoff
+      - execution_retry_cancellation_field
+
+  - id: queue_config
+    label: "Queue & Concurrency"
+    docs:
+      - https://prismatic.io/docs/integrations/triggers/fifo-queue.md
+    info: >
+      Controls how concurrent executions are handled. Maps to flow.queueConfig.
+      Uses flat shape (usesFifoQueue, concurrencyLimit, singletonExecutions, dedupeIdField).
+      Feature-flag gated: FIFO requires enable-fifo-queue, concurrency > 1 requires
+      configurable-flow-concurrency.
+    items:
+      - queue_fifo_enabled
+      - queue_concurrency_limit
+      - queue_singleton_executions
+      - queue_dedupe_field
+
+  - id: lifecycle_hooks
+    label: "Lifecycle Hooks"
+    docs:
+      - https://prismatic.io/docs/integrations/lifecycle.md
+    info: >
+      Deploy/delete handlers and webhook lifecycle management.
+      onInstanceDeploy runs every deploy/redeploy (30s limit).
+      onInstanceDelete runs on deletion (30s limit).
+      webhookLifecycleHandlers.create runs after deploy; .delete on deletion.
+      instanceState is NOT available — use crossFlowState.
+    items:
+      - needs_deploy_hooks
+      - needs_webhook_lifecycle
+      - deploy_hook_description
+
+  - id: state_management
+    label: "State Management"
+    docs:
+      - https://prismatic.io/docs/integrations/persist-data.md
+    info: >
+      Persistent state across executions. Three scopes:
+      instanceState (per-flow, per-instance), crossFlowState (per-instance, shared),
+      integrationState (global). 64 MB combined limit.
+      Polling flows get getState()/setState() automatically.
+    items:
+      - needs_state_management
+      - state_scope
+      - state_description
+
+  - id: alerting
+    label: "Alerting (Platform-Level)"
+    docs:
+      - https://prismatic.io/docs/monitor-instances/alerting.md
+    info: >
+      Platform alerting is configured on deployed instances, NOT in integration code.
+      Alert monitors can trigger on: execution failed, execution overdue, retry pending,
+      log level exceeded, connection errors, instance enabled/disabled/removed.
+      Notification channels: email, SMS, Slack, PagerDuty, OpsGenie, custom webhooks.
+      This is configured at deploy time — no code changes needed.
+    items: []
+
+# Item definitions are loaded from domain files via $include.
+# Each file contains a flat map of item_id → item_definition.
+items:
+  $include:
+    - integration/flow-planning.yaml
+    - integration/overview.yaml
+    - integration/flow-config.yaml
+    - integration/source-system.yaml
+    - integration/destination-system.yaml
+    - integration/error-handling.yaml
+    - integration/execution-retry.yaml
+    - integration/queue-config.yaml
+    - integration/lifecycle-hooks.yaml
+    - integration/state-management.yaml
+    - integration/payload-and-behavior.yaml

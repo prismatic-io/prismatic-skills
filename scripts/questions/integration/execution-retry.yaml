@@ -1,0 +1,103 @@
+# Execution retry — delayed retry (minutes apart, fresh invocation)
+# Maps to flow.retryConfig (RetryConfig)
+# Re-invokes the entire flow with the original payload.
+# Only available for asynchronous flows.
+
+execution_retry_enabled:
+  question: "If the flow still fails after immediate retries, should Prismatic re-invoke the entire flow later? (delayed retry — minutes apart, fresh invocation)"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: prohibited
+  scope: flow
+  maps_to: "flow.retryConfig"
+  ts_type: "RetryConfig | undefined (presence enables retry)"
+  condition:
+    is_synchronous: { not: "Yes" }
+  note: >
+    This is DELAYED retry — a completely new invocation minutes/hours later.
+    Different from the immediate retry above (which retries seconds apart within
+    the same invocation). Use this for extended outages where waiting minutes
+    and trying again from scratch makes sense.
+    Only available for async flows. Platform REJECTS retryConfig on synchronous flows at publish.
+    Also requires the org's plan to have allow_execution_retry enabled (not available on Free/POC plans).
+  agent_context: >
+    Delayed retry is your resilience layer for extended outages. If the immediate retry
+    (seconds apart) doesn't recover the error, this re-invokes the ENTIRE flow from scratch
+    minutes or hours later with the original payload. Think of it as a "try again tomorrow"
+    button — the flow starts fresh with a clean execution context. It's only available for
+    async flows because sync flows have a 29-second timeout window.
+  implications:
+    "Yes": >
+      Flow will be re-invoked from scratch after the configured delay. Original payload is
+      preserved. Great for external API outages — if Slack is down for 30 minutes, the retry
+      will catch up. Requires the org's plan to support execution retry.
+    "No": >
+      No delayed retry. If immediate retries fail, the execution stays failed. Rely on
+      alert monitors to notify your team, or accept that some failures won't auto-recover.
+  docs:
+    - https://prismatic.io/docs/monitor-instances/retry-and-replay.md
+    - https://prismatic.io/docs/monitor-instances/retry-and-replay/automatic-retry.md
+  cookbook_section: "answer: execution_retry_enabled → `flow.retryConfig`"
+
+execution_retry_max_attempts:
+  question: "Maximum execution retry attempts?"
+  type: text
+  inference: prohibited
+  scope: flow
+  maps_to: "flow.retryConfig.maxAttempts"
+  ts_type: "number (0-10)"
+  depends_on: [execution_retry_enabled]
+  condition:
+    execution_retry_enabled: "Yes"
+  note: "Any integer 0-10. Common values: 3 for standard, 5-10 for critical data."
+  suggestions: ["1", "2", "3", "5", "10"]
+
+execution_retry_delay_minutes:
+  question: "Minutes between execution retry attempts?"
+  type: text
+  inference: prohibited
+  scope: flow
+  maps_to: "flow.retryConfig.delayMinutes"
+  ts_type: "number (0-60)"
+  depends_on: [execution_retry_enabled]
+  condition:
+    execution_retry_enabled: "Yes"
+  note: "Any integer 0-60. Common values: 5 for rate limits, 30 for outages."
+  suggestions: ["1", "3", "5", "10", "30", "60"]
+
+execution_retry_backoff:
+  question: "Use exponential backoff for execution retries? (doubles delay, max 24 hours)"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: allowed
+  scope: flow
+  default: "No"
+  maps_to: "flow.retryConfig.usesExponentialBackoff"
+  depends_on: [execution_retry_enabled]
+  condition:
+    execution_retry_enabled: "Yes"
+  note: >
+    Platform enforces a 24-hour maximum delay between retries.
+    With 3-minute base delay: retries at 3, 6, 12, 24, 48 min → capped at 24h.
+    Retry intervals are precise to the minute, not second.
+  agent_context: >
+    Exponential backoff doubles the delay between each retry attempt, up to a 24-hour cap.
+    Good for outages that might last hours — you don't want to hammer a down service every
+    3 minutes for 10 attempts. With a 5-minute base: retries at 5, 10, 20, 40, 80 min, etc.
+
+execution_retry_cancellation_field:
+  question: "Field path for retry cancellation ID? (newer requests with same ID cancel pending retries)"
+  type: text
+  inference: allowed
+  scope: flow
+  skippable: true
+  maps_to: "flow.retryConfig.uniqueRequestIdField"
+  depends_on: [execution_retry_enabled]
+  condition:
+    execution_retry_enabled: "Yes"
+  note: "e.g., 'body.data.productId' or 'headers.x-request-id'"
+  agent_context: >
+    If a newer webhook arrives with the same ID before a pending retry fires, the pending
+    retry is cancelled. Prevents stale retries from processing outdated data. For example,
+    if a product update webhook retries at +10 min but a newer update arrived at +5 min,
+    the old retry is cancelled because the newer data supersedes it.

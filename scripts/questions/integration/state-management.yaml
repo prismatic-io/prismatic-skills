@@ -1,0 +1,89 @@
+# State management — persistent state across executions
+# Available via context in onExecution
+
+needs_state_management:
+  question: "Does this integration need to persist state between executions? (e.g., last sync timestamp, cursor, webhook IDs)"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: allowed
+  scope: flow
+  default: "No"
+  skippable: true
+  note: >
+    Three state scopes available:
+    - instanceState: per-flow, per-instance (NOT available in lifecycle hooks)
+    - crossFlowState: per-instance, shared across all flows (available in lifecycle hooks)
+    - integrationState: shared across ALL instances and customers
+    Combined size limit: 64 MB. State is written in its entirety (race condition risk).
+    Failed executions do NOT save state.
+    Polling flows automatically get getState()/setState() via context.polling.
+  agent_context: >
+    Persistent state lets a flow remember data between executions — a last-processed
+    timestamp, a pagination cursor, a webhook registration ID. Without state, every
+    execution starts fresh with no memory of previous runs. Polling flows get state
+    management automatically (getState/setState via context.polling), but other flow
+    types need explicit state management if they need to track progress.
+  implications:
+    "Yes": >
+      Flow will use one of three state scopes. State persists across executions
+      and survives instance restarts. 64 MB combined limit. Failed executions do NOT
+      save state (important for transactional consistency).
+    "No": >
+      Each execution is stateless — no memory of previous runs. Fine for
+      event-driven flows that process each payload independently.
+  docs:
+    - https://prismatic.io/docs/integrations/persist-data.md
+  cookbook_section: "answer: needs_state_management → state usage"
+  references:
+    - path: "references/cni-examples/state-persistence.md"
+      phase: "5"
+      condition: "needs_state_management == Yes"
+
+state_scope:
+  question: "What scope of state persistence is needed?"
+  type: choice
+  choices:
+    - instance_state
+    - cross_flow_state
+    - integration_state
+  inference: allowed
+  scope: flow
+  skippable: true
+  depends_on: [needs_state_management]
+  condition:
+    needs_state_management: "Yes"
+  note: >
+    instanceState: Most common. Last sync timestamp, pagination cursor.
+    crossFlowState: When flows need to share data (e.g., webhook IDs stored during deploy).
+    integrationState: Rare. Global counters, shared lookup tables across all customers.
+    Note: Polling flows use context.polling.getState/setState for polling-specific state,
+    separate from the general state system.
+  agent_context: >
+    The three scopes differ in who can see the data: instanceState is private to a specific
+    flow in a specific instance (most common — last sync timestamp, cursor). crossFlowState
+    is shared across all flows in an instance (needed when deploy hooks store webhook IDs
+    that onExecution needs). integrationState is global across ALL instances and ALL customers
+    (rare — think global rate limit counters or shared lookup tables).
+  implications:
+    "instance_state": >
+      Private to this flow and this instance. Most common scope. NOT available in
+      lifecycle hooks (deploy/delete handlers) — use crossFlowState there.
+    "cross_flow_state": >
+      Shared across all flows in an instance. Available in lifecycle hooks. Use when
+      deploy hooks need to pass data to onExecution (e.g., webhook registration IDs).
+    "integration_state": >
+      Global across all instances and customers. Rare. Use for shared counters or
+      lookup tables. Beware race conditions — state is written in its entirety.
+  docs:
+    - https://prismatic.io/docs/integrations/persist-data.md
+  cookbook_section: "answer: needs_state_management → state usage"
+
+state_description:
+  question: "What state needs to be persisted? (e.g., last processed timestamp, API cursor, webhook registration ID)"
+  type: text
+  inference: allowed
+  scope: flow
+  skippable: true
+  depends_on: [needs_state_management]
+  condition:
+    needs_state_management: "Yes"
