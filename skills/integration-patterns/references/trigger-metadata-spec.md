@@ -221,16 +221,16 @@ my-integration/
 
 ---
 
-## Usage by test_integration.py
+## Usage During Testing
 
-The test script will:
+When testing via MCP `prism_integrations_flows_test`:
 
-1. Check for `test-data/trigger-config.json` in integration directory (if `--integration-dir` provided)
+1. Read `test-data/trigger-config.json` in the integration directory
 2. Read flow metadata for the flow being tested
 3. If `triggerType === "webhook"` and `expectsPayload === true`:
-   - Look for existing `test-data/<flow-stable-key>/sample-payload.<ext>` file
-   - Pass file to `prism integrations:flows:test --payload <file> --payload-content-type <contentType>`
-   - Warn if file doesn't exist (should have been created in Phase 3)
+   - Read `test-data/<flow-stable-key>/sample-payload.<ext>` file
+   - Pass payload content to the MCP test tool
+   - Warn if file doesn't exist (should have been created during code generation)
 4. If no metadata file exists, proceed with default behavior (no payload)
 
 ### Test Artifacts Directory Structure

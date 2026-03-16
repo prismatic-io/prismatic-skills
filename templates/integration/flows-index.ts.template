@@ -1,0 +1,20 @@
+// Template: Multi-Flow Barrel Export
+// Generated for integrations with multiple flows.
+//
+// Structure:
+//   src/flows/index.ts          ← this file (barrel export)
+//   src/flows/orderSync.ts      ← individual flow files
+//   src/flows/refundSync.ts
+//
+// TypeScript resolves `import flows from "./flows"` to either:
+//   - src/flows.ts (single-flow)
+//   - src/flows/index.ts (multi-flow, this pattern)
+//
+// Each flow file exports a named flow constant.
+// This barrel re-exports them as a default array.
+
+{{#each FLOWS}}
+import { {{this.exportName}} } from "./{{this.fileName}}";
+{{/each}}
+
+export default [{{#each FLOWS}}{{this.exportName}}{{#unless @last}}, {{/unless}}{{/each}}];

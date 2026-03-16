@@ -1,0 +1,59 @@
+// Template: CNI Config Pages
+// Slots: CONFIG_VARS, CONNECTION_VARS, DATA_SOURCE_VARS
+//
+// CRITICAL: Every config element MUST use a wrapper function.
+//   - configVar()           for simple values
+//   - connectionConfigVar() for connections
+//   - dataSourceConfigVar() for data sources
+//   NEVER use plain objects: { key: "foo", ... }
+//
+// Usage: Fill in the config variables for your integration's config wizard.
+
+import {
+  configPage,
+  configVar,
+  connectionConfigVar,
+  dataSourceConfigVar,
+} from "@prismatic-io/spectral";
+
+export const configPages = {
+  "Configuration": configPage({
+    tagline: "Configure connections and settings",
+    elements: {
+      {{#each CONNECTION_VARS}}
+      "{{key}}": connectionConfigVar({
+        stableKey: "{{stableKey}}",
+        dataType: "connection",
+        connection: {
+          // Reference the component connection from componentRegistry
+          component: "{{componentKey}}",
+          key: "{{connectionKey}}",
+          // For org-managed connections, add visibility to credential inputs:
+          // values: {
+          //   clientId: { permissionAndVisibilityType: "organization", visibleToOrgDeployer: false },
+          //   clientSecret: { permissionAndVisibilityType: "organization", visibleToOrgDeployer: false },
+          // },
+        },
+      }),
+      {{/each}}
+      {{#each CONFIG_VARS}}
+      "{{key}}": configVar({
+        stableKey: "{{stableKey}}",
+        dataType: "{{dataType:string}}",
+        description: "{{description}}",
+        {{#if defaultValue}}defaultValue: "{{defaultValue}}",{{/if}}
+      }),
+      {{/each}}
+      {{#each DATA_SOURCE_VARS}}
+      "{{key}}": dataSourceConfigVar({
+        stableKey: "{{stableKey}}",
+        dataType: "jsonForm",
+        dataSource: {
+          component: "{{componentKey}}",
+          key: "{{dataSourceKey}}",
+        },
+      }),
+      {{/each}}
+    },
+  }),
+};

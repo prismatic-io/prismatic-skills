@@ -20,25 +20,25 @@ Legend:
 
 **REQUIRED at session start. Never skip.**
 
-### What the Setup Script Does
-
-The setup script verifies the development environment is ready:
-
-1. Checks if Prism CLI is installed (offers to install if not)
-2. Verifies the user is logged in to Prismatic
-3. Displays the authenticated user and endpoint
-
 ### Running Setup
 
 ```bash
-scripts/prerequisites.py <INTEGRATION_NAME>
+npx tsx scripts/prerequisites.ts <INTEGRATION_NAME> --type integration
 ```
+
+The script:
+1. Validates the integration name (lowercase, hyphens, no leading numbers)
+2. Checks if Prism CLI is installed (auto-installs if not)
+3. Verifies Prismatic authentication
+4. Creates session directory at `.prismatic/sessions/integration/<name>/`
+5. Initializes `requirements.json`
 
 ### Error Resolution
 
-- **Prism not installed** → Accept the install prompt, or run `npm install -g @prismatic-io/prism`
+- **Prism not installed** → Script auto-installs, or run `npm install -g @prismatic-io/prism`
 - **Not logged in** → Run `prism login` to authenticate via browser
 - **npm not found** → Install Node.js from nodejs.org
+- **Network or auth failure** → Run `check-prism-access.ts` for structured diagnosis (exit 1=network, exit 2=auth, exit 3=other) with environment-specific remediation steps
 
 ### Technical Notes
 
@@ -63,244 +63,74 @@ scripts/prerequisites.py <INTEGRATION_NAME>
 
 **THIS IS AN INTERACTIVE PROCESS - Follow the rules below for each question type.**
 
-#### FOR QUESTIONS WITH `allow_inference: true`
+#### FOR QUESTIONS WITH `inference: allowed`
 
-When the script outputs a question with inference enabled, it provides:
+When the YAML spec item has `inference: allowed`:
 
-```json
-{
-  "id": "source_system",
-  "text": "What is the SOURCE system name?",
-  "allow_inference": true,
-  "inference_sources": ["systems", "data_flow"],
-  "inference_context": {
-    "systems": "Salesforce to Slack",
-    "data_flow": "Send new Salesforce opportunities to a Slack channel"
-  }
-}
-```
-
-**Your decision process:**
-
-1. **Review the `inference_context`** - Check if you can confidently determine the answer
-2. **If 100% confident**: Write the answer directly using `write_answer.py`
-3. **If ANY uncertainty**: Present the question to user and wait for their response
+1. Check if the answer is explicitly stated and unambiguous in the user's request
+2. **If 100% confident**: Write the answer directly to requirements.json, tell the user what you inferred and why
+3. **If ANY uncertainty**: ask the user inline in conversation
 
 **Example of correct inference:**
 
-- Context shows "Salesforce" explicitly in both `systems` and `data_flow`
-- ✅ Write "Salesforce" directly - no ambiguity
+- User said "Salesforce to Slack webhook" → source_system = "Salesforce" is unambiguous
+- ✅ Infer directly, explain: "I'm noting Salesforce as the source system based on your description."
 
 **Example requiring user input:**
 
-- Context shows "CRM to messaging app" (generic terms)
-- ✅ Ask the user - cannot confidently determine specific system names
+- User said "CRM to messaging app" (generic terms)
+- ✅ Ask the user — cannot determine specific system names
 
-**Only infer when the answer is EXPLICITLY stated and UNAMBIGUOUS in the context.**
+#### FOR QUESTIONS WITH `inference: prohibited` (default)
 
-#### FOR QUESTIONS WITHOUT `allow_inference` (default)
-
-These questions REQUIRE explicit user input with ZERO exceptions.
-
-**Pattern you MUST follow:**
-
-1. Run gather_requirements.py script
-2. Read question from script output (no `allow_inference` field)
-3. Present question to user in natural language
-4. **STOP - DO NOT PROCEED - WAIT FOR USER TO TYPE THEIR ANSWER**
-5. User provides answer
-6. Write their answer (not your assumption) using write_answer.py
-7. Go back to step 1 and repeat
+These questions REQUIRE explicit user input — present choices inline in conversation. No exceptions.
 
 **You are NOT ALLOWED to:**
 
 - Answer questions based on the user's initial request
 - Infer answers or make assumptions because they "seem obvious"
 - Say "Based on your request..." and then answer
-- Say "I'll use X because..." and then answer
 - Skip asking questions because you think you know the answer
 
 ### Execution Steps
 
-**1. Start the script:**
+The agent drives requirements gathering conversationally using the YAML spec (`scripts/questions/integration.yaml` and its domain files). There is no DAG script — the agent IS the traversal engine.
 
-Use the session directory path output by setup_prerequisites.py:
+**1. Read the master spec:**
 
-```bash
-python scripts/gather_requirements.py \
-  references/requirements-questions.json \
-  <SESSION_DIR>/requirements.json
-```
+Read `${CLAUDE_PLUGIN_ROOT}/scripts/questions/integration.yaml` to see all requirement groups and their domain files.
 
-**2. Read the script output and identify the question:**
+**2. Load domain files progressively:**
 
-The script outputs JSON to stdout. Read it and parse the `status` field.
+Read each domain file only when entering its group. Skip domain files when prior answers eliminate them (e.g., skip `flow-planning.yaml` for single-flow integrations).
 
-If `"status": "question"`:
+**3. For each requirement item:**
 
-```json
-{
-  "status": "question",
-  "question": {
-    "id": "systems",
-    "text": "What systems are you connecting?",
-    "type": "text"
-  }
-}
-```
+- If `agent_context` exists — base your narration on it (don't improvise from scratch)
+- If `implications` exists — cover each option's downstream effects when presenting choices
+- If `inference: allowed` — infer from context when confident, explain what you inferred and why
+- If `inference: prohibited` — ALWAYS ask the user via AskUserQuestion
+- If `type: lookup` — use `search-components.ts` to search, present results to user
+- If `docs` exists — do NOT fetch on every question; follow the doc-fetch protocol in the agent instructions
 
-Go to step 3 below.
+**4. Persist answers:**
 
-If `"status": "complete"`:
+Read `requirements.json`, merge the new answer, and write back using Edit or Write. Minimize tool call noise by batching when natural. For multi-flow integrations, use `write-answers-batch.ts <answers-file> --flow <flow-id> '<json>'` to handle flow-scoped nesting and connection type validation automatically.
 
-```json
-{"status": "complete", "answers": {...}}
-```
+**5. Verify completeness:**
 
-Phase 2 is DONE. Proceed to Phase 3 (Code Generation).
+When all groups are covered, read the YAML spec and requirements.json together to confirm nothing is missing. If items are missing, ask about them before proceeding. After context compaction (when you may have lost track of which groups were covered), use `validate-requirements.ts <spec-path> <requirements.json>` for a mechanical spec-vs-answers diff.
 
-**3. ASK THE USER THE QUESTION (DO NOT ANSWER IT YOURSELF):**
+### Inference Rules
 
-Read the question text from `question.text` and present it to the user in natural language.
-
-### 🛑 MANDATORY STOP POINT - WAIT FOR USER INPUT 🛑
-
-**YOU MUST STOP YOUR RESPONSE HERE. DO NOT CONTINUE UNTIL THE USER TYPES THEIR ANSWER.**
-
-### THINGS YOU ARE ABSOLUTELY FORBIDDEN FROM DOING
-
-- ❌ **NEVER** say "Based on your request, the answer is X"
-- ❌ **NEVER** say "For [situation], I'll use [answer]"
-- ❌ **NEVER** say "The answer is obviously X"
-- ❌ **NEVER** say "This sounds like [answer]"
-- ❌ **NEVER** write any answer yourself for ANY reason
-- ❌ **NEVER** assume you know what the user wants
-- ❌ **NEVER** infer the answer from the initial request
-- ❌ **NEVER** make assumptions about the answer
-- ❌ **NEVER** proceed to the next step without user input
-- ❌ **NEVER** continue to the next question
-- ❌ **NEVER** call write_answer.py with your own answer
-
-### WHAT YOU MUST DO INSTEAD
-
-- ✅ Present the question to the user EXACTLY as written
-- ✅ For choice questions, list all available options
-- ✅ End your response after presenting the question
-- ✅ Wait for the user to type their response in the next message
-- ✅ Only proceed to step 4 after receiving the user's answer in their next message
-
-**Question type handling:**
-
-- `"type": "text"` → Ask the question verbatim, accept any text from user
-- `"type": "choice"` → Show the choices from `choices` array, ask user to pick ONE
-- `"type": "multi_choice"` → Show the choices, ask user to pick ONE OR MORE
-- `"type": "dynamic_choice"` → Show the choices from `choices` array, ask user to pick ONE
-
-**Example of CORRECT interaction:**
-
-```
-[Script outputs]: {"status": "question", "question": {"id": "systems", "text": "What systems are you connecting?", "type": "text"}}
-
-[Your message to user]: "What systems are you connecting? (e.g., 'Salesforce to Slack')"
-
-[END YOUR MESSAGE HERE - DO NOT TYPE ANYTHING ELSE]
-
-[User's next message]: "Dropbox"
-
-[Your next message]: [Now proceed to step 4 to write their answer]
-```
-
-**Example of INCORRECT interaction (DO NOT DO THIS):**
-
-```
-[Script outputs]: {"status": "question", "question": {"id": "systems", "text": "What systems are you connecting?", "type": "text"}}
-
-[Your message to user]: "What systems are you connecting? Based on your request, the answer is Dropbox. Let me record this."
-
-❌ THIS IS WRONG - YOU ANSWERED THE QUESTION YOURSELF
-```
-
-**Another example of INCORRECT interaction (DO NOT DO THIS):**
-
-```
-[Script outputs]: {"status": "question", "question": {"id": "trigger_type", "text": "What triggers this integration?", "type": "choice", "choices": ["webhook", "scheduled", "manual"]}}
-
-[Your message to user]: "What triggers this integration? For listing folder contents on demand, I'll use manual trigger. Let me record this."
-
-❌ THIS IS WRONG - YOU MADE AN ASSUMPTION AND ANSWERED
-```
-
-**4. Write the user's answer (NOT your own answer):**
-
-```bash
-python scripts/write_answer.py \
-  <SESSION_DIR>/requirements.json \
-  <question-id> "<user-answer>"
-```
-
-For multi_choice, use JSON array:
-
-```bash
-python scripts/write_answer.py <SESSION_DIR>/requirements.json \
-  error_handling '["Retry", "Log errors"]'
-```
-
-**For dynamic_choice with `store_full_object: true`:** Write the full `value` object from the selected choice, not just the label. The question output will include a `write_instruction` field reminding you of this.
-
-```bash
-# If user selects choice with label "Slack (Customer-Activated)" and value {"stableKey": "abc123", ...}
-python scripts/write_answer.py <SESSION_DIR>/requirements.json \
-  source_connection_existing '{"stableKey": "abc123", "label": "Slack (Customer-Activated)", "managedBy": "CUSTOMER", "component": "slack"}'
-```
-
-**5. Return to step 1 and repeat:**
-
-Re-run the `gather_requirements.py` script. It will output the NEXT question.
-
-Go back to step 2 to read the output, then step 3 to present the NEW question to the user.
-
-### 🛑 ABSOLUTE RULE FOR EVERY QUESTION 🛑
-
-**Each question requires a NEW user response in a SEPARATE message from the user.**
-
-**YOU ARE NOT ALLOWED TO:**
-
-- Answer multiple questions in one response
-- Answer ANY questions yourself
-- Say "I think the answer is X"
-- Say "Based on your request, X"
-- Make educated guesses
-- Infer from context
-- Assume obvious answers
-
-**EVEN IF:**
-
-- The answer seems completely obvious
-- The user already mentioned something relevant
-- You're 100% confident you know what they want
-- It would save time to just answer
-- The question seems redundant
-
-**YOU MUST STILL:**
-
-- Present the question to the user
-- Wait for them to type their answer
-- Write only the answer they provide
-
-**THERE ARE ZERO EXCEPTIONS TO THIS RULE.**
-
-### Exit Codes
-
-- **0** = Question ready (continue loop)
-- **1** = Complete (go to Phase 3 Code Generation)
-- **2** = Error (check stderr, debug the issue)
+- **`inference: allowed`** — You MAY infer from context when the answer is explicitly stated and unambiguous. State what you inferred and why.
+- **`inference: prohibited`** (default) — You MUST ask the user. No exceptions.
 
 ### What Gets Captured
 
-The script automatically:
+The agent:
 
-- Searches for components via `search_components.py`
-- Discovers connections via `search_connections.py`
+- Searches for components via `search-components.ts`
 - Asks conditional questions based on previous answers
 - Stores structured data in `requirements.json`
 
@@ -315,23 +145,18 @@ Use the requirements data in Phase 3 to guide:
 - Error handling setup
 - Component code integration
 
-**Ready when:** Exit code 1 (status: "complete")
+**Ready when:** All required items in the YAML spec have answers in requirements.json
 
 ## Phase 3: Code Generation
 
-Note: Project scaffolding happens after Phase 2. Run `scripts/integrations/scaffold_project.py <name> --components <comp1,comp2>` to create the project structure and install component manifests.
+Note: Project scaffolding happens after Phase 2. Run `scripts/integrations/scaffold-project.ts <name> --components <comp1,comp2>` to create the project structure and install component manifests.
 
 **Identify components from requirements:**
 
 Based on the requirements gathered in Phase 2, identify which 3rd party components are needed:
 
-```bash
-# Search for available components
-python scripts/integrations/search_components.py <keyword>
-
-# Scaffold with manifests
-scripts/integrations/scaffold_project.py <name> --components slack,salesforce
-```
+- Search for components: `search-components.ts` with search keyword
+- Scaffold: MCP `prism_integrations_init` with `name`, then `prism_install_component_manifest` for each component
 
 **Copy requirements to the project after scaffolding:**
 
@@ -339,7 +164,7 @@ scripts/integrations/scaffold_project.py <name> --components slack,salesforce
 cp <SESSION_DIR>/requirements.json <PROJECT_DIR>/<integration-name>/requirements.json
 ```
 
-### Project Structure (created by scaffold_project.py)
+### Project Structure (created by scaffold-project.ts)
 
 ```
 ~/<integration-name>/
@@ -360,7 +185,7 @@ cp <SESSION_DIR>/requirements.json <PROJECT_DIR>/<integration-name>/requirements
 
 - **ALL code files go in `~/<integration-name>/src/`**
 - Scripts expect FULL PATHS - don't use relative paths
-- Run `install_dependencies.py` if build fails due to missing dependencies
+- Run `npm install --prefix <project-dir>` if build fails due to missing dependencies
 
 ### ⭐ IMPORTANT: There should be a basic project structure in place with placeholder code in many of the relevant files. It is likely best to modify those existing files instead of completely overwriting them
 
@@ -378,7 +203,7 @@ cp <SESSION_DIR>/requirements.json <PROJECT_DIR>/<integration-name>/requirements
 
 3. **src/flows.ts** - Integration logic
    - Trigger configuration
-   - Action steps using `context.components.<componentKey>.<action>()`
+   - Action steps using manifest import + `<component>Actions.<action>.perform()`
    - Data transformations
 
 4. **src/index.ts** - Integration metadata
@@ -447,14 +272,12 @@ See [trigger-metadata-spec.md](trigger-metadata-spec.md) for complete specificat
 
 1. **Identify needed components during Phase 2:**
 
-   ```bash
-   python scripts/integrations/search_components.py <keyword>
-   ```
+   Use `search-components.ts` with search keyword
 
 2. **Install manifests during scaffolding:**
 
    ```bash
-   scripts/integrations/scaffold_project.py <name> --components slack,salesforce
+   scripts/integrations/scaffold-project.ts <name> --components slack,salesforce
    ```
 
 3. **Register manifests in componentRegistry.ts:**
@@ -481,7 +304,9 @@ See [trigger-metadata-spec.md](trigger-metadata-spec.md) for complete specificat
 5. **Access components in flows.ts:**
 
    ```typescript
-   await context.components.slack.postMessage({
+   import slackActions from "../manifests/slack/actions";
+
+   await slackActions.postMessage.perform({
      connection: context.configVars["Slack Connection"],
      channelName: context.configVars["Slack Channel"],
      message: "Hello!",
@@ -510,9 +335,9 @@ Error: Scoped config variable with stableKey 'xxx' not found
 
 **Resolution:**
 1. Ensure the component is published: `npm run publish` in component directory
-2. Create the organization connection using `create_organization_connection.py`:
+2. Create the organization connection using `create-organization-connection.ts`:
    ```bash
-   python scripts/integrations/create_organization_connection.py \
+   npx tsx scripts/integrations/create-organization-connection.ts \
      --component-key <component> \
      --connection-key <connection> \
      --name "My Connection" \
@@ -536,20 +361,22 @@ npm run build && npm run publish
 ### Step 4.1: Build
 
 ```bash
-scripts/integrations/build_integration.py <dir>
+npm run build --prefix <project-dir>
 ```
 
 If build fails:
 
-- Parse TypeScript errors
+- Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <project-dir> --type integration` for diagnosis
 - Fix issues (see [troubleshooting-errors.md](troubleshooting-errors.md))
 - Rebuild
 
 ### Step 4.2: Deploy
 
 ```bash
-scripts/integrations/deploy_integration.py <dir>
+npx tsx scripts/integrations/deploy-integration.ts <project-dir>
 ```
+
+The deploy script validates the build exists, retries with exponential backoff (5 attempts, 2-20s), and waits for the integration to stabilize.
 
 Returns:
 
@@ -569,54 +396,19 @@ Guide user to:
 
 #### Basic Testing (Scheduled/Manual Flows)
 
-```bash
-scripts/integrations/test_integration.py <integration-id>
-```
+Use MCP `prism_integrations_flows_test` with the integration ID.
 
-#### Webhook Flow Testing (Automatic Payloads)
+#### Webhook Flow Testing
 
-**The script automatically uses trigger metadata to provide appropriate test payloads:**
-
-```bash
-scripts/integrations/test_integration.py <integration-id> <flow-name> --integration-dir <path-to-source>
-```
-
-**How it works:**
-
-- Reads `test-data/trigger-config.json` (created during Phase 3)
-- Identifies trigger type and expected payload format
-- Looks for `test-data/<flow-stable-key>/sample-payload.<ext>`
-- Automatically passes payload to `prism integrations:flows:test`
+Use MCP `prism_integrations_flows_test` with:
+- Integration ID
+- Flow name
+- Test payload from `test-data/<flow-stable-key>/sample-payload.json`
 
 **Prerequisites:**
 
 - Integration must include `test-data/trigger-config.json` file (agent generates this in Phase 3)
 - Webhook flows must have corresponding payload files in `test-data/<flow-key>/`
-
-**For automatic single-flow testing:**
-
-If integration has only one flow, you can omit the flow name:
-
-```bash
-scripts/integrations/test_integration.py <integration-id> --integration-dir <path-to-source>
-```
-
-The script will automatically discover the flow name and load appropriate trigger metadata.
-
-#### Custom Payload Testing
-
-**For custom payloads or when auto-detection isn't available:**
-
-```bash
-# JSON payload
-scripts/integrations/test_integration.py <id> <flow> --payload /path/to/payload.json
-
-# XML payload
-scripts/integrations/test_integration.py <id> <flow> --payload /path/to/data.xml --content-type application/xml
-
-# Custom content type
-scripts/integrations/test_integration.py <id> <flow> --payload /path/to/data.txt --content-type text/plain
-```
 
 #### Other Testing Options
 
@@ -680,15 +472,13 @@ The agent MUST create `test-data/` directory with trigger metadata and payload f
 
 ## Phase 7: Delivery
 
-### Create Package
+### Create Package (if requested)
 
 ```bash
-scripts/integrations/package_for_download.py <dir> <version>
+npx tsx scripts/integrations/package-for-download.ts <project-dir> [version]
 ```
 
-### Provide Download
-
-File saved to `/mnt/user-data/outputs/` or current working directory.
+The script handles smart exclusions (.env, node_modules, .git), zip-with-tar-fallback, versioned filenames, and size formatting.
 
 ### Next Steps for User
 
@@ -696,4 +486,4 @@ File saved to `/mnt/user-data/outputs/` or current working directory.
 - Source code for version control
 - Deploy to production via Prismatic UI
 
-**Ready when:** Package delivered to user
+**Ready when:** Integration deployed and tested

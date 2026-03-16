@@ -37,16 +37,13 @@ For ALL of these integrations:
 
 ### 1. Search for Components
 
-```bash
-python scripts/integrations/search_components.py salesforce
-```
-
+Use `search-components.ts` with a keyword (e.g., "salesforce").
 Returns component keys needed for installation.
 
 ### 2. Install Manifests During Scaffolding
 
 ```bash
-scripts/integrations/scaffold_project.py my-integration --components salesforce,slack
+scripts/integrations/scaffold-project.ts my-integration --components salesforce,slack
 ```
 
 Or manually after scaffolding:
@@ -96,15 +93,18 @@ export const configPages = {
 
 ```typescript
 // src/flows.ts
+import salesforceActions from "../manifests/salesforce/actions";
+import slackActions from "../manifests/slack/actions";
+
 onExecution: async (context, params) => {
   // Query Salesforce
-  const result = await context.components.salesforce.soqlQuery({
+  const result = await salesforceActions.soqlQuery.perform({
     connection: context.configVars["Salesforce Connection"],
     query: "SELECT Id, Name FROM Contact",
   }) as SalesforceQueryResult;
 
   // Post to Slack
-  await context.components.slack.postMessage({
+  await slackActions.postMessage.perform({
     connection: context.configVars["Slack Connection"],
     channelName: "general",
     message: `Found ${result.totalSize} contacts`,
@@ -132,13 +132,15 @@ import { slackSelectChannels } from "./manifests/slack/dataSources/selectChannel
 Component actions return `unknown`. Define and cast to expected types:
 
 ```typescript
+import salesforceActions from "../manifests/salesforce/actions";
+
 interface SalesforceQueryResult {
   totalSize: number;
   done: boolean;
   records: Array<{ Id: string; Name: string }>;
 }
 
-const result = await context.components.salesforce.soqlQuery({
+const result = await salesforceActions.soqlQuery.perform({
   connection: context.configVars["Salesforce Connection"],
   query: "SELECT Id, Name FROM Account",
 }) as SalesforceQueryResult;

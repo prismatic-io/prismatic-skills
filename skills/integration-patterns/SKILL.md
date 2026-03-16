@@ -21,7 +21,7 @@ Reference documentation for building Prismatic Code Native Integrations (CNI).
 All components are accessed via manifests:
 1. Install: `npx cni-component-manifest <component-key>`
 2. Register in componentRegistry.ts with `componentManifests()`
-3. Access via `context.components.<key>.<action>()`
+3. Import actions and call `.perform()`: `import slackActions from "./manifests/slack/actions"; await slackActions.postMessage.perform({...})`
 - See `references/manifest-pattern.md`
 
 ## Config Mantra
@@ -32,21 +32,79 @@ Every config element MUST use wrapper functions:
 - `dataSourceConfigVar()` for data sources
 - See `references/cni-examples/config-patterns-correct-vs-incorrect.md`
 
-## Key References
+## Phase: Inline API Research
 
-### Workflow & Architecture
+When the DAG emits `status: "inline_task"` for API research, perform the research directly (no sub-agent). Key strategies:
+
+- **Start broad**: First WebFetch fetches the entry-point URL with a comprehensive prompt extracting auth, base URL, endpoints, webhooks, and rate limits in one pass
+- **Anchor deduplication**: Many APIs publish all docs on a single page with `#anchor` links. Strip fragments before fetching — `https://docs.example.com/api#posts` is the same page as `https://docs.example.com/api`
+- **Follow-up fetches**: Only for genuinely different URL paths (e.g., `/api/authentication` vs `/api`)
+- **Max 10 WebFetch calls**: If docs are insufficient after 10 fetches, note gaps and move on
+- **Official docs only**: Stay on the documentation domain. No third-party sources (Zapier, Make, Stack Overflow)
+- **Auth priority**: OAuth2 > API Key > Bearer Token > Basic Auth
+- **Output format**: Structured JSON with `authentication`, `baseUrl`, `resources`, `webhooks`, `rateLimiting`
+- See `references/cni-examples/component-auth-patterns.md` for connection setup patterns
+
+## Phase-Specific References
+
+Load only the references relevant to your current workflow phase. This keeps context focused and avoids attention budget waste.
+
+### Phase 2: Requirements Gathering
+- Spec items now carry `agent_context` (narration backbone), `implications` (per-option consequence maps), and `docs` (Prismatic doc URLs). The agent uses these inline — no external references needed for most questions. Docs are fetched on demand only when agent_context is insufficient or the user asks a follow-up beyond what the curated content covers.
+
+### Phase 3: Credential Collection
+- `references/auth-setup.md` - Authentication setup
+
+### Phase 4: Scaffold
+- `references/manifest-pattern.md` - Component manifest usage patterns
+- `references/spectral-quickstart.md` - Spectral SDK basics
+- `references/spectral-types.md` - **SDK type reference** — authoritative source for flow, errorConfig, retryConfig, queueConfig, configVar types. When the YAML spec and these types disagree, the types win.
+
+### Phase 5: Code Generation (PRIMARY PHASE)
+See the `<spec-loading>` block in cni-builder.md for progressive disclosure rules.
+The references below are the full set available — load per the agent's guidance.
+
+- `references/answer-to-code-cookbook.md` - **LOAD FIRST** — Maps integration.yaml answers directly to TypeScript code snippets. Spec items with `cookbook_section` fields point to specific headings in this file — Grep for those headings to find exact patterns, especially after context compaction.
+- `references/spectral-types.md` - **SDK type reference** — validate generated code against actual types
+- `references/code-generation-guide.md` - File generation patterns and context object
+- `references/cni-examples/config-patterns-correct-vs-incorrect.md` - Config wrapper functions (CRITICAL)
+- `references/cni-examples/using-components.md` - Component usage patterns
+- `references/trigger-metadata-spec.md` - Test data structure requirements
+- Templates: `${CLAUDE_PLUGIN_ROOT}/templates/integration/` - Structural templates for all source files
+
+**Conditional references for Phase 5 (load based on requirements):**
+- If webhook trigger: `references/cni-examples/webhook-patterns.md`, `references/cni-examples/webhook-payload-access.md`
+- If lifecycle hooks needed: `references/cni-examples/lifecycle-events.md`
+- If state persistence needed: `references/cni-examples/state-persistence.md`
+- If OAuth connection: `references/cni-examples/oauth-connection.md`
+- If multi-flow: `references/cni-examples/multi-flow.md`
+- If data sources: `references/cni-examples/data-sources.md`
+- If JSON forms: `references/cni-examples/json-forms.md`
+- If integration-agnostic connections: `references/cni-examples/integration-agnostic-connections.md`
+- If templated connections: `references/cni-examples/templated-connections.md`
+- If no component exists for source/destination: `references/cni-examples/direct-http-patterns.md`
+
+### Phase 6-7: Build, Deploy & Test
+- `references/troubleshooting-errors.md` - Common errors and fixes
+- `references/cni-examples/testing-debugging.md` - Test and debug patterns
+- `references/cni-examples/error-handling.md` - Error handling patterns
+
+### Phase 8: Iterate
+- `references/network-configuration.md` - Network setup (if connectivity issues)
+
+## All References
+
+Full reference list for manual lookup:
+- `references/answer-to-code-cookbook.md` - Maps integration.yaml answers → TypeScript code
 - `references/workflow-phases.md` - Complete phase-by-phase workflow
 - `references/workflow-guide.md` - Workflow overview
 - `references/code-generation-guide.md` - File generation patterns and context object
 - `references/manifest-pattern.md` - Component manifest usage patterns
-
-### Configuration
 - `references/auth-setup.md` - Authentication setup
 - `references/network-configuration.md` - Network setup
 - `references/spectral-quickstart.md` - Spectral SDK basics
 - `references/trigger-metadata-spec.md` - Test data structure requirements
-
-### CNI Examples (Pattern Library)
+- `references/troubleshooting-errors.md` - Common errors and fixes
 - `references/cni-examples/basic-api-to-slack.md` - Simple integration
 - `references/cni-examples/webhook-patterns.md` - Webhook handling
 - `references/cni-examples/webhook-payload-access.md` - Accessing trigger payloads
@@ -62,6 +120,4 @@ Every config element MUST use wrapper functions:
 - `references/cni-examples/integration-agnostic-connections.md` - Shared connections
 - `references/cni-examples/templated-connections.md` - Templated connection patterns
 - `references/cni-examples/testing-debugging.md` - Test and debug patterns
-
-### Troubleshooting
-- `references/troubleshooting-errors.md` - Common errors and fixes
+- `references/cni-examples/direct-http-patterns.md` - Direct HTTP/axios patterns when no component exists

@@ -9,7 +9,7 @@
 - See: [manifest-pattern.md](../manifest-pattern.md) for complete guide
 - Install manifests with `npx cni-component-manifest <component>`
 - Register in `componentRegistry.ts`
-- Access via `context.components.<key>.<action>()`
+- Import manifest actions and call `<component>Actions.<action>.perform()`
 
 ---
 

@@ -1,0 +1,21 @@
+// Template: CNI Integration Entry Point
+// Slots: INTEGRATION_NAME, INTEGRATION_DESCRIPTION, INTEGRATION_ICON_PATH
+//
+// Usage: Fill the slots below. Do not modify the structural wrapper.
+
+import { integration } from "@prismatic-io/spectral";
+import flows from "./flows";
+import { configPages } from "./configPages";
+import { componentRegistry } from "./componentRegistry";
+
+export { configPages } from "./configPages";
+export { componentRegistry } from "./componentRegistry";
+
+export default integration({
+  name: "{{INTEGRATION_NAME}}",
+  description: "{{INTEGRATION_DESCRIPTION}}",
+  iconPath: "{{INTEGRATION_ICON_PATH:assets/icon.png}}",
+  flows,
+  configPages,
+  componentRegistry,
+});

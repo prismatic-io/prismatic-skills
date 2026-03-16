@@ -630,8 +630,6 @@ export default salesforceOpportunities;
 **`src/utils/salesforceHelpers.ts`**
 
 ```typescript
-import { FlowContext } from "@prismatic-io/spectral";
-
 /**
  * COMPONENT_SOURCE: salesforce/connection
  * Creates Salesforce OAuth client from connection config
@@ -649,9 +647,13 @@ export function createSalesforceClient(connection: any) {
 /**
  * COMPONENT_SOURCE: salesforce/queryRecords
  * Executes SOQL query against Salesforce
+ *
+ * Note: Do not annotate context with FlowContext — it is not a public export.
+ * The flow() function infers context types automatically. For extracted helpers,
+ * use a minimal interface or accept the context parameter as-is.
  */
 export async function querySalesforce(
-  context: FlowContext,
+  context: { logger: { info: (msg: string) => void }; configVars: Record<string, any> },
   query: string,
 ): Promise<any[]> {
   context.logger.info("Using Salesforce component: queryRecords");
