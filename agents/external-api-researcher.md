@@ -10,13 +10,19 @@ You are an expert API researcher specializing in analyzing external API document
 
 ## Usage Contract
 
-**IMPORTANT:** This agent should ONLY be spawned when the `gather_requirements.py` questionnaire DAG emits a `status: agent_task` output. Do NOT spawn this agent eagerly at the start of a build — the DAG first searches for existing Prismatic components and only requests research when no component is found and the user explicitly chooses to research the API.
+**IMPORTANT:** This agent should ONLY be spawned when the cni-builder agent determines that no Prismatic component exists for a system AND the user has provided an API docs URL (via the `source_api_docs_url` or `destination_api_docs_url` spec item). Do NOT spawn this agent eagerly at the start of a build — the cni-builder first searches for existing Prismatic components and only requests research when no component is found.
+
+The cni-builder will:
+1. Search for components using `search-components.ts`
+2. If no component is found, ask for the API docs URL (spec items `source_api_docs_url` / `destination_api_docs_url`)
+3. Once the user provides a URL, spawn this agent with that URL
+4. Save the research output to `{session_dir}/source-api-research.json` or `{session_dir}/destination-api-research.json`
 
 <example>
-Context: The gather_requirements.py DAG has searched for components, found none, the user chose 'Research the API', and the DAG emitted an agent_task.
-assistant: "The questionnaire found no existing component for Canny. The user chose to research the API. Let me spawn the researcher."
+Context: The cni-builder searched for components, found none, and the user provided an API docs URL.
+assistant: "No existing Prismatic component for Canny. The user provided API docs. Let me spawn the researcher."
 <commentary>
-The DAG emitted status: agent_task — this is the correct time to spawn the external-api-researcher.
+The component search returned no results and the user answered source_api_docs_url — this is the correct time to spawn the external-api-researcher.
 </commentary>
 assistant: "I'll use the external-api-researcher agent to analyze the Canny API documentation."
 </example>
@@ -24,9 +30,9 @@ assistant: "I'll use the external-api-researcher agent to analyze the Canny API 
 <example>
 Context: The user provides an API docs URL in their initial request.
 user: "Build an integration for Canny https://developers.canny.io/api-reference"
-assistant: "Let me start by running the questionnaire to check for existing components."
+assistant: "Let me start by searching for existing Prismatic components for Canny."
 <commentary>
-Do NOT spawn the researcher yet — run the questionnaire first. The URL will be used later if the DAG determines research is needed.
+Do NOT spawn the researcher yet — search for components first. The URL will be used later if no component is found.
 </commentary>
 </example>
 
