@@ -19,7 +19,7 @@
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { parse as parseYaml } from "yaml";
+import { parseYaml } from "./parse-yaml.js";
 
 export interface LoadedSpec {
   version: number;
