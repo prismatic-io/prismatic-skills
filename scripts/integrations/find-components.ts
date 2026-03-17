@@ -1,10 +1,10 @@
 #!/usr/bin/env npx tsx
 /**
- * search-components.ts
+ * find-components.ts
  *
  * PURPOSE: Search for components by keyword
  *
- * USAGE: npx tsx search-components.ts <search-term>
+ * USAGE: npx tsx find-components.ts <search-term>
  *
  * EXIT CODES:
  *   0 - Success: Components found and displayed
@@ -143,7 +143,7 @@ function formatForRequirements(components: ComponentNode[]): unknown[] {
 function main(): number {
   if (process.argv.length < 3) {
     console.error("No search term provided");
-    console.error("Usage: npx tsx search-components.ts <search-term>");
+    console.error("Usage: npx tsx find-components.ts <search-term>");
     return 1;
   }
 

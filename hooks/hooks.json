@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"deny\"},\"systemMessage\":\"BLOCKED: Use the search script instead: npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/search-components.ts <keyword>\"}' >&2 && exit 2",
+            "command": "echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"deny\"},\"systemMessage\":\"BLOCKED: Use the search script instead: npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/find-components.ts <keyword>\"}' >&2 && exit 2",
             "timeout": 5
           }
         ]

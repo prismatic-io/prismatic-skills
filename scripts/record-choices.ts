@@ -1,30 +1,30 @@
 #!/usr/bin/env npx tsx
 /**
- * write-answers-batch.ts
+ * record-choices.ts
  *
  * Writes multiple answers at once to reduce tool call noise.
  * Accepts a JSON object where keys are question IDs and values are answers.
  *
  * USAGE:
- *   npx tsx write-answers-batch.ts <answers-file> key=value [key2=value2 ...] [--flow <flow-id>]
- *   npx tsx write-answers-batch.ts <answers-file> --input-file <json-file> [--flow <flow-id>]
- *   npx tsx write-answers-batch.ts <answers-file> '<json-object>' [--flow <flow-id>]
- *   echo '<json-object>' | npx tsx write-answers-batch.ts <answers-file> [--flow <flow-id>]
+ *   npx tsx record-choices.ts <answers-file> key=value [key2=value2 ...] [--flow <flow-id>]
+ *   npx tsx record-choices.ts <answers-file> --input-file <json-file> [--flow <flow-id>]
+ *   npx tsx record-choices.ts <answers-file> '<json-object>' [--flow <flow-id>]
+ *   echo '<json-object>' | npx tsx record-choices.ts <answers-file> [--flow <flow-id>]
  *
  * EXAMPLES:
  *   # PREFERRED: key=value pairs (no quoting, no permissions prompts)
- *   npx tsx write-answers-batch.ts reqs.json source_connection_type=oauth2
- *   npx tsx write-answers-batch.ts reqs.json trigger_type=webhook error_handler_type=retry
- *   npx tsx write-answers-batch.ts reqs.json --flow order-sync trigger_type=webhook
+ *   npx tsx record-choices.ts reqs.json source_connection_type=oauth2
+ *   npx tsx record-choices.ts reqs.json trigger_type=webhook error_handler_type=retry
+ *   npx tsx record-choices.ts reqs.json --flow order-sync trigger_type=webhook
  *
  *   # With --sync: write answers AND run sync-task-list in one call
- *   npx tsx write-answers-batch.ts reqs.json --sync spec.yaml source_connection_type=oauth2
+ *   npx tsx record-choices.ts reqs.json --sync spec.yaml source_connection_type=oauth2
  *
  *   # For complex objects (component search results, nested JSON): use --input-file
- *   npx tsx write-answers-batch.ts reqs.json --input-file /tmp/batch-answers.json
+ *   npx tsx record-choices.ts reqs.json --input-file /tmp/batch-answers.json
  *
  *   # Inline JSON (simple values only — complex JSON triggers shell security warnings)
- *   npx tsx write-answers-batch.ts reqs.json '{"systems":"CRM to Slack"}'
+ *   npx tsx record-choices.ts reqs.json '{"systems":"CRM to Slack"}'
  *
  * key=value pairs are parsed as: key becomes the question ID, value becomes the answer string.
  * If the value looks like JSON (starts with { or [), it's parsed as JSON automatically.
@@ -38,16 +38,32 @@
  *   1 - Error
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { loadSpec, type LoadedSpec } from "./shared/load-spec.js";
+
+/** Try to find the integration spec relative to this script's location. */
+function findSpecPath(answersFile: string): string | null {
+  // Try relative to the script location (standard plugin layout)
+  const scriptDir = new URL(".", import.meta.url).pathname;
+  const candidates = [
+    join(scriptDir, "questions", "integration.yaml"),
+    join(dirname(answersFile), "..", "..", "..", "scripts", "questions", "integration.yaml"),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
 
 function main(): number {
   const args = process.argv.slice(2);
 
   if (args.length < 1) {
     console.log(
-      'Usage: npx tsx write-answers-batch.ts <answers-file> [--flow <flow-id>] \'<json-object>\'\n' +
-      '       echo \'<json>\' | npx tsx write-answers-batch.ts <answers-file> [--flow <flow-id>]'
+      'Usage: npx tsx record-choices.ts <answers-file> [--flow <flow-id>] \'<json-object>\'\n' +
+      '       echo \'<json>\' | npx tsx record-choices.ts <answers-file> [--flow <flow-id>]'
     );
     return 1;
   }
@@ -204,6 +220,17 @@ function main(): number {
     }
   }
 
+  // Load spec for validation if available
+  let spec: LoadedSpec | null = null;
+  const specPath = syncSpec || findSpecPath(answersFile);
+  if (specPath) {
+    try {
+      spec = loadSpec(specPath);
+    } catch {
+      // Spec not available — skip validation
+    }
+  }
+
   // Validation for connection-type questions
   const connectionQuestions = [
     "source_connection_type",
@@ -211,8 +238,65 @@ function main(): number {
   ];
 
   const written: string[] = [];
+  const onAnswerActions: string[] = [];
+  let hasValidationErrors = false;
 
-  for (const [questionId, answer] of Object.entries(batch)) {
+  for (const [questionId, rawAnswer] of Object.entries(batch)) {
+    let answer = rawAnswer;
+
+    // Validate choice values against spec
+    if (spec && typeof answer === "string") {
+      const specItem = spec.items[questionId];
+      if (specItem && Array.isArray(specItem.choices)) {
+        const validChoices = specItem.choices as string[];
+        // Exact match first
+        if (!validChoices.includes(answer)) {
+          // Try case-insensitive match and auto-correct
+          const match = validChoices.find(c => c.toLowerCase() === answer.toLowerCase());
+          if (match) {
+            answer = match;
+            console.error(`NOTE: Auto-corrected "${rawAnswer}" → "${match}" for ${questionId}`);
+          } else {
+            // Build enriched error with choice descriptions from implications
+            let choiceLines = "";
+            const implications = specItem.implications as Record<string, string> | undefined;
+            if (implications) {
+              choiceLines = validChoices.map(c => {
+                const desc = implications[c]
+                  ? ` — ${(implications[c] as string).trim().split("\n")[0]}`
+                  : "";
+                return `    <choice value="${c}">${c}${desc}</choice>`;
+              }).join("\n");
+            } else {
+              choiceLines = validChoices.map(c =>
+                `    <choice value="${c}">${c}</choice>`
+              ).join("\n");
+            }
+            console.error(
+              `<validation-error key="${questionId}" attempted="${answer}">\n` +
+              `  <valid-choices>\n${choiceLines}\n  </valid-choices>\n` +
+              `  <instruction>Use ONLY the exact value= strings above. Present these choices to the user if needed. Do NOT invent alternatives.</instruction>\n` +
+              `</validation-error>`
+            );
+            hasValidationErrors = true;
+            continue; // Skip writing this invalid answer
+          }
+        }
+      }
+
+      // Check on_answer for follow-up actions (using corrected value)
+      if (specItem && specItem.on_answer && typeof specItem.on_answer === "object") {
+        const onAnswer = specItem.on_answer as Record<string, string>;
+        if (onAnswer[answer as string]) {
+          onAnswerActions.push(
+            `<action trigger="${questionId}=${answer}" blocking="true">\n` +
+            `  ${onAnswer[answer as string].trim()}\n` +
+            `</action>`
+          );
+        }
+      }
+    }
+
     target[questionId] = answer;
     written.push(questionId);
 
@@ -235,6 +319,11 @@ function main(): number {
     }
   }
 
+  if (hasValidationErrors && written.length === 0) {
+    console.error("No valid answers to write.");
+    return 1;
+  }
+
   // Write back
   try {
     writeFileSync(answersFile, JSON.stringify(answers, null, 2));
@@ -245,6 +334,16 @@ function main(): number {
       console.log(
         `   ${id} = ${typeof val === "string" ? val : JSON.stringify(val)}`
       );
+    }
+
+    // Print on_answer actions as XML — the agent parses structured XML more reliably than prose
+    if (onAnswerActions.length > 0) {
+      console.log("");
+      console.log("<next-steps>");
+      for (const action of onAnswerActions) {
+        console.log(action);
+      }
+      console.log("</next-steps>");
     }
   } catch (e) {
     console.error(`Failed to write file: ${e}`);

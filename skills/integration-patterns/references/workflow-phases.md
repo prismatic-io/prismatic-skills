@@ -110,12 +110,12 @@ Read each domain file only when entering its group. Skip domain files when prior
 - If `implications` exists — cover each option's downstream effects when presenting choices
 - If `inference: allowed` — infer from context when confident, explain what you inferred and why
 - If `inference: prohibited` — ALWAYS ask the user via AskUserQuestion
-- If `type: lookup` — use `search-components.ts` to search, present results to user
+- If `type: lookup` — use `find-components.ts` to search, present results to user
 - If `docs` exists — do NOT fetch on every question; follow the doc-fetch protocol in the agent instructions
 
 **4. Persist answers:**
 
-Read `requirements.json`, merge the new answer, and write back using Edit or Write. Minimize tool call noise by batching when natural. For multi-flow integrations, use `write-answers-batch.ts <answers-file> --flow <flow-id> '<json>'` to handle flow-scoped nesting and connection type validation automatically.
+Read `requirements.json`, merge the new answer, and write back using Edit or Write. Minimize tool call noise by batching when natural. For multi-flow integrations, use `record-choices.ts <answers-file> --flow <flow-id> '<json>'` to handle flow-scoped nesting and connection type validation automatically.
 
 **5. Verify completeness:**
 
@@ -130,7 +130,7 @@ When all groups are covered, read the YAML spec and requirements.json together t
 
 The agent:
 
-- Searches for components via `search-components.ts`
+- Searches for components via `find-components.ts`
 - Asks conditional questions based on previous answers
 - Stores structured data in `requirements.json`
 
@@ -155,7 +155,7 @@ Note: Project scaffolding happens after Phase 2. Run `scripts/integrations/scaff
 
 Based on the requirements gathered in Phase 2, identify which 3rd party components are needed:
 
-- Search for components: `search-components.ts` with search keyword
+- Search for components: `find-components.ts` with search keyword
 - Scaffold: MCP `prism_integrations_init` with `name`, then `prism_install_component_manifest` for each component
 
 **Copy requirements to the project after scaffolding:**
@@ -272,7 +272,7 @@ See [trigger-metadata-spec.md](trigger-metadata-spec.md) for complete specificat
 
 1. **Identify needed components during Phase 2:**
 
-   Use `search-components.ts` with search keyword
+   Use `find-components.ts` with search keyword
 
 2. **Install manifests during scaffolding:**
 

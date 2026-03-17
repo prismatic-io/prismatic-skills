@@ -20,12 +20,12 @@ execution_retry_enabled:
     and trying again from scratch makes sense.
     Only available for async flows. Platform REJECTS retryConfig on synchronous flows at publish.
     Also requires the org's plan to have allow_execution_retry enabled (not available on Free/POC plans).
-  agent_context: >
-    Delayed retry is your resilience layer for extended outages. If the immediate retry
-    (seconds apart) doesn't recover the error, this re-invokes the ENTIRE flow from scratch
-    minutes or hours later with the original payload. Think of it as a "try again tomorrow"
-    button — the flow starts fresh with a clean execution context. It's only available for
-    async flows because sync flows have a 29-second timeout window.
+  agent_context: |
+    <present-as>
+      <option value="Yes">Enable delayed retry — flow gets re-invoked from scratch after a configurable delay. Original payload preserved. Safety net for extended outages.</option>
+      <option value="No">No delayed retry — if immediate retries fail, execution stays failed. Rely on alerts or natural re-invocation (e.g., next polling cycle).</option>
+    </present-as>
+    This is a separate layer from immediate retry. Re-invokes the ENTIRE flow minutes/hours later with the original payload. Only for async flows.
   implications:
     "Yes": >
       Flow will be re-invoked from scratch after the configured delay. Original payload is
@@ -80,10 +80,11 @@ execution_retry_backoff:
     Platform enforces a 24-hour maximum delay between retries.
     With 3-minute base delay: retries at 3, 6, 12, 24, 48 min → capped at 24h.
     Retry intervals are precise to the minute, not second.
-  agent_context: >
-    Exponential backoff doubles the delay between each retry attempt, up to a 24-hour cap.
-    Good for outages that might last hours — you don't want to hammer a down service every
-    3 minutes for 10 attempts. With a 5-minute base: retries at 5, 10, 20, 40, 80 min, etc.
+  agent_context: |
+    <present-as>
+      <option value="Yes">Exponential backoff — doubles the delay each attempt (e.g., 5min, 10min, 20min...). Caps at 24 hours. Good for outages that might last hours.</option>
+      <option value="No">Flat delay — same wait between every attempt. Simpler, predictable timing.</option>
+    </present-as>
 
 execution_retry_cancellation_field:
   question: "Field path for retry cancellation ID? (newer requests with same ID cancel pending retries)"

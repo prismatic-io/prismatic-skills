@@ -54,7 +54,7 @@ npx cni-component-manifest hubspot
 
 ### Finding Component Keys
 
-Use `search-components.ts` with a keyword to find available components (e.g., "salesforce").
+Use `find-components.ts` with a keyword to find available components (e.g., "salesforce").
 
 ---
 

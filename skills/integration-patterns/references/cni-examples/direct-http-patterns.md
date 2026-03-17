@@ -4,7 +4,7 @@ When no Prismatic component exists for a system, use direct HTTP calls with axio
 
 ## When to use direct HTTP
 
-- `search-components.ts` returned no results for the system
+- `find-components.ts` returned no results for the system
 - The system has a REST API with documentation
 - You need full control over request/response handling
 

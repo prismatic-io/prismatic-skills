@@ -48,16 +48,17 @@ destination_component:
   scope: integration
   skippable: true
   lookup:
-    script: scripts/integrations/search-components.ts
+    script: scripts/integrations/find-components.ts
     args: ["${destination_system}"]
   depends_on: [destination_system]
   condition:
     same_system_check: { not: "reuse" }
   agent_context: >
-    Same as source component search — checking if Prismatic has a pre-built component
-    for the destination system. Components provide typed actions for sending data
-    (e.g., slackActions.postMessage, salesforceActions.createRecord), connection helpers,
-    and data sources for config page dropdowns.
+    ALWAYS search for a destination component — the destination is where data is sent, so
+    you almost always need typed actions for creating/updating records. Components provide
+    typed actions (e.g., slackActions.postMessage, netsuiteActions.createRecord), connection
+    helpers, and data sources for config page dropdowns. If no component exists, you'll need
+    the API docs URL to generate direct HTTP calls.
   docs:
     - https://prismatic.io/docs/integrations/code-native/existing-components.md
 
@@ -79,6 +80,13 @@ destination_connection_type:
     {"key":"oauth2","label":"Slack OAuth 2.0","auth_type":"OAuth2"}),
     not just the key string. The key is needed for manifest helper imports
     during code generation (e.g., slackOauth2 comes from connections/oauth2).
+  agent_context: |
+    <lookup-contract>
+      This question is ONLY about which auth method. The NEXT question asks who manages the connection.
+      Extract connection options from the destination_component answer's `connections` array.
+      Present each one with its label and auth_type.
+      Write the FULL connection JSON object — not a string.
+    </lookup-contract>
 
 destination_connection:
   question: "How should the destination connection be managed?"
@@ -100,11 +108,14 @@ destination_connection:
     - Create new → manifest connection helper (e.g., slackOauth2()) on configPage
     - No connection → no connection config needed
     WARNING: Build-only/demo connections cannot be used with organizationActivatedConnection().
-  agent_context: >
-    Same connection strategy choice as the source side — who manages the credentials and
-    how are they stored? The same four options apply. For destination systems, "Create new
-    connection" is the most common choice because customers typically need to authorize their
-    own accounts (e.g., a customer authorizes posting to their Slack workspace).
+  agent_context: |
+    <present-as>
+      <option value="org_activated">Org-managed — your team configures one shared connection. All instances use it.</option>
+      <option value="customer_activated">Customer-managed — each customer authorizes their own account during setup.</option>
+      <option value="manifest_based">Config page connection — created fresh using the component's auth helper. Most flexible.</option>
+      <option value="no_connection">No auth needed.</option>
+    </present-as>
+    Present all four options. If one doesn't apply, mention it briefly and explain why.
   implications:
     "org_activated": >
       One shared connection for all instances. Managed centrally. Cannot use build-only
@@ -116,6 +127,18 @@ destination_connection:
       or enters credentials during setup. Most flexible.
     "no_connection": >
       No auth required for the destination.
+  on_answer:
+    org_activated: >
+      IMMEDIATELY run `search-connections.ts ${destination_system}` to find existing org connections.
+      Present results to the user and let them select one. Do not proceed to the next question
+      until a connection is selected. Build-only/demo connections cannot be used with
+      organizationActivatedConnection() — warn if only those exist.
+    customer_activated: >
+      IMMEDIATELY run `search-connections.ts ${destination_system}` to find existing connections.
+      Present results to the user and let them select one.
+    manifest_based: >
+      The next question will ask about providing credentials. Prepare to run
+      `get-credential-prompts.ts` if the user chooses to provide them now.
   docs:
     - https://prismatic.io/docs/integrations/connections.md
   cookbook_section: "Connection Strategy Code Paths"
@@ -126,7 +149,7 @@ destination_connection_existing:
   inference: prohibited
   scope: integration
   lookup:
-    script: scripts/shared/search-connections.ts
+    script: scripts/integrations/search-connections.ts
     args: ["${destination_system}"]
   depends_on: [destination_connection]
   condition:

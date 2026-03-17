@@ -25,11 +25,14 @@ error_handler_type:
     ignore = continue execution. Result contains error property for inspection.
     retry = retry onExecution up to maxAttempts times with delay (seconds).
     These are the ONLY valid values — they come from the Spectral SDK type StepErrorHandlerType.
-  agent_context: >
-    When your flow's main function throws an error — say the Slack API returns a 500,
-    or a database connection times out — Prismatic needs to know what to do next. This is
-    the immediate error handler, meaning it acts within the same execution, seconds apart.
-    There's a separate "delayed retry" option later for extended outages.
+  agent_context: |
+    <present-as>
+      <option value="fail">Fail immediately — execution stops and shows as failed in the dashboard. Pairs with alert monitors for notification. No automatic recovery.</option>
+      <option value="ignore">Ignore and continue — execution proceeds as if nothing happened. The error is captured in the result but processing moves on. Risky for critical data.</option>
+      <option value="retry">Retry automatically — retries up to N times with a configurable delay between attempts. Catches transient failures like rate limits and brief outages. Most common for production.</option>
+      <do-not-present>raise, rethrow, log, log-and-ignore, custom-handler, error-flow, DLQ, circuit-breaker</do-not-present>
+    </present-as>
+    This is immediate error handling — seconds apart, same invocation. A separate "delayed retry" option is asked later for extended outages.
   implications:
     fail: >
       Execution stops and shows as failed in the dashboard. Simplest option — works well
@@ -94,12 +97,12 @@ error_retry_ignore_final:
   condition:
     error_handler_type: retry
   note: "Yes = execution continues after retries exhausted. No = execution fails."
-  agent_context: >
-    This is your safety net's safety net. After all retry attempts are exhausted and the
-    error persists, do you want the flow to mark itself as failed (surfacing the error in
-    the dashboard and triggering any alert monitors), or quietly continue as if the step
-    succeeded? For critical data operations like payment processing, you almost certainly
-    want failure. For non-critical notifications, ignoring may be acceptable.
+  agent_context: |
+    <present-as>
+      <option value="No">Mark as failed — execution shows as failed in the dashboard, triggers alert monitors. Standard choice for data operations.</option>
+      <option value="Yes">Ignore silently — error is swallowed, execution appears successful. Only for non-critical side effects where partial success is acceptable.</option>
+    </present-as>
+    After all retry attempts are exhausted and the error persists — should the flow fail loudly or continue quietly?
   implications:
     "Yes": >
       Flow continues after retries exhausted — the error is swallowed. Use for non-critical

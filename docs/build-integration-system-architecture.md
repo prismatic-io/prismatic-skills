@@ -271,11 +271,11 @@ Scripts retained where they provide capabilities beyond MCP tools or CLI command
 - `validate-requirements.ts` — Loads the YAML spec (with `$include` resolution via `load-spec.ts`), diffs against `requirements.json` to find missing answers. Useful after context compaction when the agent can't reliably recall which groups were already covered.
 
 **Data Scripts (deep lookups during Phase 2):**
-- `search-components.ts` — Returns components with nested connection data (auth types, required inputs) via GraphQL. MCP `prism_components_list` returns flat results only.
+- `find-components.ts` — Returns components with nested connection data (auth types, required inputs) via GraphQL. MCP `prism_components_list` returns flat results only.
 - `search-connections.ts` — Queries org-level `scopedConfigVariables` (no MCP equivalent), enriches with component labels
 
 **Requirements Persistence (multi-flow and validation):**
-- `write-answers-batch.ts` — Writes multiple answers in one atomic operation with flow-scoping (`--flow <id>`) and connection type validation. Catches the "string instead of object" foot-gun for `source_connection_type`/`destination_connection_type`. Supports stdin for large payloads.
+- `record-choices.ts` — Writes multiple answers in one atomic operation with flow-scoping (`--flow <id>`) and connection type validation. Catches the "string instead of object" foot-gun for `source_connection_type`/`destination_connection_type`. Supports stdin for large payloads.
 
 **Project Analysis (modify-integration workflow):**
 - `locate-project.ts` — Finds CNI project by path/name, extracts full architecture (flow structure, components, connections, config pages, lifecycle hooks) via source code parsing
@@ -311,10 +311,10 @@ cni-builder.md (agent)
   │    └─ On failure: check-prism-access.ts → structured diagnosis
   │
   ├─ Phase 2: Read integration.yaml → load domain files progressively
-  │    ├─ search-components.ts "slack" → found: slack component + connections
-  │    ├─ search-components.ts "crm" → not found (webhook source)
+  │    ├─ find-components.ts "slack" → found: slack component + connections
+  │    ├─ find-components.ts "crm" → not found (webhook source)
   │    ├─ AskUserQuestion (error handling, connection strategy, etc.)
-  │    ├─ Read + Edit requirements.json (or write-answers-batch.ts for multi-flow)
+  │    ├─ Read + Edit requirements.json (or record-choices.ts for multi-flow)
   │    └─ Agent verifies completeness (or validate-requirements.ts post-compaction)
   │
   ├─ Phase 3: Collect OAuth creds conversationally
@@ -520,11 +520,11 @@ system setup.
 | `scripts/questions/integration.yaml` | master | Requirements spec table of contents |
 | `scripts/questions/integration/*.yaml` | 11 files | Domain-specific question definitions |
 | `scripts/prerequisites.ts` | 1 file | Name validation, auth check, session dir, Prism auto-install |
-| `scripts/integrations/search-components.ts` | 1 file | Deep component + connection lookup (GraphQL) |
-| `scripts/shared/search-connections.ts` | 1 file | Org-level connection lookup (GraphQL) |
+| `scripts/integrations/find-components.ts` | 1 file | Deep component + connection lookup (GraphQL) |
+| `scripts/integrations/search-connections.ts` | 1 file | Org-level connection lookup (GraphQL) |
 | `scripts/shared/check-prism-access.ts` | 1 file | Structured network/auth diagnosis (exit codes + remediation) |
 | `scripts/validate-requirements.ts` | 1 file | Spec-vs-answers completeness check (post-compaction safety net) |
-| `scripts/write-answers-batch.ts` | 1 file | Atomic multi-answer writes with flow scoping + connection validation |
+| `scripts/record-choices.ts` | 1 file | Atomic multi-answer writes with flow scoping + connection validation |
 | `scripts/integrations/locate-project.ts` | 1 file | Project finder + architecture extractor (modify workflow) |
 | `scripts/integrations/extract-state.ts` | 1 file | Deep code-to-spec-answer extraction (modify workflow before snapshot) |
 | `scripts/integrations/sync-task-list.ts` | 1 file | Spec → task manifest bridge (dynamic task creation from conditions) |

@@ -21,10 +21,10 @@ Voice and narration style are defined in the agent instructions. Follow them.
     <never>cd into the project directory — use `--prefix` for npm</never>
   </rule>
   <rule name="answer-writing" critical="true">
-    <always>Write simple answers with key=value pairs: `write-answers-batch.ts {requirements_file} key=value`</always>
-    <always>Write complex objects (component results, nested JSON) via Write tool to temp file + `--input-file /tmp/answers.json`</always>
-    <prohibited foundational="true">Passing JSON as a Bash argument or constructing JSON in Bash</prohibited>
-    <prohibited foundational="true">Editing requirements.json directly with Edit or Write tools</prohibited>
+    <always>Write ALL answers with key=value pairs in one command: `record-choices.ts {requirements_file} key=value key2=value2`. JSON values are auto-parsed — pass directly: `'source_component={"key":"shopify",...}'`</always>
+    <never>Edit requirements.json directly with Edit or Write tools</never>
+    <never>Create temp JSON files with the Write tool for answer persistence</never>
+    <never>Construct JSON with heredocs (`cat > file << EOF`) or echo redirects</never>
   </rule>
   <rule name="cookbook-before-code">
     <always>Read the answer-to-code cookbook BEFORE writing ANY code</always>
@@ -83,8 +83,8 @@ Voice and narration style are defined in the agent instructions. Follow them.
       <substep>Explain the question — what Prismatic concept it configures and why it matters</substep>
       <substep>Present choices with tradeoffs, then STOP and wait for the user's response</substep>
       <substep>Write the answer AND re-sync in one call:
-        `write-answers-batch.ts {requirements_file} --sync {spec_file} key=value`
-        (use --input-file for complex objects)
+        `record-choices.ts {requirements_file} --sync {spec_file} key=value`
+        (JSON values auto-parsed in key=value pairs)
         The output includes both the write confirmation and the sync result.</substep>
       <substep>Mark the task completed with TaskUpdate</substep>
       <substep>Create tasks for any new `create_required` items from the sync output</substep>

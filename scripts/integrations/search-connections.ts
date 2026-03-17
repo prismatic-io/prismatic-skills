@@ -13,7 +13,7 @@
  *   1 - Error (API call failed, auth issues)
  */
 
-import { graphql, GraphQLError } from "./graphql.js";
+import { graphql, GraphQLError } from "../shared/graphql.js";
 
 const LIST_CONNECTIONS_QUERY = `
 query availableConnections($managedBy: String) {

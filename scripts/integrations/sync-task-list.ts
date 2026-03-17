@@ -69,9 +69,11 @@ interface SpecItem {
   skip_if_empty?: boolean;
   default?: unknown;
   agent_context?: string;
+  implications?: Record<string, string>;
   cookbook_section?: string;
   maps_to?: string;
   note?: string;
+  on_answer?: Record<string, string>;
 }
 
 interface Spec {
@@ -110,7 +112,7 @@ interface TaskManifest {
     blocked: number;
     not_applicable: number;
   };
-  ready_for_next_phase: boolean;
+  ready_for_next_phase: "confirm" | false;
 }
 
 // ---------------------------------------------------------------------------
@@ -553,7 +555,7 @@ function buildManifest(
       blocked,
       not_applicable: notApplicable,
     },
-    ready_for_next_phase: readyForNextPhase,
+    ready_for_next_phase: readyForNextPhase ? "confirm" : false,
   };
 }
 
@@ -704,6 +706,87 @@ function main(): number {
     );
     const toComplete = manifest.tasks.filter((t) => t.status === "answered");
 
+    // Emit inference confirmation instruction when there are inferable items
+    const inferableCount = toCreate.filter(t => t.inference !== "prohibited").length +
+      toCreateOptional.filter(t => t.inference !== "prohibited").length;
+    if (inferableCount > 0 && toComplete.length < 5) {
+      // First run or early run — many items to infer
+      console.error(
+        `<present-inferences>\n` +
+        `  Before writing any inferred answers, present them to the user first.\n` +
+        `  For each inference: WHAT value, WHY (quote the user's words), and IMPACT on architecture.\n` +
+        `  Ask: "Does this look right? Anything I got wrong?"\n` +
+        `  WAIT for the user to respond before writing answers.\n` +
+        `  Optional items (${toCreateOptional.length} found) are the user's decision — present with your recommendation, do not fill silently.\n` +
+        `</present-inferences>`
+      );
+    }
+
+    // Emit task creation instruction
+    const totalItems = toCreate.length + toCreateOptional.length + toComplete.length;
+    console.error(
+      `<task-creation>\n` +
+      `  Create tasks for ALL ${totalItems} items — answered AND pending.\n` +
+      `  - ${toComplete.length} answered items: TaskCreate then immediately TaskUpdate(completed).\n` +
+      `  - ${toCreate.length} required pending: TaskCreate as open.\n` +
+      `  - ${toCreateOptional.length} optional pending: TaskCreate as open.\n` +
+      `  ALL in one response. The task list is the user's dashboard — they need to see everything.\n` +
+      `</task-creation>`
+    );
+
+    // Emit spec-reading directive with group→file mapping for pending items
+    const pendingGroups = new Set<string>();
+    for (const t of [...toCreate, ...toCreateOptional]) {
+      pendingGroups.add(t.group);
+    }
+    if (pendingGroups.size > 0) {
+      const groupFileMap: Record<string, string> = {
+        overview: "integration/overview.yaml",
+        flow_planning: "integration/flow-planning.yaml",
+        flow_config: "integration/flow-config.yaml",
+        source: "integration/source-system.yaml",
+        destination: "integration/destination-system.yaml",
+        error_handling: "integration/error-handling.yaml",
+        execution_retry: "integration/execution-retry.yaml",
+        queue_config: "integration/queue-config.yaml",
+        lifecycle_hooks: "integration/lifecycle-hooks.yaml",
+        state_management: "integration/state-management.yaml",
+        payload_and_config: "integration/payload-and-behavior.yaml",
+        behavior: "integration/payload-and-behavior.yaml",
+      };
+      const filesToRead = [...new Set(
+        [...pendingGroups].map(g => groupFileMap[g]).filter(Boolean)
+      )];
+      console.error(
+        `<read-spec-before-asking>\n` +
+        `  Before presenting any choice to the user, read the spec item from its domain file.\n` +
+        `  The item's agent_context contains <present-as> XML with the exact options and natural language labels.\n` +
+        `  Use the <option value="..."> labels when talking to the user. Write the value= attribute to requirements.\n` +
+        `  Domain files for pending items:\n` +
+        filesToRead.map(f => `    ${f}`).join("\n") + `\n` +
+        `</read-spec-before-asking>`
+      );
+    }
+
+    // Emit communication reminder
+    console.error(
+      `<communication>Do not mention scripts, sync, spec, tasks, requirements, validation, items, or internal process to the user. Rewrite as what the user experiences.</communication>`
+    );
+
+    // Emit confirm gate instruction when ready
+    if (manifest.ready_for_next_phase) {
+      console.error(
+        `<confirm-before-scaffold>\n` +
+        `  ready_for_next_phase is "confirm", not true. You CANNOT scaffold yet.\n` +
+        `  1. Present a summary of ALL decisions to the user.\n` +
+        `  2. Ask: "Does this look right? Anything you'd like to add or change before I scaffold?"\n` +
+        `  3. WAIT for the user to respond.\n` +
+        `  4. After user confirms, write: user_confirmed=yes to requirements.json.\n` +
+        `  5. The scaffold script checks for user_confirmed and refuses to run without it.\n` +
+        `</confirm-before-scaffold>`
+      );
+    }
+
     const output = {
       create_required: toCreate.map((t) => ({
         spec_key: t.spec_key,
@@ -728,6 +811,12 @@ function main(): number {
         .length,
       summary: manifest.summary,
       ready_for_next_phase: manifest.ready_for_next_phase,
+      ...(manifest.ready_for_next_phase ? {
+        next_action: "STOP. Present a summary of ALL decisions to the user. Ask: 'Does this look right? Anything you'd like to add or change before I scaffold?' WAIT for the user to confirm. After they confirm, write user_confirmed=yes to requirements.json. The scaffold script will refuse to run without it."
+      } : {}),
+      ...(toCreateOptional.length > 0 ? {
+        optional_items_instruction: `${toCreateOptional.length} optional items remain. Present each to the user with your recommendation. Do not fill them silently — these are architectural decisions that affect production behavior.`
+      } : {}),
     };
     console.log(JSON.stringify(output, null, 2));
   } else {

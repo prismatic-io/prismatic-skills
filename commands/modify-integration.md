@@ -91,7 +91,7 @@ This outputs `create_required` items. Create a "Gather modification requirements
 4. Check architectural interactions (e.g., changing to sync mode invalidates retryConfig)
 
 ### "Add or change a component"
-1. Search component registry via `search-components.ts`
+1. Search component registry via `find-components.ts`
 2. Install manifest: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/scaffold-project.ts <project-dir> --add-component <component>`
 3. Update `componentRegistry.ts` with new import
 4. Add config page entries for the component's connections

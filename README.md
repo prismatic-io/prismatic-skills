@@ -121,7 +121,7 @@ Builder agents are driven by TypeScript scripts in `scripts/` that handle every 
 **Integration scripts** (`scripts/integrations/`):
 
 - `scaffold-project.ts` - Create CNI project with component manifests
-- `search-components.ts` - Find available Prismatic components
+- `find-components.ts` - Find available Prismatic components
 - `extract-connections.ts` - Extract connection options from components
 - `get-credential-prompts.ts` - Get credential fields for a connection
 - `build-integration.ts` - Compile TypeScript

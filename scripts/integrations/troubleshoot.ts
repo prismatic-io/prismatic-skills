@@ -198,7 +198,7 @@ function troubleshoot(projectDir: string | null): number {
       console.log("  - Deploy: npx tsx deploy-integration.ts <project>");
     } else {
       console.log("  - Run setup prerequisites");
-      console.log("  - Search components: npx tsx search-components.ts <term>");
+      console.log("  - Search components: npx tsx find-components.ts <term>");
     }
   } else if (issues === 0) {
     console.log(

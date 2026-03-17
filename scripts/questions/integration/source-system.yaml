@@ -6,9 +6,12 @@ source_system:
   inference: allowed
   scope: integration
   agent_context: >
-    The source system is where data originates — the system that either pushes data via
-    webhook or gets polled for changes. Name the specific product (e.g., "Salesforce",
-    "Shopify", "HubSpot"), not a generic category.
+    This identifies where data comes from. For webhook triggers, the source system sends
+    data TO Prismatic via HTTP. A source component is only needed when Prismatic must call
+    the source system's API (e.g., auto-registering webhooks, fetching additional data,
+    polling). If the user only described receiving webhooks with no API callbacks, a source
+    component is NOT needed. Name the specific product (e.g., "Salesforce", "Shopify"),
+    not a generic category.
 
 source_component:
   question: "Search for existing Prismatic components for the source system."
@@ -17,7 +20,7 @@ source_component:
   scope: integration
   skippable: true
   lookup:
-    script: scripts/integrations/search-components.ts
+    script: scripts/integrations/find-components.ts
     args: ["${source_system}"]
   depends_on: [source_system]
   note: >
@@ -25,12 +28,12 @@ source_component:
     (auto-register/deregister webhooks on deploy/delete) or specialized trigger
     functions (e.g., hashHmacWebhookTrigger for signature verification).
   agent_context: >
-    Prismatic has 200+ pre-built components in its registry. If one exists for the source
-    system, it provides typed actions (API calls), connection helpers (OAuth, API key),
-    data sources (dropdowns for the config page), and sometimes webhook lifecycle handlers
-    (auto-register webhooks on deploy). Even for webhook-triggered flows where the source
-    pushes data to us, a component may still be useful for signature verification or
-    lifecycle management.
+    For webhook triggers: SKIP this if the integration only receives webhooks from the
+    source (no API callbacks needed). SEARCH if the integration needs to make API calls
+    TO the source system (e.g., auto-registering webhooks on deploy, fetching supplementary
+    data, managed webhook lifecycle). If unsure, ask the user: "Do you need to make API
+    calls back to [source system], or will it just send webhooks?" Components provide typed
+    actions, connection helpers (OAuth, API key), data sources, and webhook lifecycle handlers.
   docs:
     - https://prismatic.io/docs/integrations/code-native/existing-components.md
 
@@ -50,6 +53,15 @@ source_connection_type:
   note: >
     Store the FULL connection object from the lookup result, not just the key string.
     The key is needed for manifest helper imports during code generation.
+  agent_context: |
+    <lookup-contract>
+      This question is ONLY about which auth method (OAuth 2.0, API Key, Token-Based Auth, etc.).
+      The NEXT question asks who manages the connection (org, customer, manifest). Do not combine them.
+      Extract connection options from the source_component answer's `connections` array.
+      Present each one to the user with its label and auth_type.
+      Write the FULL connection JSON object from the array — not a string label, not a slug.
+      Example: '{"key":"oauth2-dynamic-inputs","label":"OAuth 2.0","auth_type":"OAuth2","required_inputs":[...]}'
+    </lookup-contract>
 
 source_connection:
   question: "How should the source connection be managed?"
@@ -72,13 +84,17 @@ source_connection:
     - No connection → no connection config needed
     WARNING: Build-only/demo connections cannot be used with organizationActivatedConnection().
     If only build-only connections exist for org-activated, switch to manifest-based.
-  agent_context: >
-    This determines who manages the authentication credentials and how they're stored.
-    Organization-activated means your team sets up one shared connection in Prismatic admin —
-    all customer instances use it. Customer-activated means each customer authorizes their own
-    account during instance setup. Manifest-based creates a fresh connection on the config page
-    using the component's connection helper (most common for OAuth). "No connection" is for
-    public APIs that don't require auth.
+  agent_context: |
+    <present-as>
+      <option value="org_activated">Org-managed — your team configures one shared connection in Prismatic admin. All customer instances use it. Best when you control the account (e.g., your own internal service).</option>
+      <option value="customer_activated">Customer-managed — each customer authorizes their own account during instance setup. Standard for multi-tenant SaaS.</option>
+      <option value="manifest_based">Config page connection — created fresh on the config page using the component's built-in auth helper. Customer completes OAuth or enters credentials during setup. Most flexible.</option>
+      <option value="no_connection">No auth needed — for public APIs or when auth is handled differently.</option>
+    </present-as>
+    Present all four options. If one doesn't apply, mention it briefly and explain why.
+    <connection-search-rules>
+      After writing the answer, on_answer triggers a connection search. If results show only org-activated demo/build-only connections AND user chose customer_activated, do NOT offer the demo connection — it's architecturally incompatible. OAuth auth-code connections cannot be org-managed — each customer authorizes individually.
+    </connection-search-rules>
   implications:
     "org_activated": >
       One connection shared across all instances. Managed in Prismatic admin, not by customers.
@@ -94,6 +110,18 @@ source_connection:
     "no_connection": >
       No authentication required. Suitable for public endpoints or when auth is handled
       differently (e.g., API key passed as a config variable).
+  on_answer:
+    org_activated: >
+      IMMEDIATELY run `search-connections.ts ${source_system}` to find existing org connections.
+      Present results to the user and let them select one. Do not proceed to the next question
+      until a connection is selected. Build-only/demo connections cannot be used with
+      organizationActivatedConnection() — warn if only those exist.
+    customer_activated: >
+      IMMEDIATELY run `search-connections.ts ${source_system}` to find existing connections.
+      Present results to the user and let them select one.
+    manifest_based: >
+      The next question will ask about providing credentials. Prepare to run
+      `get-credential-prompts.ts` if the user chooses to provide them now.
   docs:
     - https://prismatic.io/docs/integrations/connections.md
   cookbook_section: "Connection Strategy Code Paths"
@@ -104,7 +132,7 @@ source_connection_existing:
   inference: prohibited
   scope: integration
   lookup:
-    script: scripts/shared/search-connections.ts
+    script: scripts/integrations/search-connections.ts
     args: ["${source_system}"]
   depends_on: [source_connection]
   condition:
