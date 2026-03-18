@@ -2,6 +2,8 @@
 name: cni-builder
 description: Builds Prismatic Code Native Integrations (CNI). Handles TypeScript generation, component manifest installation, OAuth configuration, deployment, testing, and iteration.
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, TaskCreate, TaskUpdate, TaskList, TaskGet
+disallowedTools:
+  - mcp__prism__prism_components_list
 skills:
   - integration-patterns
 model: inherit
@@ -40,8 +42,8 @@ Before sending any text, scan for: script, sync, spec, YAML, task, requirements,
 
 ## Writing answers
 
-The record-choices script lives at the ROOT of scripts/ — not in integrations/, not in shared/. Most other scripts are in integrations/, so it's easy to assume this one is too. It isn't. The exact command:
-`npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/record-choices.ts {session_dir}/requirements.json key=value`
+The record-choices script is in integrations/. The exact command:
+`npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/record-choices.ts {session_dir}/requirements.json key=value`
 
 Write all answers as key=value pairs in one command. JSON values are auto-parsed. Per-flow answers use `--flow <flow-id>`. Do not invent key formats like `error_handler_type__order-sync`.
 
@@ -120,11 +122,11 @@ Single-flow backward compatibility: when `flow_count` is "1", write flow-scoped 
 ```
 # Root-level (NOT in integrations/ or shared/):
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/prerequisites.ts <name> --type integration [--existing <dir>]
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/record-choices.ts <answers-file> key=value [key2=value2] [--flow <flow-id>]
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/write-answer.ts <answers-file> <question-id> <answer>
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/validate-requirements.ts <spec-path> <requirements.json>
 
 # Integration scripts:
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/record-choices.ts <answers-file> key=value [key2=value2] [--flow <flow-id>]
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/find-components.ts <keyword>
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/scaffold-project.ts <name> --components <comp1,comp2> [--credentials '<json>']
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/get-credential-prompts.ts <component_key> '<connection_json>'
@@ -233,7 +235,7 @@ The requirements spec uses a split-file architecture. Load progressively — not
 <input>User said "each event routes to a separate flow." Spec item `endpoint_type` has choices: [flow_specific, instance_specific, shared_instance].</input>
 <output>
 Infer `endpoint_type=flow_specific` because user explicitly said "separate flow" per event, which maps directly to `flow_specific`.
-Command: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/record-choices.ts {session_dir}/requirements.json endpoint_type=flow_specific`
+Command: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/record-choices.ts {session_dir}/requirements.json endpoint_type=flow_specific`
 </output>
 </example>
 
@@ -241,7 +243,7 @@ Command: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/record-choices.ts {session_dir}/
 <input>User chose OAuth for Shopify. find-components.ts returned a connection object: {"key":"shopify-oauth2","label":"Shopify OAuth 2.0","auth_type":"OAuth2","required_inputs":["apiKey","apiSecretKey"],"inputs":[...]}</input>
 <output>
 Write the FULL object, not just the key:
-`npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/record-choices.ts {session_dir}/requirements.json 'source_connection_type={"key":"shopify-oauth2","label":"Shopify OAuth 2.0","auth_type":"OAuth2","required_inputs":["apiKey","apiSecretKey"],"inputs":[...]}'`
+`npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/record-choices.ts {session_dir}/requirements.json 'source_connection_type={"key":"shopify-oauth2","label":"Shopify OAuth 2.0","auth_type":"OAuth2","required_inputs":["apiKey","apiSecretKey"],"inputs":[...]}'`
 NOT: `source_connection_type=shopify-oauth2`
 NOT: `source_connection_type="Shopify OAuth 2.0"`
 </output>
@@ -266,7 +268,7 @@ NOT: "Raise error", "Log and ignore", "Custom error handler flow" — these don'
 <input>User said "customer-managed". Spec item `source_connection` has choices: [org_activated, customer_activated, manifest_based, no_connection].</input>
 <output>
 Map "customer-managed" to the spec slug `customer_activated` (not `customer_managed`, not `customer`, not `managed`).
-Command: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/record-choices.ts {session_dir}/requirements.json source_connection=customer_activated`
+Command: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/record-choices.ts {session_dir}/requirements.json source_connection=customer_activated`
 </output>
 </example>
 

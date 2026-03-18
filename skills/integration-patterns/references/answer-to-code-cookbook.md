@@ -1056,6 +1056,180 @@ export const configPages = {
 
 ---
 
+## Custom Inline Data Sources (Picklist Dropdowns)
+
+When a component doesn't provide a data source for something you need (e.g., SFTP directory listing),
+create a custom inline data source using `dataSourceConfigVar` with a `perform` function.
+
+### Pattern: Custom picklist backed by a connection
+
+```typescript
+import { configPage, configVar, dataSourceConfigVar, type Element } from "@prismatic-io/spectral";
+import { sftpBasic } from "./manifests/sftp/connections/basic";
+
+export const configPages = {
+  // Page 1: Connection (must come FIRST)
+  "SFTP Connection": configPage({
+    elements: {
+      "SFTP Connection": sftpBasic("sftp-connection", {
+        host: { value: "" },
+        username: { value: "" },
+        password: { value: "" },
+        port: { value: "22" },
+      }),
+    },
+  }),
+  // Page 2: Data source that uses the connection (must be AFTER connection page)
+  "File Settings": configPage({
+    elements: {
+      "CSV Directory": dataSourceConfigVar({
+        stableKey: "csv-directory-picker",
+        dataSourceType: "picklist",
+        perform: async (context) => {
+          // Access the connection from a previous config page
+          const sftpConnection = context.configVars["SFTP Connection"];
+          // Use component actions to list directories
+          const sftpActions = await import("./manifests/sftp/actions");
+          const result = await sftpActions.default.listDirectory.perform({
+            connection: sftpConnection,
+            path: "/",
+            includeDirectories: true,
+          });
+          // Transform to picklist format
+          const dirs = (result.data as string[])
+            .filter(name => !name.includes("."))  // simple dir filter
+            .map<Element>(dir => ({ key: dir, label: dir }));
+          return { result: dirs };
+        },
+      }),
+    },
+  }),
+};
+```
+
+Key rules:
+- Connection page MUST come before data source page (Prismatic evaluates sequentially)
+- `perform` receives `context.configVars` with all previously-configured values
+- Return `{ result: Element[] }` where each Element has `key` and `label`
+- Import component actions dynamically if needed for API calls
+
+## Using npm Packages in CNI Flows
+
+CNI flows can use any npm package. Install with `npm install --prefix <project-dir> <package>`.
+Common packages for data processing:
+
+- **papaparse** — CSV parsing with streaming support
+- **ssh2-sftp-client** — Direct SFTP access with streaming (when component actions load full files into memory)
+- **axios** — already included via Spectral SDK
+
+### Pattern: Streaming large files with papaparse
+
+When processing large CSV files, avoid loading the entire file into memory. Use `ssh2-sftp-client`
+for streaming reads and `papaparse` for streaming CSV parsing:
+
+```typescript
+import { flow } from "@prismatic-io/spectral";
+import SftpClient from "ssh2-sftp-client";
+import Papa from "papaparse";
+import { Readable } from "node:stream";
+
+export const processLargeCSV = flow({
+  name: "Process Large CSV",
+  stableKey: "process-large-csv",
+  description: "Streams CSV from SFTP and processes records in batches",
+
+  onExecution: async (context, params) => {
+    const conn = context.configVars["SFTP Connection"];
+
+    // Create direct SFTP client from connection credentials
+    const sftp = new SftpClient();
+    await sftp.connect({
+      host: conn.fields.host as string,
+      port: Number(conn.fields.port ?? 22),
+      username: conn.fields.username as string,
+      password: conn.fields.password as string,
+    });
+
+    try {
+      const filePath = context.configVars["CSV Directory"] as string;
+      // Get a readable stream — file is NOT loaded into memory
+      const stream = sftp.createReadStream(filePath) as unknown as Readable;
+
+      const batch: Record<string, string>[] = [];
+      const BATCH_SIZE = 100;
+      let totalRecords = 0;
+
+      await new Promise<void>((resolve, reject) => {
+        Papa.parse(stream, {
+          header: true,
+          skipEmptyLines: true,
+          step: async (result) => {
+            batch.push(result.data as Record<string, string>);
+            if (batch.length >= BATCH_SIZE) {
+              // Flush batch to MySQL
+              await insertBatch(context, batch.splice(0));
+              totalRecords += BATCH_SIZE;
+            }
+          },
+          complete: async () => {
+            if (batch.length > 0) {
+              await insertBatch(context, batch);
+              totalRecords += batch.length;
+            }
+            resolve();
+          },
+          error: (err: Error) => reject(err),
+        });
+      });
+
+      // Delete processed file
+      await sftp.delete(filePath);
+
+      return { data: { totalRecords } };
+    } finally {
+      await sftp.end();
+    }
+  },
+});
+```
+
+Key points:
+- Use `ssh2-sftp-client` for streaming (the SFTP component's readFile loads everything into memory)
+- `Papa.parse(stream, { step })` processes one row at a time — constant memory regardless of file size
+- Batch inserts every N records to balance throughput and memory
+- Always `sftp.end()` in a finally block
+- The component's connection credentials are in `conn.fields.*`
+
+### MySQL bulk insert with doubly-wrapped array
+
+The MySQL component's query action supports bulk insert with a special parameter format:
+
+```typescript
+import mysqlActions from "./manifests/mysql/actions";
+
+async function insertBatch(
+  context: { configVars: Record<string, unknown> },
+  records: Record<string, string>[]
+) {
+  const mysqlConn = context.configVars["MySQL Connection"];
+  const placeholders = records.map(() => "(?, ?, ?)").join(", ");
+  const query = `INSERT INTO people (name, address, phone) VALUES ${placeholders}`;
+  const params = records.flatMap(r => [
+    `${r.firstName} ${r.lastName}`.trim(),
+    r.address,
+    r.phone,
+  ]);
+
+  await mysqlActions.query.perform({
+    mySQLConnection: mysqlConn,
+    queryField: query,
+    referenceParams: JSON.stringify(params),
+  });
+}
+```
+
+---
+
 ## Test Data
 
 ### test-data/trigger-config.json (for webhook flows)

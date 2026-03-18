@@ -524,7 +524,7 @@ system setup.
 | `scripts/integrations/search-connections.ts` | 1 file | Org-level connection lookup (GraphQL) |
 | `scripts/shared/check-prism-access.ts` | 1 file | Structured network/auth diagnosis (exit codes + remediation) |
 | `scripts/validate-requirements.ts` | 1 file | Spec-vs-answers completeness check (post-compaction safety net) |
-| `scripts/record-choices.ts` | 1 file | Atomic multi-answer writes with flow scoping + connection validation |
+| `scripts/integrations/record-choices.ts` | 1 file | Atomic multi-answer writes with flow scoping + connection validation |
 | `scripts/integrations/locate-project.ts` | 1 file | Project finder + architecture extractor (modify workflow) |
 | `scripts/integrations/extract-state.ts` | 1 file | Deep code-to-spec-answer extraction (modify workflow before snapshot) |
 | `scripts/integrations/sync-task-list.ts` | 1 file | Spec → task manifest bridge (dynamic task creation from conditions) |

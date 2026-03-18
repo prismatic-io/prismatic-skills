@@ -41,7 +41,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
-import { loadSpec, type LoadedSpec } from "./shared/load-spec.js";
+import { loadSpec, type LoadedSpec } from "../shared/load-spec.js";
 
 /** Try to find the integration spec relative to this script's location. */
 function findSpecPath(answersFile: string): string | null {
