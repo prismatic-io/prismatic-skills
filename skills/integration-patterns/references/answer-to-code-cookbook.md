@@ -1056,6 +1056,160 @@ export const configPages = {
 
 ---
 
+## Config Page Constraints
+
+### All connections must be on the first config page
+
+Prismatic requires all connection config vars (customer-activated connections using manifest helpers
+like `sftpBasic()`, `slackOauth2()`) to appear on the FIRST config page. If connections are split
+across multiple pages, deployment fails with:
+"Required Config Var 'X' must appear on the first Configuration Page"
+
+```typescript
+// WRONG — connections split across pages → deploy fails
+export const configPages = {
+  "SFTP": configPage({
+    elements: { "SFTP": sftpBasic("sftp-conn", { ... }) },
+  }),
+  "MySQL": configPage({
+    elements: { "MySQL": mysqlMySql("mysql-conn", { ... }) },  // ERROR: not on first page
+  }),
+};
+
+// CORRECT — all connections on page 1
+export const configPages = {
+  Connections: configPage({
+    tagline: "Connect your SFTP server and MySQL database",
+    elements: {
+      "SFTP Connection": sftpBasic("sftp-conn", { ... }),
+      "MySQL Connection": mysqlMySql("mysql-conn", { ... }),
+    },
+  }),
+  "File Settings": configPage({
+    elements: { ... },  // non-connection config vars on later pages
+  }),
+};
+```
+
+This is separate from the data source ordering rule (data sources must be on a LATER page than
+the connection they depend on). Combined: connections on page 1, data sources on page 2+.
+
+---
+
+## Type Casting in perform Functions
+
+### Config var values are `unknown` — cast before using
+
+In `dataSourceConfigVar` perform functions and flow `onExecution`, config var values
+from `context.configVars` are typed as `unknown`. Cast them before passing to component actions:
+
+```typescript
+import type { Connection } from "@prismatic-io/spectral";
+
+// In a dataSourceConfigVar perform function:
+perform: async (context) => {
+  const conn = context.configVars["SFTP Connection"] as unknown as Connection;
+  // Now safe to pass to component actions
+  const result = await sftpActions.listDirectory.perform({
+    connection: conn,
+    path: "/",
+  });
+  // ...
+},
+
+// In onExecution:
+onExecution: async (context, params) => {
+  const sftpConn = context.configVars["SFTP Connection"] as unknown as Connection;
+  const csvDir = context.configVars["CSV Directory"] as unknown as string;
+  // ...
+},
+```
+
+The double cast `as unknown as Connection` is required because TypeScript won't directly
+cast `unknown` to `Connection` — it needs the intermediate `unknown` step.
+
+---
+
+## Polling Flow Requirements
+
+### triggerType: "polling" is REQUIRED
+
+Polling flows MUST set `triggerType: "polling"` on the flow definition. Without it, the flow
+is treated as a standard scheduled flow and `context.polling` is not available.
+
+```typescript
+// WRONG — missing triggerType, no context.polling available
+export const myFlow = flow({
+  name: "Poll for Changes",
+  schedule: { value: "*/5 * * * *" },
+  onTrigger: async (context, payload) => {
+    // context.polling is undefined here!
+    const state = context.polling.getState();  // ERROR
+  },
+  onExecution: async (context, params) => { ... },
+});
+
+// CORRECT — triggerType: "polling" enables context.polling
+export const myFlow = flow({
+  name: "Poll for Changes",
+  triggerType: "polling",  // REQUIRED
+  schedule: { value: "*/5 * * * *" },
+  onTrigger: async (context, payload) => {
+    const lastRun = await context.polling.getState();
+    // ... fetch changes since lastRun ...
+    await context.polling.setState(newCursor);
+    return { payload: { body: { data: newRecords } } };
+  },
+  onExecution: async (context, params) => { ... },
+});
+```
+
+### context.polling is runtime-only
+
+`context.polling` is available at runtime but NOT reflected in Spectral's TypeScript types
+for the `onTrigger` function. The type signature shows a generic context without `.polling`.
+Use `(context as any).polling` or define a local interface if you need type safety.
+
+### Polling trigger return value
+
+When no new data exists, return `{ payload, polledNoChanges: true }` to skip onExecution:
+
+```typescript
+onTrigger: async (context, payload) => {
+  const lastTimestamp = await context.polling.getState();
+  const records = await fetchRecordsSince(lastTimestamp);
+  if (records.length === 0) {
+    return { payload, polledNoChanges: true };  // skips onExecution
+  }
+  await context.polling.setState(records[records.length - 1].updatedAt);
+  return { payload: { body: { data: records } } };
+},
+```
+
+---
+
+## Accessing Trigger Results in onExecution (Polling Flows)
+
+In polling flows, the onTrigger constructs the payload. Access it in onExecution via
+`params.onTrigger.results`:
+
+```typescript
+onExecution: async (context, params) => {
+  // For polling flows, YOU built this payload in onTrigger
+  const triggerData = params.onTrigger.results.body.data as unknown as Record<string, unknown>;
+
+  // For webhook flows, the external system sent this payload
+  const webhookData = params.onTrigger.results.body.data as unknown as MyPayloadType;
+
+  // Both use the same path — the difference is who constructed the data
+},
+```
+
+The double cast `as unknown as MyType` is needed because `params.onTrigger.results` is
+loosely typed. See the "Cast patterns" section in the code generation checklist.
+
+---
+
 ## Custom Inline Data Sources (Picklist Dropdowns)
 
 When a component doesn't provide a data source for something you need (e.g., SFTP directory listing),
