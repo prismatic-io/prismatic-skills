@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "COMMAND=$(cat | jq -r '.tool_input.command // \"\"'); if echo \"$COMMAND\" | grep -q 'scaffold-project.ts'; then echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"Scaffolding creates project files on disk.\"}}'; elif echo \"$COMMAND\" | grep -q 'deploy-integration.ts'; then echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"Deploying pushes code to the Prismatic platform.\"}}'; fi",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check-destructive.sh",
             "timeout": 5
           }
         ]

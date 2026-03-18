@@ -135,10 +135,17 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/test-integration.ts <integrat
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/sync-task-list.ts <spec-yaml> <requirements.json> --actionable [--mode build|modify] [--extracted-state <state.json>] [--scope "<scopes>"]
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/extract-state.ts <project-dir>
 
+# Component scripts:
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/components/scaffold-component.ts <name>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/components/build-component.ts <project-dir>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/components/publish-component.ts <project-dir>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/components/validate-component.ts <project-dir>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/components/create-organization-connection.ts <component-key> <connection-key> <name>
+
 # Shared scripts:
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/search-connections.ts [keyword]
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase <scaffold|code-gen|build|deploy> --type integration
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <project-dir> --type integration
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase <scaffold|code-gen|build|deploy> --type <integration|component>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <project-dir> --type <integration|component>
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/check-prism-access.ts
 ```
 
