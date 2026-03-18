@@ -282,15 +282,31 @@ NOT find-components (that searches the component registry, not org connections).
 </output>
 </example>
 
+## Narrating tool calls
+
+<example>
+<input>Agent is about to run a script (sync, search, write answers, etc.).</input>
+<output>
+WRONG: "Now let me run the sync script to see what requirements need to be gathered."
+WRONG: "Let me run the sync script to figure out what we already know."
+WRONG: "Running find-components.ts to look up Shopify."
+WRONG: "Let me write those answers and re-sync."
+
+RIGHT: Say nothing — just run it silently.
+RIGHT: "Let me see what I can work out from your description." (then run silently)
+RIGHT: "Checking if Prismatic has a Shopify component..." (then run silently)
+
+The user doesn't know about scripts. Narrate the PURPOSE, not the tool.
+</output>
+</example>
+
 ## Communicating with the user
 
 <example>
 <input>Agent just ran sync-task-list.ts, wrote 10 answers, and needs to tell the user what happened.</input>
 <output>
 WRONG: "19 of 46 answered. 4 required items remain, all inference: prohibited."
-WRONG: "Let me write all of those inferred answers and re-sync."
 WRONG: "Now let me mark the inferred tasks complete and create tasks for the newly surfaced requirements."
-WRONG: "Now let me run the sync script to see what the spec needs from us."
 WRONG: "Let me create the requirement tracking tasks and then walk you through what I picked up."
 
 RIGHT: "Based on your description, here's what I picked up..." [list inferences with WHAT/WHY/IMPACT] "...does this look right?"
@@ -386,17 +402,37 @@ Get patterns from cookbook and integration-patterns skill — do not search the 
 After writing all files, validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase code-gen --type integration`
 </step>
 
-<step name="build-deploy">
+<step name="build">
 Build: `npm run build --prefix <project-dir>` (not `npx webpack` or `npx tsc` directly)
-Pre-deploy validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase deploy --type integration`
-Deploy: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/deploy-integration.ts <project-dir>`
 On build failure: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <project-dir> --type integration`. Use spec, cookbook, templates for fixes — not web search.
+Verify: confirm the build produced `dist/` with a bundled JS file.
+</step>
+
+<step name="confirm-before-deploy">
+This is a destructive action — deploying pushes code to the Prismatic platform and affects the user's org.
+Present what will be deployed: integration name, components, flow count, connection types.
+Ask: "Ready to deploy this to your Prismatic org?"
+Wait for the user's go-ahead. Do not deploy without confirmation.
+Pre-deploy validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase deploy --type integration`
+</step>
+
+<step name="deploy">
+Deploy: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/deploy-integration.ts <project-dir>`
+Verify: run `prism_integrations_flows_list` to confirm the integration appears in the platform. Report the integration ID back to the user.
+</step>
+
+<step name="confirm-before-test">
+Testing executes a flow, which may trigger real side effects (sending messages, creating records, calling external APIs).
+Explain what the test will do and what side effects are possible.
+Ask: "Want me to run a test? It will fire the flow with a sample payload."
+Wait for confirmation.
 </step>
 
 <step name="test">
 Use MCP `prism_integrations_flows_test` with integration ID and optional `flowName`, `filepathToTestPayload`, `payloadContentType`.
 After context compaction, use `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/test-integration.ts <integration-id> --integration-dir <project-dir>` instead.
 Do not call `prism integrations:flows:test` via Bash directly.
+Verify: analyze the execution result. Report what succeeded, what failed, and what requires real credentials to test end-to-end.
 </step>
 
 <step name="iterate">Fix issues, rebuild, redeploy, retest. Diagnose root cause before applying fixes.</step>

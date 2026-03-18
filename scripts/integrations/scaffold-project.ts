@@ -320,30 +320,6 @@ function main(): number {
     return 1;
   }
 
-  // Check for user confirmation flag in requirements.json
-  const projectDir = getProjectRoot();
-  const sessionDir = join(projectDir, ".prismatic", "sessions", "integrations", name);
-  const reqFile = join(sessionDir, "requirements.json");
-  if (existsSync(reqFile)) {
-    try {
-      const reqs = JSON.parse(readFileSync(reqFile, "utf-8"));
-      const answers = reqs.answers ?? reqs;
-      if (answers.user_confirmed !== "yes" && answers.user_confirmed !== "Yes") {
-        console.error(
-          `<scaffold-blocked>\n` +
-          `  Cannot scaffold without user confirmation.\n` +
-          `  Present a summary of ALL decisions to the user and ask: "Does this look right?"\n` +
-          `  After the user confirms, write: user_confirmed=yes to requirements.json\n` +
-          `  Then re-run this scaffold command.\n` +
-          `</scaffold-blocked>`
-        );
-        return 1;
-      }
-    } catch {
-      // Can't read requirements — proceed anyway (might be --existing mode)
-    }
-  }
-
   printSection("Scaffolding Project");
   const projectPath = scaffoldProject(name);
   if (!projectPath) {

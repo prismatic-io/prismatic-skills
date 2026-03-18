@@ -1,5 +1,5 @@
 {
-  "description": "Enforce tool usage policies for Prismatic integration building",
+  "description": "Enforce tool usage policies and destructive action confirmation for Prismatic integration building",
   "hooks": {
     "PreToolUse": [
       {
@@ -7,7 +7,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"deny\"},\"systemMessage\":\"BLOCKED: Use the search script instead: npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/find-components.ts <keyword>\"}' >&2 && exit 2",
+            "command": "echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Use the search script instead: npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/find-components.ts <keyword>\"}}' >&2 && exit 2",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "COMMAND=$(cat | jq -r '.tool_input.command // \"\"'); if echo \"$COMMAND\" | grep -q 'scaffold-project.ts'; then echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"Scaffolding creates project files on disk.\"}}'; elif echo \"$COMMAND\" | grep -q 'deploy-integration.ts'; then echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"Deploying pushes code to the Prismatic platform.\"}}'; fi",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__prism__prism_integrations_flows_test",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"Testing executes a flow which may trigger real side effects (sending messages, creating records).\"}}'",
             "timeout": 5
           }
         ]

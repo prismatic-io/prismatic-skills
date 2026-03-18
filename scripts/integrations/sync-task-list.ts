@@ -112,7 +112,7 @@ interface TaskManifest {
     blocked: number;
     not_applicable: number;
   };
-  ready_for_next_phase: "confirm" | false;
+  ready_for_next_phase: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -555,7 +555,7 @@ function buildManifest(
       blocked,
       not_applicable: notApplicable,
     },
-    ready_for_next_phase: readyForNextPhase ? "confirm" : false,
+    ready_for_next_phase: readyForNextPhase,
   };
 }
 
@@ -777,12 +777,10 @@ function main(): number {
     if (manifest.ready_for_next_phase) {
       console.error(
         `<confirm-before-scaffold>\n` +
-        `  ready_for_next_phase is "confirm", not true. You CANNOT scaffold yet.\n` +
-        `  1. Present a summary of ALL decisions to the user.\n` +
-        `  2. Ask: "Does this look right? Anything you'd like to add or change before I scaffold?"\n` +
-        `  3. WAIT for the user to respond.\n` +
-        `  4. After user confirms, write: user_confirmed=yes to requirements.json.\n` +
-        `  5. The scaffold script checks for user_confirmed and refuses to run without it.\n` +
+        `  All required answers are collected. Before scaffolding:\n` +
+        `  1. Present a summary of ALL decisions to the user (systems, components, connections, flows, error handling, everything).\n` +
+        `  2. Ask: "Does this look right? Anything you'd like to add or change before I scaffold the project?"\n` +
+        `  3. WAIT for the user to respond before proceeding.\n` +
         `</confirm-before-scaffold>`
       );
     }
@@ -811,9 +809,6 @@ function main(): number {
         .length,
       summary: manifest.summary,
       ready_for_next_phase: manifest.ready_for_next_phase,
-      ...(manifest.ready_for_next_phase ? {
-        next_action: "STOP. Present a summary of ALL decisions to the user. Ask: 'Does this look right? Anything you'd like to add or change before I scaffold?' WAIT for the user to confirm. After they confirm, write user_confirmed=yes to requirements.json. The scaffold script will refuse to run without it."
-      } : {}),
       ...(toCreateOptional.length > 0 ? {
         optional_items_instruction: `${toCreateOptional.length} optional items remain. Present each to the user with your recommendation. Do not fill them silently — these are architectural decisions that affect production behavior.`
       } : {}),
