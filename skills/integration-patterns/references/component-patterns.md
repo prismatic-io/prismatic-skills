@@ -37,7 +37,7 @@ For ALL of these integrations:
 
 ### 1. Search for Components
 
-Use `find-components.ts` with a keyword (e.g., "salesforce").
+Use `Prismatic find-components` with a keyword (e.g., "salesforce").
 Returns component keys needed for installation.
 
 ### 2. Install Manifests During Scaffolding

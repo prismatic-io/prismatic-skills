@@ -1,13 +1,25 @@
 {
-  "description": "Enforce tool usage policies and destructive action confirmation for Prismatic integration building",
+  "description": "Enforce tool usage policies, synthetic tool dispatch, and destructive action confirmation for Prismatic integration building",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-discovery.mjs\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "mcp__prism__prism_components_list",
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Use the search script instead: npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts find-components <keyword>\"}}' >&2 && exit 2",
+            "command": "echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Use the search script instead: Prismatic find-components <keyword>\"}}' >&2 && exit 2",
             "timeout": 5
           }
         ]
@@ -17,8 +29,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check-destructive.sh",
-            "timeout": 5
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pretooluse-dispatch.mjs\"",
+            "timeout": 120
           }
         ]
       },

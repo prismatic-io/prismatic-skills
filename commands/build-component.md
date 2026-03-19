@@ -40,7 +40,7 @@ Build a Prismatic custom component for $ARGUMENTS.
 <procedure name="requirements-loop">
   <step>Run gather-requirements.ts</step>
   <step>Check exit code per exit-code-protocol</step>
-  <step>If exit 42: use AskUserQuestion, write answer with write-answer.ts, re-run</step>
+  <step>If exit 42: use AskUserQuestion, write answer with Prismatic write-answer, re-run</step>
   <step>If exit 0 + inline_task: perform research directly using WebFetch/WebSearch, save to output_file, mark answered, re-run</step>
   <step>If exit 0 + question (allow_inference): infer if 100% confident, otherwise ask user, write answer, re-run</step>
   <step>If exit 0 + complete: proceed to next phase</step>
@@ -64,14 +64,14 @@ Capture `session_dir` and `requirements_file` from the JSON output.
 2. Gather requirements via the DAG questionnaire — it handles component search and conditionally triggers API research
    - If the completion output includes `"shape_valid": false`, warn the user about missing requirements before proceeding
 3. Scaffold component with `scaffold-component.ts`
-4. **Validate scaffold:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <component-dir> --phase scaffold --type component`
+4. **Validate scaffold:** `Prismatic validate-phase <component-dir> --phase scaffold --type component`
 5. Generate code using component-patterns skill and templates from `${CLAUDE_PLUGIN_ROOT}/templates/component/`
    - Read the relevant template files to understand required structure
    - Only load phase-appropriate skill references (see SKILL.md phase tags)
-6. **Validate code generation:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <component-dir> --phase code-gen --type component`
+6. **Validate code generation:** `Prismatic validate-phase <component-dir> --phase code-gen --type component`
 7. Build, publish, and validate
-   - If build fails, run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts diagnose-build <component-dir> --type component` before attempting manual fixes
-8. **Validate build:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <component-dir> --phase build --type component`
+   - If build fails, run `Prismatic diagnose-build <component-dir> --type component` before attempting manual fixes
+8. **Validate build:** `Prismatic validate-phase <component-dir> --phase build --type component`
 9. Return summary of what was created
 
 ## Inline Task Handling
@@ -83,6 +83,6 @@ When `gather-requirements.ts` outputs `status: "inline_task"`:
 3. Save results to the file specified in `task.output_file`
 4. Mark the question as answered:
    ```bash
-   npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/write-answer.ts <requirements_file> <question_id> completed
+   Prismatic write-answer <requirements_file> <question_id> completed
    ```
 5. Re-run `gather-requirements.ts` to continue with remaining questions.

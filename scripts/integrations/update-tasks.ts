@@ -51,7 +51,9 @@
  */
 
 import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import { loadSpec } from "../shared/load-spec.js";
+import { getSessionDirectory, getPluginRoot } from "../shared/project-directory.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -617,10 +619,14 @@ function main(): number {
   let mode: "build" | "modify" = "build";
   let extractedStateFile = "";
   let scopeFilter: string[] = [];
+  let sessionName = "";
 
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--mode" && i + 1 < args.length) {
+    if (args[i] === "--session" && i + 1 < args.length) {
+      sessionName = args[i + 1];
+      i++;
+    } else if (args[i] === "--mode" && i + 1 < args.length) {
       mode = args[i + 1] as "build" | "modify";
       i++;
     } else if (args[i] === "--extracted-state" && i + 1 < args.length) {
@@ -634,15 +640,21 @@ function main(): number {
     }
   }
 
-  if (positional.length < 2) {
+  if (!sessionName && positional.length < 2) {
     console.error(
-      "Usage: npx tsx sync-task-list.ts <spec.yaml> <answers.json> [--mode build|modify] [--extracted-state <file>] [--scope <scopes>]"
+      "Usage: npx tsx sync-task-list.ts <spec.yaml> <answers.json> [--mode build|modify] [--extracted-state <file>] [--scope <scopes>]\n" +
+      "       npx tsx sync-task-list.ts --session <name> --actionable [--mode build|modify]"
     );
     return 2;
   }
 
-  specFile = positional[0];
-  answersFile = positional[1];
+  if (sessionName) {
+    specFile = join(getPluginRoot(), "scripts", "questions", "integration.yaml");
+    answersFile = join(getSessionDirectory(sessionName, "integrations"), "requirements.json");
+  } else {
+    specFile = positional[0];
+    answersFile = positional[1];
+  }
 
   // Load spec
   let spec: Spec;

@@ -81,7 +81,7 @@ The references below are the full set available — load per the agent's guidanc
 - `references/answer-to-code-cookbook.md` - **LOAD FIRST** — Maps integration.yaml answers directly to TypeScript code snippets. Spec items with `cookbook_section` fields point to specific headings in this file — Grep for those headings to find exact patterns, especially after context compaction.
 - `references/spectral-types.md` - **SDK type reference** — validate generated code against actual types
 - `references/code-generation-guide.md` - File generation patterns and context object
-- `references/code-anti-patterns.md` - **Common mistakes** — wrong/right examples for config pages, flow callbacks, imports, component usage, trigger configuration. Consult when validate-phase.ts returns guidance items.
+- `references/code-anti-patterns.md` - **Common mistakes** — wrong/right examples for config pages, flow callbacks, imports, component usage, trigger configuration. Consult when Prismatic validate-phase returns guidance items.
 - `references/documentation-style.md` - Writing style rules for generated `documentation.md` files (no second-person pronouns, no product name, active voice)
 - `references/cni-examples/config-patterns-correct-vs-incorrect.md` - Config wrapper functions (CRITICAL)
 - `references/cni-examples/using-components.md` - Component usage patterns
@@ -99,7 +99,7 @@ The references below are the full set available — load per the agent's guidanc
 - If integration-agnostic connections: `references/cni-examples/integration-agnostic-connections.md`
 - If templated connections: `references/cni-examples/templated-connections.md`
 - If no component exists for source/destination: `references/cni-examples/direct-http-patterns.md`
-- After code generation, run `verify-codegen.ts` to confirm requirements were transcribed into generated code
+- After code generation, run `Prismatic verify-code` to confirm requirements were transcribed into generated code
 
 ### Phase 6-7: Build, Deploy & Test
 - `references/troubleshooting-errors.md` - Common errors and fixes

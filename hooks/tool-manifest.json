@@ -1,0 +1,103 @@
+{
+  "synthetic": {
+    "find-components": {
+      "script": "find-components",
+      "desc": "Find available Prismatic connectors by keyword",
+      "usage": "<keyword>",
+      "timeout": 30
+    },
+    "extract-connections": {
+      "script": "extract-connections",
+      "desc": "List the available auth methods for a component",
+      "usage": "<connections-json>"
+    },
+    "get-credentials": {
+      "script": "get-credentials",
+      "desc": "Show what credentials the customer will need to provide",
+      "usage": "<component_key> '<connection_json>'"
+    },
+    "search-connections": {
+      "script": "search-connections",
+      "desc": "Look for pre-configured connections in your Prismatic org",
+      "usage": "[keyword]",
+      "timeout": 30
+    },
+    "check-prism-access": {
+      "script": "check-prism-access",
+      "desc": "Check that you're logged in and can reach Prismatic",
+      "usage": ""
+    },
+    "validate-typescript": {
+      "script": "validate-typescript",
+      "desc": "Type-check the project without building",
+      "usage": "<integration-dir>",
+      "timeout": 60
+    },
+    "troubleshoot": {
+      "script": "troubleshoot",
+      "desc": "Check for common setup problems",
+      "usage": "[project-dir]"
+    },
+    "diagnose-build": {
+      "script": "diagnose-build",
+      "desc": "Figure out why the build failed and suggest fixes",
+      "usage": "<project-dir> --type <component|integration>"
+    },
+    "locate-project": {
+      "script": "locate-project",
+      "desc": "Find where an integration project lives on disk",
+      "usage": "<name>"
+    },
+    "validate-phase": {
+      "script": "validate-phase",
+      "desc": "Verify the project is ready for the next step",
+      "usage": "<project-dir> --phase <scaffold|code-gen|build|deploy> --type <component|integration>"
+    },
+    "extract-state": {
+      "script": "extract-state",
+      "desc": "Read an existing integration and understand how it's configured",
+      "usage": "<project-dir>"
+    },
+    "update-tasks": {
+      "script": "update-tasks",
+      "desc": "See what questions are answered, what's left, and what's next",
+      "usage": "--session <name> --actionable [--mode build|modify] [--extracted-state <state.json>] [--scope \"<scopes>\"]",
+      "timeout": 30
+    },
+    "verify-code": {
+      "script": "verify-code",
+      "desc": "Check that the code matches what was decided during requirements",
+      "usage": "<project-dir> --session <name>"
+    },
+    "validate-requirements": {
+      "script": "validate-requirements",
+      "desc": "Make sure all required questions have been answered",
+      "usage": "--session <name>"
+    },
+    "record-choices": {
+      "script": "record-choices",
+      "desc": "Record design decisions",
+      "usage": "--session <name> key=value [key2=value2] [--flow <flow-id>]"
+    },
+    "write-answer": {
+      "script": "write-answer",
+      "desc": "Record a single answer",
+      "usage": "--session <name> <question_id> <value>"
+    }
+  },
+  "explicit": {
+    "scaffold-project": "Creates project files (disk writes)",
+    "deploy-integration": "Pushes to Prismatic platform (destructive)",
+    "build-integration": "Compiles TypeScript (disk writes)",
+    "test-integration": "Triggers real side effects",
+    "install-dependencies": "Runs npm install (network + disk)",
+    "scaffold-component": "Creates component files (disk writes)",
+    "build-component": "Compiles component TypeScript (disk writes)",
+    "publish-component": "Publishes component to Prismatic (destructive)",
+    "package-for-download": "Creates archive files (disk writes)",
+    "prerequisites": "Multi-step setup with progress output (creates session dirs)",
+    "gather-requirements": "Interactive DAG questionnaire (exit code 42 protocol)",
+    "validate-component": "Validates component structure",
+    "create-organization-connection": "Creates org-level connection (platform write)"
+  }
+}

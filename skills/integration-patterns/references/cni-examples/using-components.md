@@ -425,9 +425,9 @@ if (notificationType === "slack") {
 Search for components before scaffolding:
 
 ```bash
-npx tsx scripts/integrations/find-components.ts salesforce
-npx tsx scripts/integrations/find-components.ts slack
-npx tsx scripts/integrations/find-components.ts hubspot
+Prismatic find-components salesforce
+Prismatic find-components slack
+Prismatic find-components hubspot
 ```
 
 This returns component keys (with connection details) to use with `--components` flag.

@@ -13,7 +13,7 @@ You are an expert API researcher specializing in analyzing external API document
 **IMPORTANT:** This agent should ONLY be spawned when the cni-builder agent determines that no Prismatic component exists for a system AND the user has provided an API docs URL (via the `source_api_docs_url` or `destination_api_docs_url` spec item). Do NOT spawn this agent eagerly at the start of a build — the cni-builder first searches for existing Prismatic components and only requests research when no component is found.
 
 The cni-builder will:
-1. Search for components using `find-components.ts`
+1. Search for components using `Prismatic find-components`
 2. If no component is found, ask for the API docs URL (spec items `source_api_docs_url` / `destination_api_docs_url`)
 3. Once the user provides a URL, spawn this agent with that URL
 4. Save the research output to `{session_dir}/source-api-research.json` or `{session_dir}/destination-api-research.json`

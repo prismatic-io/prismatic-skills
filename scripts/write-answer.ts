@@ -19,6 +19,8 @@
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { getSessionDirectory } from "./shared/project-directory.js";
 
 function main(): number {
   const args = process.argv.slice(2);
@@ -26,30 +28,56 @@ function main(): number {
   if (args.length < 2) {
     console.log(
       "Usage: npx tsx write-answer.ts <answers-file> [--flow <flow-id>] <question-id> <answer>\n" +
-      "       echo '<answer>' | npx tsx write-answer.ts <answers-file> [--flow <flow-id>] <question-id>"
+      "       npx tsx write-answer.ts --session <name> [--flow <flow-id>] <question-id> <answer>"
     );
     return 1;
   }
 
-  const answersFile = args[0];
-
-  // Parse --flow flag
+  // Parse all flags first, collect positional args
   let flowId: string | null = null;
-  let restArgs: string[];
+  let sessionName: string | null = null;
+  const positional: string[] = [];
 
-  if (args[1] === "--flow") {
-    if (args.length < 4) {
-      console.error("--flow requires a flow ID and question ID");
-      return 1;
+  let i = 0;
+  while (i < args.length) {
+    if (args[i] === "--session") {
+      if (i + 1 >= args.length) {
+        console.error("--session requires a session name");
+        return 1;
+      }
+      sessionName = args[i + 1];
+      i += 2;
+    } else if (args[i] === "--flow") {
+      if (i + 1 >= args.length) {
+        console.error("--flow requires a flow ID");
+        return 1;
+      }
+      flowId = args[i + 1];
+      i += 2;
+    } else if (args[i] === "--json") {
+      i++; // skip, handled below
+    } else if (!args[i].startsWith("-")) {
+      positional.push(args[i]);
+      i++;
+    } else {
+      i++;
     }
-    flowId = args[2];
-    restArgs = args.slice(3);
-  } else {
-    restArgs = args.slice(1);
   }
 
-  const questionId = restArgs[0];
-  let answerRaw: string | undefined = restArgs[1];
+  // Resolve answersFile and remaining positional args
+  let answersFile: string;
+  let questionId: string;
+  let answerRaw: string | undefined;
+
+  if (sessionName) {
+    answersFile = join(getSessionDirectory(sessionName, "integrations"), "requirements.json");
+    questionId = positional[0];
+    answerRaw = positional[1];
+  } else {
+    answersFile = positional[0];
+    questionId = positional[1];
+    answerRaw = positional[2];
+  }
 
   if (answerRaw === "--json" && restArgs.length > 2) {
     answerRaw = restArgs[2];

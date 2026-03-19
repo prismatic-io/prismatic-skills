@@ -47,7 +47,7 @@
 - Decision flowchart for choosing the right type
 - Code examples for all three types in configPages.ts and index.ts
 - **Use for**: Any integration needing OAuth or API key connections
-- **Search available**: `search-connections.ts [keyword]`
+- **Search available**: `Prismatic search-connections [keyword]`
 
 **multi-flow.md** - Multiple flows in one integration
 

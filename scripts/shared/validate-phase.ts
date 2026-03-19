@@ -338,6 +338,7 @@ function collectFlowFiles(projectDir: string): string[] {
 }
 
 interface Guidance {
+  severity: "error" | "warning";
   issue: string;
   fix: string;
   reference?: string;
@@ -377,6 +378,7 @@ function semanticChecks(
         !/configVar\s*\(/.test(content)
       ) {
         guidance.push({
+          severity: "error",
           issue:
             "configPages.ts contains raw objects instead of wrapper functions",
           fix: "Replace plain `{ key: ... }` objects with `configVar()`, `connectionConfigVar()`, or `dataSourceConfigVar()` wrappers. See the configPages.ts.template for correct patterns.",
@@ -399,6 +401,7 @@ function semanticChecks(
           content.includes("onInstanceDelete"))
       ) {
         guidance.push({
+          severity: "error",
           issue: `${relPath}: instanceState used in lifecycle hook`,
           fix: "Replace `context.instanceState` with `context.crossFlowState` in onInstanceDeploy/onInstanceDelete. instanceState is not available during lifecycle callbacks.",
           reference: "code-anti-patterns.md#instanceState-in-lifecycle",
@@ -412,6 +415,7 @@ function semanticChecks(
         !content.includes("onTrigger")
       ) {
         guidance.push({
+          severity: "error",
           issue: `${relPath}: lifecycle hooks without onTrigger passthrough`,
           fix: "Add `onTrigger: async (_context, payload) => ({ payload })` to the flow. Without it, webhook payloads are not forwarded to onExecution.",
           reference: "code-anti-patterns.md#missing-onTrigger-passthrough",
@@ -421,6 +425,7 @@ function semanticChecks(
       // Check for typed flow generics
       if (/flow\s*</.test(content)) {
         guidance.push({
+          severity: "error",
           issue: `${relPath}: flow() called with generic type parameters`,
           fix: "Remove the generic type parameter from flow(). Use `flow({...})` without generics — type annotations on callbacks cause TS2345 mismatches with Spectral's internal types.",
           reference: "code-anti-patterns.md#typed-flow-generics",
@@ -430,6 +435,7 @@ function semanticChecks(
       // Check for webhookLifecycleHandlers
       if (/webhookLifecycleHandlers\s*:/.test(content)) {
         guidance.push({
+          severity: "error",
           issue: `${relPath}: uses webhookLifecycleHandlers (unstable API)`,
           fix: "Replace with onInstanceDeploy/onInstanceDelete callbacks. webhookLifecycleHandlers has been reported to cause 'Invalid trigger configuration' on some platform versions.",
           reference: "code-anti-patterns.md#webhook-lifecycle-handlers",
@@ -448,6 +454,7 @@ function semanticChecks(
           const content = readFileSync(join(srcDir, f), "utf-8");
           if (/@prismatic-io\/spectral\/dist/.test(content)) {
             guidance.push({
+              severity: "error",
               issue: `src/${f}: imports from internal spectral path`,
               fix: "Import from `@prismatic-io/spectral` (the root package), not from internal `dist/` paths. Internal paths break on SDK version updates.",
               reference: "code-anti-patterns.md#internal-spectral-imports",
@@ -455,6 +462,7 @@ function semanticChecks(
           }
           if (/as\s+any/.test(content)) {
             guidance.push({
+              severity: "warning",
               issue: `src/${f}: uses 'as any' cast`,
               fix: "Remove 'as any' and fix the underlying type mismatch. For generic-to-specific casts, use `as unknown as MyType`. 'as any' silences real type errors that cause runtime failures.",
               reference: "code-anti-patterns.md#as-any-for-spectral-types",
@@ -472,6 +480,7 @@ function semanticChecks(
       const content = readFileSync(fp, "utf-8");
       if (/context\.components\./.test(content)) {
         guidance.push({
+          severity: "error",
           issue: `${relPath}: uses context.components API (does not exist in CNIs)`,
           fix: "Import the component manifest and call actions through it: `import slack from './manifests/slack'; await slack.actions.postMessage.perform({...})`",
           reference: "code-anti-patterns.md#context-components-api",
@@ -487,6 +496,7 @@ function semanticChecks(
       const content = readFileSync(docPath, "utf-8");
       if (/\byou\b|\byour\b|\byou'll\b|\byou're\b/i.test(content)) {
         guidance.push({
+          severity: "warning",
           issue: "documentation.md: contains second-person pronouns",
           fix: "Rewrite sentences that use 'you/your' to use impersonal constructions. Example: 'You need to configure...' → 'Configure...'",
           reference: "documentation-style.md",
@@ -494,6 +504,7 @@ function semanticChecks(
       }
       if (/\bPrismatic\b/.test(content)) {
         guidance.push({
+          severity: "warning",
           issue: "documentation.md: mentions product name 'Prismatic'",
           fix: "Remove references to 'Prismatic'. Use 'the integration', 'the platform', or 'the config page' instead. The docs are shown inside the platform — naming it is redundant.",
           reference: "documentation-style.md",
@@ -667,7 +678,8 @@ function main(): number {
   // Run semantic checks and append guidance
   const guidanceItems = semanticChecks(projectDir, phase, projectType);
   result.guidance.push(...guidanceItems);
-  if (guidanceItems.length > 0) {
+  const errors = guidanceItems.filter(g => g.severity === "error");
+  if (errors.length > 0) {
     result.complete = false;
   }
 

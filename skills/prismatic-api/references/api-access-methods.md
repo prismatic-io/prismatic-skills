@@ -130,7 +130,7 @@ prism graphql:query \
 | Operation | MCP Tool | CLI Command | graphql.ts |
 |-----------|----------|-------------|------------|
 | List components | `prism_components_list` | `prism components:list` | - |
-| Search components | `prism_components_list` | - | `find-components.ts` |
+| Search components | `prism_components_list` | - | `Prismatic find-components` |
 | Publish component | `prism_components_publish` | `prism components:publish` | - |
 | List integrations | `prism_integrations_list` | `prism integrations:list` | - |
 | Import integration | `prism_integrations_import` | `prism integrations:import` | - |

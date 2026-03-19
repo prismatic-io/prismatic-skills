@@ -14,7 +14,9 @@
  */
 
 import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import { loadSpec } from "./shared/load-spec.js";
+import { getSessionDirectory, getPluginRoot } from "./shared/project-directory.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -211,25 +213,33 @@ function main(): number {
   const args = process.argv.slice(2);
   let specFile = "";
   let answersFile = "";
-  let _sessionDir = "";
+  let sessionName = "";
 
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--session-dir" && i + 1 < args.length) {
-      _sessionDir = args[i + 1];
+    if (args[i] === "--session" && i + 1 < args.length) {
+      sessionName = args[i + 1];
       i++;
     } else if (!args[i].startsWith("-")) {
       positional.push(args[i]);
     }
   }
 
-  if (positional.length < 2) {
-    console.error("Usage: npx tsx validate-requirements.ts <spec.yaml> <answers.json> [--session-dir <dir>]");
+  if (!sessionName && positional.length < 2) {
+    console.error(
+      "Usage: npx tsx validate-requirements.ts <spec.yaml> <answers.json>\n" +
+      "       npx tsx validate-requirements.ts --session <name>"
+    );
     return 2;
   }
 
-  specFile = positional[0];
-  answersFile = positional[1];
+  if (sessionName) {
+    specFile = join(getPluginRoot(), "scripts", "questions", "integration.yaml");
+    answersFile = join(getSessionDirectory(sessionName, "integrations"), "requirements.json");
+  } else {
+    specFile = positional[0];
+    answersFile = positional[1];
+  }
 
   // Load spec (resolves $include directives for domain files)
   let spec: Spec;

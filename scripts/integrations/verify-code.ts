@@ -17,6 +17,7 @@
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { getSessionDirectory } from "../shared/project-directory.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -460,15 +461,30 @@ function formatOutput(gaps: Gap[], notes: Note[], verified: number): string {
 function main(): number {
   const args = process.argv.slice(2);
 
-  if (args.length < 2) {
+  // Parse flags
+  let sessionName: string | null = null;
+  const positional: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--session" && i + 1 < args.length) {
+      sessionName = args[i + 1];
+      i++;
+    } else if (!args[i].startsWith("-")) {
+      positional.push(args[i]);
+    }
+  }
+
+  if (positional.length < 1 || (!sessionName && positional.length < 2)) {
     console.error(
-      "Usage: npx tsx verify-codegen.ts <project-dir> <requirements.json>"
+      "Usage: npx tsx verify-codegen.ts <project-dir> <requirements.json>\n" +
+      "       npx tsx verify-codegen.ts <project-dir> --session <name>"
     );
     return 2;
   }
 
-  const projectDir = resolve(args[0]);
-  const requirementsPath = resolve(args[1]);
+  const projectDir = resolve(positional[0]);
+  const requirementsPath = sessionName
+    ? resolve(join(getSessionDirectory(sessionName, "integrations"), "requirements.json"))
+    : resolve(positional[1]);
 
   try {
     if (!existsSync(projectDir)) {

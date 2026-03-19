@@ -38,7 +38,7 @@ The script:
 - **Prism not installed** → Script auto-installs, or run `npm install -g @prismatic-io/prism`
 - **Not logged in** → Run `prism login` to authenticate via browser
 - **npm not found** → Install Node.js from nodejs.org
-- **Network or auth failure** → Run `check-prism-access.ts` for structured diagnosis (exit 1=network, exit 2=auth, exit 3=other) with environment-specific remediation steps
+- **Network or auth failure** → Run `Prismatic check-prism-access` for structured diagnosis (exit 1=network, exit 2=auth, exit 3=other) with environment-specific remediation steps
 
 ### Technical Notes
 
@@ -110,16 +110,16 @@ Read each domain file only when entering its group. Skip domain files when prior
 - If `implications` exists — cover each option's downstream effects when presenting choices
 - If `inference: allowed` — infer from context when confident, explain what you inferred and why
 - If `inference: prohibited` — ALWAYS ask the user via AskUserQuestion
-- If `type: lookup` — use `find-components.ts` to search, present results to user
+- If `type: lookup` — use `Prismatic find-components` to search, present results to user
 - If `docs` exists — do NOT fetch on every question; follow the doc-fetch protocol in the agent instructions
 
 **4. Persist answers:**
 
-Read `requirements.json`, merge the new answer, and write back using Edit or Write. Minimize tool call noise by batching when natural. For multi-flow integrations, use `record-choices.ts <answers-file> --flow <flow-id> '<json>'` to handle flow-scoped nesting and connection type validation automatically.
+Read `requirements.json`, merge the new answer, and write back using Edit or Write. Minimize tool call noise by batching when natural. For multi-flow integrations, use `Prismatic record-choices <answers-file> --flow <flow-id> '<json>'` to handle flow-scoped nesting and connection type validation automatically.
 
 **5. Verify completeness:**
 
-When all groups are covered, read the YAML spec and requirements.json together to confirm nothing is missing. If items are missing, ask about them before proceeding. After context compaction (when you may have lost track of which groups were covered), use `validate-requirements.ts <spec-path> <requirements.json>` for a mechanical spec-vs-answers diff.
+When all groups are covered, read the YAML spec and requirements.json together to confirm nothing is missing. If items are missing, ask about them before proceeding. After context compaction (when you may have lost track of which groups were covered), use `Prismatic validate-requirements <spec-path> <requirements.json>` for a mechanical spec-vs-answers diff.
 
 ### Inference Rules
 
@@ -130,7 +130,7 @@ When all groups are covered, read the YAML spec and requirements.json together t
 
 The agent:
 
-- Searches for components via `find-components.ts`
+- Searches for components via `Prismatic find-components`
 - Asks conditional questions based on previous answers
 - Stores structured data in `requirements.json`
 
@@ -155,7 +155,7 @@ Note: Project scaffolding happens after Phase 2. Run `scripts/integrations/scaff
 
 Based on the requirements gathered in Phase 2, identify which 3rd party components are needed:
 
-- Search for components: `find-components.ts` with search keyword
+- Search for components: `Prismatic find-components` with search keyword
 - Scaffold: MCP `prism_integrations_init` with `name`, then `prism_install_component_manifest` for each component
 
 **Copy requirements to the project after scaffolding:**
@@ -272,7 +272,7 @@ See [trigger-metadata-spec.md](trigger-metadata-spec.md) for complete specificat
 
 1. **Identify needed components during Phase 2:**
 
-   Use `find-components.ts` with search keyword
+   Use `Prismatic find-components` with search keyword
 
 2. **Install manifests during scaffolding:**
 
@@ -366,7 +366,7 @@ npm run build --prefix <project-dir>
 
 If build fails:
 
-- Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <project-dir> --type integration` for diagnosis
+- Run `Prismatic diagnose-build <project-dir> --type integration` for diagnosis
 - Fix issues (see [troubleshooting-errors.md](troubleshooting-errors.md))
 - Rebuild
 

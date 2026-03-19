@@ -42,6 +42,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { loadSpec, type LoadedSpec } from "../shared/load-spec.js";
+import { getSessionDirectory } from "../shared/project-directory.js";
 
 /** Try to find the integration spec relative to this script's location. */
 function findSpecPath(answersFile: string): string | null {
@@ -63,23 +64,30 @@ function main(): number {
   if (args.length < 1) {
     console.log(
       'Usage: npx tsx record-choices.ts <answers-file> [--flow <flow-id>] \'<json-object>\'\n' +
-      '       echo \'<json>\' | npx tsx record-choices.ts <answers-file> [--flow <flow-id>]'
+      '       npx tsx record-choices.ts --session <name> key=value [--flow <flow-id>]'
     );
     return 1;
   }
 
-  const answersFile = args[0];
-
-  // Parse flags and key=value pairs
+  // Parse flags and key=value pairs from ALL args (flags can appear anywhere)
   let flowId: string | null = null;
   let inputFile: string | null = null;
   let syncSpec: string | null = null;
+  let sessionName: string | null = null;
   let batchRaw: string | undefined;
   const kvPairs: Array<[string, string]> = [];
+  const positional: string[] = [];
 
-  let i = 1;
+  let i = 0;
   while (i < args.length) {
-    if (args[i] === "--flow") {
+    if (args[i] === "--session") {
+      if (i + 1 >= args.length) {
+        console.error("--session requires a session name");
+        return 1;
+      }
+      sessionName = args[i + 1];
+      i += 2;
+    } else if (args[i] === "--flow") {
       if (i + 1 >= args.length) {
         console.error("--flow requires a flow ID");
         return 1;
@@ -107,12 +115,30 @@ function main(): number {
       const val = args[i].slice(eqIdx + 1);
       kvPairs.push([key, val]);
       i++;
-    } else if (!batchRaw) {
-      batchRaw = args[i];
+    } else if (!args[i].startsWith("-")) {
+      positional.push(args[i]);
       i++;
     } else {
       i++;
     }
+  }
+
+  // Resolve answersFile: --session takes priority, then first positional arg
+  let answersFile: string;
+  if (sessionName) {
+    answersFile = join(getSessionDirectory(sessionName, "integrations"), "requirements.json");
+    // First positional (if any) becomes batchRaw
+    if (positional.length > 0 && !positional[0].includes("=")) {
+      batchRaw = positional[0];
+    }
+  } else if (positional.length > 0) {
+    answersFile = positional[0];
+    if (positional.length > 1) {
+      batchRaw = positional[1];
+    }
+  } else {
+    console.error("Either --session <name> or an answers file path is required");
+    return 1;
   }
 
   // Build batch from key=value pairs if present
