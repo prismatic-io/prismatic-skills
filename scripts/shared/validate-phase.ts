@@ -337,6 +337,12 @@ function collectFlowFiles(projectDir: string): string[] {
   }
 }
 
+interface Guidance {
+  issue: string;
+  fix: string;
+  reference?: string;
+}
+
 interface ValidationResult {
   complete: boolean;
   description: string;
@@ -344,7 +350,159 @@ interface ValidationResult {
   missing: string[];
   missing_patterns: string[];
   optional_missing: string[];
+  guidance: Guidance[];
   completeness?: number;
+}
+
+/**
+ * Semantic checks that go beyond structural validation.
+ * Returns guidance mini-prompts that help the agent fix issues.
+ */
+function semanticChecks(
+  projectDir: string,
+  phase: string,
+  projectType: string
+): Guidance[] {
+  const guidance: Guidance[] = [];
+
+  if (projectType !== "integration" || phase !== "code-gen") return guidance;
+
+  // Check configPages for raw objects (missing wrapper functions)
+  const configPath = join(projectDir, "src", "configPages.ts");
+  if (existsSync(configPath)) {
+    try {
+      const content = readFileSync(configPath, "utf-8");
+      if (
+        /\{\s*key\s*:\s*["']/.test(content) &&
+        !/configVar\s*\(/.test(content)
+      ) {
+        guidance.push({
+          issue:
+            "configPages.ts contains raw objects instead of wrapper functions",
+          fix: "Replace plain `{ key: ... }` objects with `configVar()`, `connectionConfigVar()`, or `dataSourceConfigVar()` wrappers. See the configPages.ts.template for correct patterns.",
+          reference: "code-anti-patterns.md#raw-config-objects",
+        });
+      }
+    } catch {}
+  }
+
+  // Check flows for instanceState in lifecycle hooks
+  const flowFiles = collectFlowFiles(projectDir);
+  for (const fp of flowFiles) {
+    const relPath = fp.replace(projectDir + "/", "");
+    try {
+      const content = readFileSync(fp, "utf-8");
+
+      if (
+        content.includes("instanceState") &&
+        (content.includes("onInstanceDeploy") ||
+          content.includes("onInstanceDelete"))
+      ) {
+        guidance.push({
+          issue: `${relPath}: instanceState used in lifecycle hook`,
+          fix: "Replace `context.instanceState` with `context.crossFlowState` in onInstanceDeploy/onInstanceDelete. instanceState is not available during lifecycle callbacks.",
+          reference: "code-anti-patterns.md#instanceState-in-lifecycle",
+        });
+      }
+
+      // Check for lifecycle hooks without onTrigger passthrough
+      if (
+        (content.includes("onInstanceDeploy") ||
+          content.includes("onInstanceDelete")) &&
+        !content.includes("onTrigger")
+      ) {
+        guidance.push({
+          issue: `${relPath}: lifecycle hooks without onTrigger passthrough`,
+          fix: "Add `onTrigger: async (_context, payload) => ({ payload })` to the flow. Without it, webhook payloads are not forwarded to onExecution.",
+          reference: "code-anti-patterns.md#missing-onTrigger-passthrough",
+        });
+      }
+
+      // Check for typed flow generics
+      if (/flow\s*</.test(content)) {
+        guidance.push({
+          issue: `${relPath}: flow() called with generic type parameters`,
+          fix: "Remove the generic type parameter from flow(). Use `flow({...})` without generics — type annotations on callbacks cause TS2345 mismatches with Spectral's internal types.",
+          reference: "code-anti-patterns.md#typed-flow-generics",
+        });
+      }
+
+      // Check for webhookLifecycleHandlers
+      if (/webhookLifecycleHandlers\s*:/.test(content)) {
+        guidance.push({
+          issue: `${relPath}: uses webhookLifecycleHandlers (unstable API)`,
+          fix: "Replace with onInstanceDeploy/onInstanceDelete callbacks. webhookLifecycleHandlers has been reported to cause 'Invalid trigger configuration' on some platform versions.",
+          reference: "code-anti-patterns.md#webhook-lifecycle-handlers",
+        });
+      }
+    } catch {}
+  }
+
+  // Check for internal spectral imports
+  const srcDir = join(projectDir, "src");
+  if (existsSync(srcDir)) {
+    try {
+      const files = readdirSync(srcDir).filter((f) => f.endsWith(".ts"));
+      for (const f of files) {
+        try {
+          const content = readFileSync(join(srcDir, f), "utf-8");
+          if (/@prismatic-io\/spectral\/dist/.test(content)) {
+            guidance.push({
+              issue: `src/${f}: imports from internal spectral path`,
+              fix: "Import from `@prismatic-io/spectral` (the root package), not from internal `dist/` paths. Internal paths break on SDK version updates.",
+              reference: "code-anti-patterns.md#internal-spectral-imports",
+            });
+          }
+          if (/as\s+any/.test(content)) {
+            guidance.push({
+              issue: `src/${f}: uses 'as any' cast`,
+              fix: "Remove 'as any' and fix the underlying type mismatch. For generic-to-specific casts, use `as unknown as MyType`. 'as any' silences real type errors that cause runtime failures.",
+              reference: "code-anti-patterns.md#as-any-for-spectral-types",
+            });
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+
+  // Check for context.components usage (wrong API for CNIs)
+  for (const fp of flowFiles) {
+    const relPath = fp.replace(projectDir + "/", "");
+    try {
+      const content = readFileSync(fp, "utf-8");
+      if (/context\.components\./.test(content)) {
+        guidance.push({
+          issue: `${relPath}: uses context.components API (does not exist in CNIs)`,
+          fix: "Import the component manifest and call actions through it: `import slack from './manifests/slack'; await slack.actions.postMessage.perform({...})`",
+          reference: "code-anti-patterns.md#context-components-api",
+        });
+      }
+    } catch {}
+  }
+
+  // Check documentation style (if documentation.md exists)
+  const docPath = join(projectDir, "src", "documentation.md");
+  if (existsSync(docPath)) {
+    try {
+      const content = readFileSync(docPath, "utf-8");
+      if (/\byou\b|\byour\b|\byou'll\b|\byou're\b/i.test(content)) {
+        guidance.push({
+          issue: "documentation.md: contains second-person pronouns",
+          fix: "Rewrite sentences that use 'you/your' to use impersonal constructions. Example: 'You need to configure...' → 'Configure...'",
+          reference: "documentation-style.md",
+        });
+      }
+      if (/\bPrismatic\b/.test(content)) {
+        guidance.push({
+          issue: "documentation.md: mentions product name 'Prismatic'",
+          fix: "Remove references to 'Prismatic'. Use 'the integration', 'the platform', or 'the config page' instead. The docs are shown inside the platform — naming it is redundant.",
+          reference: "documentation-style.md",
+        });
+      }
+    } catch {}
+  }
+
+  return guidance;
 }
 
 function validatePhase(projectDir: string, shape: Shape): ValidationResult {
@@ -355,6 +513,7 @@ function validatePhase(projectDir: string, shape: Shape): ValidationResult {
     missing: [],
     missing_patterns: [],
     optional_missing: [],
+    guidance: [],
   };
 
   // Check required files
@@ -505,6 +664,13 @@ function main(): number {
     }
   }
 
+  // Run semantic checks and append guidance
+  const guidanceItems = semanticChecks(projectDir, phase, projectType);
+  result.guidance.push(...guidanceItems);
+  if (guidanceItems.length > 0) {
+    result.complete = false;
+  }
+
   // Compute completeness percentage
   let total =
     (shape.required_files?.length ?? 0) + (shape.required_dirs?.length ?? 0);
@@ -535,6 +701,13 @@ function main(): number {
     }
     for (const m of result.missing_patterns) {
       console.error(`  Pattern: ${m}`);
+    }
+    for (const g of result.guidance) {
+      console.error(`  Issue: ${g.issue}`);
+      console.error(`    Fix: ${g.fix}`);
+      if (g.reference) {
+        console.error(`    See: ${g.reference}`);
+      }
     }
     return 1;
   }

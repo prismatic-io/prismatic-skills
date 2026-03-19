@@ -67,6 +67,8 @@ The references below are the full set available — load per the agent's guidanc
 - `references/answer-to-code-cookbook.md` - **LOAD FIRST** — Maps integration.yaml answers directly to TypeScript code snippets. Spec items with `cookbook_section` fields point to specific headings in this file — Grep for those headings to find exact patterns, especially after context compaction.
 - `references/spectral-types.md` - **SDK type reference** — validate generated code against actual types
 - `references/code-generation-guide.md` - File generation patterns and context object
+- `references/code-anti-patterns.md` - **Common mistakes** — wrong/right examples for config pages, flow callbacks, imports, component usage, trigger configuration. Consult when validate-phase.ts returns guidance items.
+- `references/documentation-style.md` - Writing style rules for generated `documentation.md` files (no second-person pronouns, no product name, active voice)
 - `references/cni-examples/config-patterns-correct-vs-incorrect.md` - Config wrapper functions (CRITICAL)
 - `references/cni-examples/using-components.md` - Component usage patterns
 - `references/trigger-metadata-spec.md` - Test data structure requirements
@@ -96,6 +98,8 @@ The references below are the full set available — load per the agent's guidanc
 
 Full reference list for manual lookup:
 - `references/answer-to-code-cookbook.md` - Maps integration.yaml answers → TypeScript code
+- `references/code-anti-patterns.md` - Common code generation mistakes with wrong/right examples
+- `references/documentation-style.md` - Writing style rules for generated documentation.md
 - `references/workflow-phases.md` - Complete phase-by-phase workflow
 - `references/workflow-guide.md` - Workflow overview
 - `references/code-generation-guide.md` - File generation patterns and context object
