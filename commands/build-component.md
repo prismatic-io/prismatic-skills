@@ -64,14 +64,14 @@ Capture `session_dir` and `requirements_file` from the JSON output.
 2. Gather requirements via the DAG questionnaire — it handles component search and conditionally triggers API research
    - If the completion output includes `"shape_valid": false`, warn the user about missing requirements before proceeding
 3. Scaffold component with `scaffold-component.ts`
-4. **Validate scaffold:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <component-dir> --phase scaffold --type component`
+4. **Validate scaffold:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <component-dir> --phase scaffold --type component`
 5. Generate code using component-patterns skill and templates from `${CLAUDE_PLUGIN_ROOT}/templates/component/`
    - Read the relevant template files to understand required structure
    - Only load phase-appropriate skill references (see SKILL.md phase tags)
-6. **Validate code generation:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <component-dir> --phase code-gen --type component`
+6. **Validate code generation:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <component-dir> --phase code-gen --type component`
 7. Build, publish, and validate
-   - If build fails, run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <component-dir> --type component` before attempting manual fixes
-8. **Validate build:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <component-dir> --phase build --type component`
+   - If build fails, run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts diagnose-build <component-dir> --type component` before attempting manual fixes
+8. **Validate build:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <component-dir> --phase build --type component`
 9. Return summary of what was created
 
 ## Inline Task Handling

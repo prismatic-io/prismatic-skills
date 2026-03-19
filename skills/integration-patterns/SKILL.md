@@ -9,6 +9,17 @@ user-invocable: false
 
 Reference documentation for building Prismatic Code Native Integrations (CNI).
 
+<disallowed-tools>
+Do NOT use these MCP tools — they return incomplete data that causes broken scaffolds and missing connections downstream. A hook will deny them, but avoid the wasted round trip.
+
+- `mcp__prism__prism_components_list` — Use `run.ts find-components <keyword>` instead
+- `mcp__prism__prism_components_init` — Use `run.ts scaffold-component` instead
+- `mcp__prism__prism_components_publish` — Use `run.ts publish-component` instead
+- `mcp__prism__prism_components_generate_manifest` — Manifests are auto-generated during scaffolding
+- `mcp__prism__prism_install_component_manifest` — Handled by `run.ts scaffold-project --components`
+- `mcp__prism__prism_install_legacy_component_manifest` — Handled by `run.ts scaffold-project --components`
+</disallowed-tools>
+
 ## Architecture Patterns
 
 ### Standard Integration Pattern

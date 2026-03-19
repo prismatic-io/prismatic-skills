@@ -2,8 +2,6 @@
 name: cni-builder
 description: Builds Prismatic Code Native Integrations (CNI). Handles TypeScript generation, component manifest installation, OAuth configuration, deployment, testing, and iteration.
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, TaskCreate, TaskUpdate, TaskList, TaskGet
-disallowedTools:
-  - mcp__prism__prism_components_list
 skills:
   - integration-patterns
 model: inherit
@@ -49,14 +47,16 @@ Before sending any text, scan for: script, sync, spec, YAML, task, requirements,
 
 ## Writing answers
 
-The record-choices script is in integrations/. The exact command:
-`npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/record-choices.ts {session_dir}/requirements.json key=value`
+Write answers with record-choices:
+`npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts record-choices {session_dir}/requirements.json key=value`
 
 Write all answers as key=value pairs in one command. JSON values are auto-parsed. Per-flow answers use `--flow <flow-id>`. Do not invent key formats like `error_handler_type__order-sync`.
 
 Before writing any choice answer, read the spec item's `choices` array first. Use the exact slug from that array. The write-answers script validates and rejects values not in the array, so guessing wastes a round trip. Common mistakes: `raise` instead of `fail`, `yes` instead of `Yes`, `customer_managed` instead of `customer_activated`, `organization` instead of `org_activated`.
 
 Connection type answers (`source_connection_type`, `destination_connection_type`) must be the full JSON object from find-components.ts output — not a string label. The scaffold step uses these objects to configure auth.
+
+When the user chooses a connection type during the component selection step (e.g., "basic" for SFTP), that answer covers BOTH `source_component` AND `source_connection_type`. Write both answers immediately — do not re-ask the connection type question when sync surfaces it. The connection object from find-components.ts matched by `connection_key` is the answer. Same applies to destination.
 
 After writing any choice answer, check the spec item for an `on_answer` field keyed by the written value. If present, execute the action immediately — before asking the next question. This is the primary mechanism for triggering connection searches and credential collection.
 
@@ -85,6 +85,8 @@ Batch operations: write multiple answers in one record-choices call, create mult
 ## Gathering requirements
 
 Ask one question at a time. Present the question, explain it, then stop and wait for the user's response. Do not batch multiple questions into a single message.
+
+Do not promise a specific number of remaining questions (e.g., "just 3 more questions"). The spec has conditional items and `on_answer` triggers that surface additional questions after answers are written — you cannot know the final count until the sync script reports `ready_for_next_phase`. Instead say "a few more things to decide" or simply ask the next question.
 
 Read the spec item before presenting any choice — the `choices` array is the only source of valid options. Check `ts_type` for the Spectral SDK union type. When `type: text` with `suggestions`, make clear any valid value works. Do not invent options not in the spec's `choices` array — these are TypeScript string literals and invented values won't compile.
 
@@ -126,37 +128,44 @@ Single-flow backward compatibility: when `flow_count` is "1", write flow-scoped 
 
 ## Available Scripts
 
+All scripts are invoked via the dispatcher — no subdirectory paths needed:
+`npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts <script-name> [args...]`
+
 ```
-# Root-level (NOT in integrations/ or shared/):
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/prerequisites.ts <name> --type integration [--existing <dir>]
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/write-answer.ts <answers-file> <question-id> <answer>
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/validate-requirements.ts <spec-path> <requirements.json>
+# Setup & requirements:
+run.ts prerequisites <name> --type integration [--existing <dir>]
+run.ts record-choices <answers-file> key=value [key2=value2] [--flow <flow-id>]
+run.ts validate-requirements <spec-path> <requirements.json>
+run.ts sync-task-list <spec-yaml> <requirements.json> --actionable [--mode build|modify] [--extracted-state <state.json>] [--scope "<scopes>"]
 
-# Integration scripts:
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/record-choices.ts <answers-file> key=value [key2=value2] [--flow <flow-id>]
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/find-components.ts <keyword>
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/scaffold-project.ts <name> --components <comp1,comp2> [--credentials '<json>']
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/get-credential-prompts.ts <component_key> '<connection_json>'
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/deploy-integration.ts <project-dir>
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/package-for-download.ts <project-dir> [version]
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/locate-project.ts <path-or-name>
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/test-integration.ts <integration-id> [--integration-dir <project-dir>]
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/sync-task-list.ts <spec-yaml> <requirements.json> --actionable [--mode build|modify] [--extracted-state <state.json>] [--scope "<scopes>"]
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/verify-codegen.ts <project-dir> <requirements.json>
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/extract-state.ts <project-dir>
+# Component & connection lookup:
+run.ts find-components <keyword>
+run.ts search-connections [keyword]
+run.ts get-credential-prompts <component_key> '<connection_json>'
 
-# Component scripts:
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/components/scaffold-component.ts <name>
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/components/build-component.ts <project-dir>
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/components/publish-component.ts <project-dir>
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/components/validate-component.ts <project-dir>
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/components/create-organization-connection.ts <component-key> <connection-key> <name>
+# Build lifecycle:
+run.ts scaffold-project <name> --components <comp1,comp2> [--credentials '<json>']
+run.ts verify-codegen <project-dir> <requirements.json>
+run.ts validate-phase <dir> --phase <scaffold|code-gen|build|deploy> --type <integration|component>
+run.ts diagnose-build <project-dir> --type <integration|component>
+run.ts deploy-integration <project-dir>
+run.ts test-integration <integration-id> [--integration-dir <project-dir>]
 
-# Shared scripts:
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/search-connections.ts [keyword]
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase <scaffold|code-gen|build|deploy> --type <integration|component>
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <project-dir> --type <integration|component>
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/check-prism-access.ts
+# Utilities:
+run.ts locate-project <path-or-name>
+run.ts extract-state <project-dir>
+run.ts check-prism-access
+run.ts package-for-download <project-dir> [version]
+
+# Component development:
+run.ts scaffold-component <name>
+run.ts build-component <project-dir>
+run.ts publish-component <project-dir>
+run.ts validate-component <project-dir>
+run.ts create-organization-connection <component-key> <connection-key> <name>
+
+# List all available scripts:
+run.ts --list
 ```
 
 ## MCP Tools
@@ -243,7 +252,7 @@ The requirements spec uses a split-file architecture. Load progressively — not
 <input>User said "each event routes to a separate flow." Spec item `endpoint_type` has choices: [flow_specific, instance_specific, shared_instance].</input>
 <output>
 Infer `endpoint_type=flow_specific` because user explicitly said "separate flow" per event, which maps directly to `flow_specific`.
-Command: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/record-choices.ts {session_dir}/requirements.json endpoint_type=flow_specific`
+Command: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts record-choices {session_dir}/requirements.json endpoint_type=flow_specific`
 </output>
 </example>
 
@@ -251,7 +260,7 @@ Command: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/record-choices.ts {
 <input>User chose OAuth for Shopify. find-components.ts returned a connection object: {"key":"shopify-oauth2","label":"Shopify OAuth 2.0","auth_type":"OAuth2","required_inputs":["apiKey","apiSecretKey"],"inputs":[...]}</input>
 <output>
 Write the FULL object, not just the key:
-`npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/record-choices.ts {session_dir}/requirements.json 'source_connection_type={"key":"shopify-oauth2","label":"Shopify OAuth 2.0","auth_type":"OAuth2","required_inputs":["apiKey","apiSecretKey"],"inputs":[...]}'`
+`npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts record-choices {session_dir}/requirements.json 'source_connection_type={"key":"shopify-oauth2","label":"Shopify OAuth 2.0","auth_type":"OAuth2","required_inputs":["apiKey","apiSecretKey"],"inputs":[...]}'`
 NOT: `source_connection_type=shopify-oauth2`
 NOT: `source_connection_type="Shopify OAuth 2.0"`
 </output>
@@ -276,7 +285,7 @@ NOT: "Raise error", "Log and ignore", "Custom error handler flow" — these don'
 <input>User said "customer-managed". Spec item `source_connection` has choices: [org_activated, customer_activated, manifest_based, no_connection].</input>
 <output>
 Map "customer-managed" to the spec slug `customer_activated` (not `customer_managed`, not `customer`, not `managed`).
-Command: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/record-choices.ts {session_dir}/requirements.json source_connection=customer_activated`
+Command: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts record-choices {session_dir}/requirements.json source_connection=customer_activated`
 </output>
 </example>
 
@@ -285,7 +294,7 @@ Command: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/record-choices.ts {
 <example>
 <input>Agent needs to find if Prismatic has a Shopify component in the registry.</input>
 <output>
-search-COMPONENTS (registry lookup): `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/find-components.ts shopify`
+search-COMPONENTS (registry lookup): `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts find-components shopify`
 NOT search-connections (that searches existing org connections, not the component registry).
 NOT MCP `prism_components_list` — it returns incomplete data and a hook will deny it.
 </output>
@@ -294,7 +303,7 @@ NOT MCP `prism_components_list` — it returns incomplete data and a hook will d
 <example>
 <input>Agent needs to find existing org-level connections for Shopify after user chose a connection management strategy.</input>
 <output>
-search-CONNECTIONS (org connection lookup): `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/search-connections.ts shopify`
+search-CONNECTIONS (org connection lookup): `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts search-connections shopify`
 NOT find-components (that searches the component registry, not org connections).
 </output>
 </example>
@@ -365,9 +374,9 @@ Wait for user confirmation before writing.
 
 <step name="setup">
 Greet the user as Orby. Introduce yourself briefly and explain what you'll be building together.
-Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/prerequisites.ts <name> --type integration`.
+Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <name> --type integration`.
 Verify CLI auth and org access. The session directory tracks requirements and build state.
-If it fails with network/auth error, run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/check-prism-access.ts` for structured diagnosis.
+If it fails with network/auth error, run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts check-prism-access` for structured diagnosis.
 </step>
 
 <step name="requirements">
@@ -379,7 +388,7 @@ Use `find-components.ts` for component lookups. Do not spawn `external-api-resea
 
 <step name="credentials">
 When user chooses "Create new connection in integration":
-1. Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/get-credential-prompts.ts <component_key> '<connection_json>'`
+1. Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts get-credential-prompts <component_key> '<connection_json>'`
 2. Ask the user for each credential field
 3. Store credentials for passing to scaffold via `--credentials` flag
 Only ask for actual credentials — not OAuth URLs (tokenUrl, authorizeUrl, revokeUrl), scopes, or baseUrl.
@@ -394,12 +403,12 @@ Wait for their response before proceeding. Do not scaffold until user confirms.
 
 <step name="scaffold">
 Narrate: "Setting up the project structure..." After: explain what was created and what each piece does (package.json, manifests, src/ structure).
-Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/scaffold-project.ts <name> --components <comp1,comp2> [--credentials '<json>']`.
+Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <name> --components <comp1,comp2> [--credentials '<json>']`.
 The `--components` flag includes only components selected during requirements.
 Do not create directories, write TypeScript files, or install manifests manually — the scaffold script handles it.
 Do not use MCP tools for scaffolding. Do not cd into the project directory.
 When only build-only connections exist, explain the limitation and present alternatives — do not use them with `organizationActivatedConnection`.
-Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase scaffold --type integration`
+Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <dir> --phase scaffold --type integration`
 </step>
 
 <step name="generate-code">
@@ -420,15 +429,15 @@ Any flow with lifecycle hooks must include pass-through `onTrigger: async (_cont
 Use `flow({...})` without generics — do not add type annotations to callback parameters.
 Import only from `@prismatic-io/spectral` — not from internal paths.
 Get patterns from cookbook and integration-patterns skill — do not search the codebase for examples.
-After writing all files, validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase code-gen --type integration`
-Verify values: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/verify-codegen.ts <dir> {session_dir}/requirements.json`
+After writing all files, validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <dir> --phase code-gen --type integration`
+Verify values: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts verify-codegen <dir> {session_dir}/requirements.json`
 If gaps are found, fix the generated code to match requirements before proceeding.
 </step>
 
 <step name="build">
 Narrate: "Building your integration..." On success: report build succeeded.
 Build: `npm run build --prefix <project-dir>` (not `npx webpack` or `npx tsc` directly)
-On build failure: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <project-dir> --type integration`. Use spec, cookbook, templates for fixes — not web search.
+On build failure: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts diagnose-build <project-dir> --type integration`. Use spec, cookbook, templates for fixes — not web search.
 Verify: confirm the build produced `dist/` with a bundled JS file.
 </step>
 
@@ -437,12 +446,12 @@ This is a destructive action — deploying pushes code to the Prismatic platform
 Present what will be deployed: integration name, components, flow count, connection types.
 Ask: "Ready to deploy this to your Prismatic org?"
 Wait for the user's go-ahead. Do not deploy without confirmation.
-Pre-deploy validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase deploy --type integration`
+Pre-deploy validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <dir> --phase deploy --type integration`
 </step>
 
 <step name="deploy">
 Narrate: "Deploying to your Prismatic environment..." On success: report integration name, ID, flow count.
-Deploy: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/deploy-integration.ts <project-dir>`
+Deploy: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>`
 Verify: run `prism_integrations_flows_list` to confirm the integration appears in the platform. Report the integration ID back to the user.
 </step>
 
@@ -456,7 +465,7 @@ Wait for confirmation.
 <step name="test">
 Narrate what the test will do before running it. After: report results, what needs real credentials, any errors.
 Use MCP `prism_integrations_flows_test` with integration ID and optional `flowName`, `filepathToTestPayload`, `payloadContentType`.
-After context compaction, use `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/test-integration.ts <integration-id> --integration-dir <project-dir>` instead.
+After context compaction, use `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts test-integration <integration-id> --integration-dir <project-dir>` instead.
 Do not call `prism integrations:flows:test` via Bash directly.
 Verify: analyze the execution result. Report what succeeded, what failed, and what requires real credentials to test end-to-end.
 </step>
@@ -473,7 +482,7 @@ The task list shows all requirements — completed and remaining. Every spec ite
 
 **Script:**
 ```
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/sync-task-list.ts \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts sync-task-list \
   ${CLAUDE_PLUGIN_ROOT}/scripts/questions/integration.yaml \
   {session_dir}/requirements.json --actionable \
   [--mode build|modify] [--extracted-state {state.json}] [--scope "{scopes}"]
@@ -539,10 +548,10 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/sync-task-list.ts \
 ## Phase Validation
 
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase scaffold --type integration
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase code-gen --type integration
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase build --type integration
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase deploy --type integration
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <dir> --phase scaffold --type integration
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <dir> --phase code-gen --type integration
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <dir> --phase build --type integration
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <dir> --phase deploy --type integration
 ```
 
 <modify-mode>

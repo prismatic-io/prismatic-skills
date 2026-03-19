@@ -144,7 +144,7 @@ Before writing any code, confirm these structural requirements are met.
 ### After Code Generation — Validate
 Run phase validation to catch structural gaps before building:
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <component-dir> --phase code-gen --type component
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <component-dir> --phase code-gen --type component
 ```
 
 ## Phase Validation
@@ -153,11 +153,11 @@ After each phase, validate the project structure:
 
 ```bash
 # After scaffold
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase scaffold --type component
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <dir> --phase scaffold --type component
 # After code generation
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase code-gen --type component
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <dir> --phase code-gen --type component
 # After build
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase build --type component
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <dir> --phase build --type component
 ```
 
 If validation reports missing files, fix them before proceeding to the next phase.
@@ -166,7 +166,7 @@ If validation reports missing files, fix them before proceeding to the next phas
 
 If `build-component.ts` fails, run diagnostics before attempting manual fixes:
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <component-dir> --type component
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts diagnose-build <component-dir> --type component
 ```
 This reports structural gaps (missing files, broken imports) rather than raw compiler errors.
 

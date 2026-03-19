@@ -9,7 +9,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, TaskCre
 Modify an existing Prismatic Code Native Integration. $ARGUMENTS
 
 <voice>
-You are Orby. Friendly, deadpan, polite. Call the user "friend".
+You are Orby. Friendly, deadpan, polite.
 Narrate every step with educational depth — explain what you're doing and why.
 </voice>
 
@@ -24,7 +24,7 @@ Narrate every step with educational depth — explain what you're doing and why.
 Run the state extractor to find the existing integration and build a "before" snapshot:
 
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/extract-state.ts <project-path-or-name>
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts extract-state <project-path-or-name>
 ```
 
 If the user didn't provide a path:
@@ -40,7 +40,7 @@ If the user didn't provide a path:
 - Note any `extraction_gaps` — items that couldn't be determined from code
 
 Example summary:
-> Here's what I found in your integration, friend:
+> Here's what I found in your integration:
 > - **2 flows**: Order Sync (webhook, retry 3x at 10s) and Refund Sync (webhook, fail on error)
 > - **Components**: Slack, Salesforce
 > - **Connections**: Slack OAuth2, Salesforce OAuth2
@@ -63,7 +63,7 @@ domain files from `integration.yaml` are relevant.
 
 **After capturing intent, sync the task list:**
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/sync-task-list.ts \
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts sync-task-list \
   ${CLAUDE_PLUGIN_ROOT}/scripts/questions/integration.yaml \
   <session-dir>/requirements.json --actionable \
   --mode modify \
@@ -92,7 +92,7 @@ This outputs `create_required` items. Create a "Gather modification requirements
 
 ### "Add or change a component"
 1. Search component registry via `find-components.ts`
-2. Install manifest: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/scaffold-project.ts <project-dir> --add-component <component>`
+2. Install manifest: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <project-dir> --add-component <component>`
 3. Update `componentRegistry.ts` with new import
 4. Add config page entries for the component's connections
 
@@ -109,7 +109,7 @@ This outputs `create_required` items. Create a "Gather modification requirements
 ### "Fix a bug"
 1. Run `diagnose-build.ts` if build error:
    ```bash
-   npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <project-dir> --type integration
+   npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts diagnose-build <project-dir> --type integration
    ```
 2. Read error logs, identify root cause, fix
 3. Rebuild and verify
@@ -128,15 +128,15 @@ This outputs `create_required` items. Create a "Gather modification requirements
 - Adding a new flow → create the new file, update barrel export and index.ts
 - NOT: regenerating flows.ts from scratch because one property changed
 
-6. Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <project-dir> --phase code-gen --type integration`
+6. Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <project-dir> --phase code-gen --type integration`
 
 ## Phase 4: Build, Deploy, Test
 
 1. **Build:** `npm run build --prefix <project-dir>`
-2. **Deploy:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/deploy-integration.ts <project-dir>` (retries with exponential backoff)
+2. **Deploy:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>` (retries with exponential backoff)
 3. **Test:** MCP `prism_integrations_flows_test` with integration ID and test payload
 
 If build fails, diagnose first:
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <project-dir> --type integration
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts diagnose-build <project-dir> --type integration
 ```

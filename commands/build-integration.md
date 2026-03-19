@@ -41,7 +41,7 @@ Voice and narration style are defined in the agent instructions. Follow them.
   <step name="run-sync-script">
     Run the task sync script to discover what spec items need user input:
     <command>
-      npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/sync-task-list.ts \
+      npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts sync-task-list \
         ${CLAUDE_PLUGIN_ROOT}/scripts/questions/integration.yaml \
         {session_dir}/requirements.json --actionable
     </command>
@@ -100,12 +100,12 @@ Voice and narration style are defined in the agent instructions. Follow them.
 
   <step name="scaffold">
     TaskCreate(subject: "Scaffold project") and mark in_progress.
-    Run: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/scaffold-project.ts <name> --components <comp1,comp2>`
+    Run: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <name> --components <comp1,comp2>`
     <rules>
       <always>Only include components selected during requirements (source_component and/or destination_component answers)</always>
       <never>Add components that weren't selected in requirements</never>
     </rules>
-    Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <project-dir> --phase scaffold --type integration`
+    Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <project-dir> --phase scaffold --type integration`
     Mark completed.
   </step>
 
@@ -131,20 +131,20 @@ Voice and narration style are defined in the agent instructions. Follow them.
 
     Required files: componentRegistry.ts, configPages.ts, flows (single file or flows/ directory), index.ts, documentation.md, test-data/
 
-    Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <project-dir> --phase code-gen --type integration`
+    Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <project-dir> --phase code-gen --type integration`
     Mark completed.
   </step>
 
   <step name="build-deploy">
     TaskCreate(subject: "Build integration") and mark in_progress.
     Build: `npm run build --prefix <project-dir>`
-    Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <project-dir> --phase build --type integration`
-    If build fails: run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <project-dir> --type integration` before attempting manual fixes.
+    Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <project-dir> --phase build --type integration`
+    If build fails: run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts diagnose-build <project-dir> --type integration` before attempting manual fixes.
     Mark completed.
 
     TaskCreate(subject: "Deploy to Prismatic") and mark in_progress.
-    Pre-deploy validation: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <project-dir> --phase deploy --type integration`
-    Deploy: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/deploy-integration.ts <project-dir>`
+    Pre-deploy validation: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-phase <project-dir> --phase deploy --type integration`
+    Deploy: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>`
     Mark completed.
   </step>
 
