@@ -1,8 +1,114 @@
 # Skill Architecture Comparison
 
-A comparison of how the **components repo** (`.claude/`) and **prismatic-skills** (plugin) approach skill design, progressive disclosure, and code quality enforcement.
+A comparison of how the **prismatic repo** (`.ai/`), **components repo** (`.claude/`), and **prismatic-skills** (plugin) approach skill design, progressive disclosure, and code quality enforcement.
 
-Both systems solve the same problem — guiding Claude through complex, multi-phase workflows — but they evolved under different constraints and arrived at different architectures.
+Each system evolved under different constraints and arrived at different architectures, all solving the same core problem: guiding Claude through complex workflows.
+
+---
+
+## Prismatic Repo
+
+The main Prismatic platform repo is a polyglot codebase (Django backend, TypeScript infrastructure, Terraform IaC). Its `.ai/` system is optimized for **role-based delegation** — routing work to specialized agents by language and responsibility, coordinated through plan documents.
+
+This system is the newest of the three and is actively evolving. The skills layer was added in late February 2026; before that, the system was agents-only.
+
+### Architecture
+
+```
+/go command
+│
+├── reads CLAUDE.md (conventions, repo context)
+│
+├── spawns software-architect-planner (blue)
+│     └── creates .ai/plans/FEATURE_NAME.md
+│           ├── work streams assigned to specific agents
+│           ├── dependencies between work streams
+│           └── phased execution order (parallel where possible)
+│
+├── spawns implementers CONCURRENTLY per the plan:
+│     ├── python-feature-implementer (yellow)    → .py files only
+│     ├── typescript-feature-implementer (purple) → .ts/.tsx only
+│     └── terraform-feature-implementer (red)    → .tf files only
+│
+│     each implementer ends with:
+│     └── /validate-changes skill
+│           └── 915-line TypeScript validation engine
+│               ├── auto-detects changed files (git diff + untracked)
+│               ├── categorizes: python | typescript | terraform | skill
+│               ├── builds phased plan: Format → Lint → Test
+│               ├── runs phases in parallel within categories
+│               ├── skips Test entirely if Lint fails
+│               ├── 7 output parsers (Ruff, Pyright, Biome, TSC, Terraform, Format, Generic)
+│               ├── errors capped at 20 per tool
+│               ├── real-time pytest progress (xdist-aware)
+│               └── heartbeat for long-running non-pytest tasks
+│
+├── spawns code-review-specialist (green)
+│     └── audits changes for security, quality, performance, maintainability
+│
+└── spawns feature-docs-writer (pink)
+      └── reads plan → writes .ai/docs/FEATURE_NAME.md
+          (audience: technical non-developers)
+```
+
+### The Optimize-Pytests Skill
+
+A separate skill with a different pattern — a **code quality auditor** that reads test code, evaluates it against named guidelines, and applies fixes.
+
+```
+/optimize-pytests [since=main] [file=path] [dry-run]
+│
+├── parse arguments (branch diff, file target, dry-run mode)
+├── gather test code (full function bodies, not just diff hunks)
+├── load common fixtures catalog (backend/tests/common/fixtures/)
+├── audit against best-practices.md (8 named guidelines)
+│     each guideline follows:
+│       ## guideline-name
+│       [description]
+│       **Flag when:** [detection criteria]
+│       **Suggest:** [remediation]
+├── apply fixes (unless dry-run)
+└── report findings by guideline name
+```
+
+### Key Strengths
+
+- **Plan documents as first-class coordination artifacts.** The architect agent creates plans with work streams, agent assignments, file references, dependencies, and phased execution order. The plan is the contract between architect and implementers — more structured than a GitHub issue, more actionable than a design doc.
+
+- **Concurrency by design.** The `/go` command says "use subagents concurrently when possible." Plans explicitly mark parallel work streams. The validation engine runs targets in parallel within each phase. Concurrency is the default, not an optimization.
+
+- **File-type boundaries on agents.** Each implementer can only edit files matching its language. The architect can't edit code. The docs writer can't edit code or plans. These aren't suggestions — the prompts say "DO NOT edit" and "you can only edit." This prevents scope creep and makes the collaboration protocol explicit.
+
+- **Validation as a real program.** The 24-line skill delegates to a 915-line TypeScript engine with Zod schemas, output parsers, real-time progress tracking, and intelligent change detection (e.g., if a Terraform module changes, it validates all affected roots). This is more robust than encoding validation logic in markdown.
+
+- **Self-validating infrastructure.** The validation engine validates itself — changes to `.ai/skills/validate-changes/*.ts` trigger the `skill` category, which runs `make format-skill` and `make lint-skill`.
+
+- **Flag when / Suggest pattern.** The optimize-pytests best-practices file uses a structured pattern for each guideline that gives Claude exact detection criteria and exact remediation steps. This is the markdown equivalent of structured `{ issue, fix }` guidance.
+
+- **Minimal prompts, maximum programs.** Agents are 55–111 lines because complexity lives in TypeScript programs and plan documents. The prompts say *what* to do; the programs and plans say *how*.
+
+### Design Trade-offs
+
+- No progressive disclosure is needed — each agent is small enough to fit entirely in context. This works because the complexity lives in the codebase conventions (Django, Terraform, TypeScript), not in the agent prompts.
+
+- Plans are manually created by the architect agent and tracked in markdown. There's no script that validates plan completeness or automates progress tracking.
+
+- No anti-pattern documentation in the implementer agents. They describe what to do but not common mistakes to avoid.
+
+- No phase gates or confirmation steps between planning and implementation. The implementers go straight from "understand" to "implement" to "validate."
+
+### Recent Evolution (Last 3 Weeks)
+
+| Date | Change | Significance |
+|------|--------|--------------|
+| Feb 27 | validate-changes skill created | Moved validation out of agent prompts into a shared TypeScript program |
+| Mar 5 | Terraform subroot detection added | Intelligent change analysis — module changes trigger validation of all affected roots |
+| Mar 11 | Implementer agents refactored | Removed inline validation commands from all 3 implementers; all now use `/validate-changes` |
+| Mar 11 | ec2-ami-updater agent deleted | Pruned stale agents |
+| Mar 11 | Runner.ts added | Real-time pytest progress tracking (xdist-aware) and heartbeat for long tasks |
+| Mar 17 | optimize-pytests skill created (new contributor) | First code-quality auditor skill; hub-and-spoke pattern with best-practices.md |
+
+The trajectory: **move intelligence from agent prompts into skills and programs.** Agents are getting leaner; skills are getting richer. Two different people are now building skills, indicating the practice is becoming shared.
 
 ---
 
@@ -189,65 +295,37 @@ Scripts (mini-prompt pattern)
 
 ## Side-by-Side Comparison
 
-| Dimension | Components Repo | Prismatic-Skills |
-|---|---|---|
-| **Primary constraint** | 200+ components must be consistent | Each project is unique |
-| **Skill size** | 643–774 lines (always loaded) | 50–142 lines (always loaded) |
-| **Content strategy** | Inline critical content in skills | Point to content from skills |
-| **Standards** | 26 standardization files (~28K lines) | Templates + cookbook + anti-patterns |
-| **Enforcement** | Standardizer agents (post-hoc audit) | validate-phase.ts (structured guidance) |
-| **Requirements** | DAG-driven with external context | Spec YAML with inline context per item |
-| **Phase gating** | Prose STOP markers + exit code 42 | XML `<step name="confirm-*">` blocks |
-| **Branching logic** | Prose inside phases | `<spec-loading>` skip-when rules |
-| **Error recovery** | Re-read standardization file | diagnose-build.ts returns exact fix |
+| Dimension | Prismatic Repo | Components Repo | Prismatic-Skills |
+|---|---|---|---|
+| **Primary constraint** | Polyglot platform (Django + TS + TF) | 200+ components must be consistent | Each project is unique |
+| **Skill size** | 24–84 lines | 643–774 lines (always loaded) | 50–142 lines (always loaded) |
+| **Agent size** | 55–111 lines | N/A (skills carry the logic) | 78–569 lines |
+| **Content strategy** | Minimal prompts + real programs | Inline critical content in skills | Point to content from skills |
+| **Standards** | Agent conventions + plan docs | 26 standardization files (~28K lines) | Templates + cookbook + anti-patterns |
+| **Enforcement** | 915-line TypeScript validation engine | Standardizer agents (post-hoc audit) | validate-phase.ts (structured guidance) |
+| **Requirements** | Plan documents (architect agent) | DAG-driven with external context | Spec YAML with inline context per item |
+| **Phase gating** | None (implementers go straight through) | Prose STOP markers + exit code 42 | XML `<step name="confirm-*">` blocks |
+| **Coordination** | Plan files + file-type boundaries | Skill prose + standardization files | Spec YAML + workflow steps |
+| **Error recovery** | Output parsers per tool (7 parsers) | Re-read standardization file | diagnose-build.ts returns exact fix |
+| **Concurrency** | Default (parallel agents + parallel targets) | Not addressed | Sequential phases |
+| **Code quality audit** | optimize-pytests (Flag when / Suggest) | Standardizer agents | validate-phase.ts semantic checks |
 
 ### Approximate Context Cost (Full Build)
 
-| Phase | Components Repo | Prismatic-Skills |
-|---|---|---|
-| **Setup** | ~1,023 lines (CLAUDE.md + skill header) | ~695 lines (agent + skill) |
-| **Requirements** | ~1,500 lines (skill + reference reads) | ~945 lines (agent + skill + spec domains) |
-| **Code generation** | ~8,800 lines (skill + 4-5 standards + agents) | ~1,800 lines (agent + skill + references + templates) |
-| **Validation** | +1,200 lines (standardizer agent) | +20 lines (JSON output from script) |
+| Phase | Prismatic Repo | Components Repo | Prismatic-Skills |
+|---|---|---|---|
+| **Setup** | ~150 lines (instructions + agent) | ~1,023 lines (CLAUDE.md + skill) | ~695 lines (agent + skill) |
+| **Planning** | ~250 lines (architect agent + plan) | N/A | ~945 lines (agent + skill + spec) |
+| **Implementation** | ~200 lines (implementer agent) | ~8,800 lines (skill + standards + agents) | ~1,800 lines (agent + refs + templates) |
+| **Validation** | ~50 lines (structured script output) | +1,200 lines (standardizer agent) | +20 lines (JSON output from script) |
 
 ---
 
-## Patterns We Adopted
+## Changes Already Applied
 
-After auditing the components repo, we adopted three patterns adapted to fit the prismatic-skills architecture:
+During this audit, we adopted four patterns from the components repo:
 
-### 1. Quick Reference Cards
-
-A compressed 2–3 line workflow overview at the top of each agent file. Front-loads the decision tree so Claude has the full mental model before reading hundreds of lines of detail.
-
-**Applied to:** `cni-builder.md` (inside `<role>`), `component-builder.md` (top of file)
-
-### 2. Anti-Pattern Documentation
-
-A dedicated reference file showing common code generation mistakes with `<wrong>`, `<why>`, `<right>` structure. Covers config pages, flow callbacks, imports, component usage, and trigger configuration.
-
-**Applied to:** `references/code-anti-patterns.md` (12 anti-patterns), linked from SKILL.md Phase 5
-
-### 3. Semantic Validation with Mini-Prompt Guidance
-
-Enhanced `validate-phase.ts` to detect anti-patterns in generated code and return structured `{ issue, fix, reference }` guidance that points the agent to the exact anti-pattern reference. Extends the existing `diagnose-build.ts` pattern.
-
-**Applied to:** `validate-phase.ts` semantic checks for code-gen phase
-
-### 4. Documentation Style Guide
-
-A lightweight writing style reference for generated `documentation.md` files, covering the rules that matter most: no second-person pronouns, no product name references, active voice, section structure.
-
-**Applied to:** `references/documentation-style.md`, enforced by validate-phase.ts semantic checks
-
----
-
-## Patterns We Chose Not to Adopt
-
-| Pattern | Why It Works for Components | Why It Doesn't Fit Here |
-|---|---|---|
-| Standardizer agents | 200+ components need ongoing compliance auditing | One-off projects; scripts cover validation |
-| 26-file governance hierarchy | Consistency across a large corpus | Templates already define correct output |
-| Canonical patterns (e.g., identical `fetchAll` input) | Every component's pagination must match | Each integration is unique |
-| Inline standardization maps in skills | Reinforces critical rules through repetition | Hub-and-spoke keeps skills lean |
-| INDEX.md with context budget guide | 28K lines needs intelligent access patterns | 126-line skill is already the index |
+1. **Quick Reference Cards** — Added compressed workflow overviews to `cni-builder.md` and `component-builder.md`
+2. **Anti-Pattern Documentation** — Created `references/code-anti-patterns.md` (12 patterns) with `<wrong>`, `<why>`, `<right>` structure
+3. **Semantic Validation with Mini-Prompt Guidance** — Enhanced `validate-phase.ts` with semantic checks returning `{ issue, fix, reference }` guidance
+4. **Documentation Style Guide** — Created `references/documentation-style.md`, enforced by validate-phase.ts

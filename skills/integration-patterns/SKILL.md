@@ -85,6 +85,7 @@ The references below are the full set available — load per the agent's guidanc
 - If integration-agnostic connections: `references/cni-examples/integration-agnostic-connections.md`
 - If templated connections: `references/cni-examples/templated-connections.md`
 - If no component exists for source/destination: `references/cni-examples/direct-http-patterns.md`
+- After code generation, run `verify-codegen.ts` to confirm requirements were transcribed into generated code
 
 ### Phase 6-7: Build, Deploy & Test
 - `references/troubleshooting-errors.md` - Common errors and fixes

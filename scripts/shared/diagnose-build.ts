@@ -15,10 +15,9 @@
  *   2 - Usage error
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join, resolve, dirname } from "node:path";
-import { statSync } from "node:fs";
 
 interface ErrorPattern {
   pattern: RegExp;
@@ -73,6 +72,21 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     pattern: /TS2307.*Cannot find module/g,
     diagnosis: "Module resolution failure",
     fix: "Check tsconfig.json paths and ensure all dependencies are installed (run `npm install`)",
+  },
+  {
+    pattern: /TS2558/g,
+    diagnosis: "Flow called with generic type parameter",
+    fix: "Remove the generic type parameter from flow(). Use `flow({...})` without generics — type annotations cause TS2558 mismatches with Spectral's internal types",
+  },
+  {
+    pattern: /Property ['"]components['"] does not exist/g,
+    diagnosis: "context.components API does not exist in CNIs",
+    fix: "Import the component manifest and call actions through it: `import slack from './manifests/slack'; await slack.actions.postMessage.perform({...})`",
+  },
+  {
+    pattern: /Cannot find module ['"]@prismatic-io\/spectral\/dist\//g,
+    diagnosis: "Import from internal spectral path",
+    fix: "Import from `@prismatic-io/spectral` (the root package), not from internal `dist/` paths. Internal paths break on SDK version updates",
   },
   {
     pattern: /webpack.*Module not found/g,
@@ -174,6 +188,45 @@ function checkStructuralIssues(
             diagnosis: "instanceState used in lifecycle hook",
             match: "src/flows.ts",
             fix: "Use crossFlowState instead of instanceState in onInstanceDeploy/onInstanceDelete",
+          });
+        }
+      } catch {
+        // ignore read errors
+      }
+    }
+
+    // Check for lifecycle hooks without onTrigger passthrough (single-file and multi-flow)
+    const flowFilesToCheck: Array<{ path: string; label: string }> = [];
+    if (existsSync(flowsPath)) {
+      flowFilesToCheck.push({ path: flowsPath, label: "src/flows.ts" });
+    }
+    const flowsDir = join(projectDir, "src", "flows");
+    if (existsSync(flowsDir)) {
+      try {
+        for (const f of readdirSync(flowsDir)) {
+          if (f.endsWith(".ts") && f !== "index.ts") {
+            flowFilesToCheck.push({
+              path: join(flowsDir, f),
+              label: `src/flows/${f}`,
+            });
+          }
+        }
+      } catch {
+        // ignore read errors
+      }
+    }
+    for (const { path: fp, label } of flowFilesToCheck) {
+      try {
+        const content = readFileSync(fp, "utf-8");
+        if (
+          (content.includes("onInstanceDeploy") ||
+            content.includes("onInstanceDelete")) &&
+          !content.includes("onTrigger")
+        ) {
+          issues.push({
+            diagnosis: "Lifecycle hooks without onTrigger passthrough",
+            match: label,
+            fix: "Add `onTrigger: async (_context, payload) => ({ payload })` to the flow. Without it, webhook payloads are not forwarded to onExecution.",
           });
         }
       } catch {

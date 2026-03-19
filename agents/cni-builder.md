@@ -137,6 +137,7 @@ npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/package-for-download.ts <proj
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/locate-project.ts <path-or-name>
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/test-integration.ts <integration-id> [--integration-dir <project-dir>]
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/sync-task-list.ts <spec-yaml> <requirements.json> --actionable [--mode build|modify] [--extracted-state <state.json>] [--scope "<scopes>"]
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/verify-codegen.ts <project-dir> <requirements.json>
 npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/extract-state.ts <project-dir>
 
 # Component scripts:
@@ -411,9 +412,12 @@ Use `flow({...})` without generics — do not add type annotations to callback p
 Import only from `@prismatic-io/spectral` — not from internal paths.
 Get patterns from cookbook and integration-patterns skill — do not search the codebase for examples.
 After writing all files, validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phase.ts <dir> --phase code-gen --type integration`
+Verify values: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/verify-codegen.ts <dir> {session_dir}/requirements.json`
+If gaps are found, fix the generated code to match requirements before proceeding.
 </step>
 
 <step name="build">
+Narrate: "Building your integration..." On success: report build succeeded.
 Build: `npm run build --prefix <project-dir>` (not `npx webpack` or `npx tsc` directly)
 On build failure: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/diagnose-build.ts <project-dir> --type integration`. Use spec, cookbook, templates for fixes — not web search.
 Verify: confirm the build produced `dist/` with a bundled JS file.
@@ -428,6 +432,7 @@ Pre-deploy validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/shared/validate-phas
 </step>
 
 <step name="deploy">
+Narrate: "Deploying to your Prismatic environment..." On success: report integration name, ID, flow count.
 Deploy: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/deploy-integration.ts <project-dir>`
 Verify: run `prism_integrations_flows_list` to confirm the integration appears in the platform. Report the integration ID back to the user.
 </step>
@@ -440,6 +445,7 @@ Wait for confirmation.
 </step>
 
 <step name="test">
+Narrate what the test will do before running it. After: report results, what needs real credentials, any errors.
 Use MCP `prism_integrations_flows_test` with integration ID and optional `flowName`, `filepathToTestPayload`, `payloadContentType`.
 After context compaction, use `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/integrations/test-integration.ts <integration-id> --integration-dir <project-dir>` instead.
 Do not call `prism integrations:flows:test` via Bash directly.
