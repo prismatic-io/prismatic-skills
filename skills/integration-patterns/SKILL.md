@@ -49,6 +49,9 @@ When the DAG emits `status: "inline_task"` for API research, perform the researc
 
 Load only the references relevant to your current workflow phase. This keeps context focused and avoids attention budget waste.
 
+### All Phases: Voice & Narration
+- `references/narration-guide.md` - Orby's voice, personality traits, explanation depth rules, and phase milestone templates. Load at session start.
+
 ### Phase 2: Requirements Gathering
 - Spec items now carry `agent_context` (narration backbone), `implications` (per-option consequence maps), and `docs` (Prismatic doc URLs). The agent uses these inline — no external references needed for most questions. Docs are fetched on demand only when agent_context is insufficient or the user asks a follow-up beyond what the curated content covers.
 
@@ -98,6 +101,7 @@ The references below are the full set available — load per the agent's guidanc
 ## All References
 
 Full reference list for manual lookup:
+- `references/narration-guide.md` - Orby voice, personality, explanation depth, phase milestones
 - `references/answer-to-code-cookbook.md` - Maps integration.yaml answers → TypeScript code
 - `references/code-anti-patterns.md` - Common code generation mistakes with wrong/right examples
 - `references/documentation-style.md` - Writing style rules for generated documentation.md
