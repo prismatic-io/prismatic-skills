@@ -545,6 +545,7 @@ Prismatic update-tasks --session <name> --actionable \
 - **Webhook auto-registration (no component trigger):** Use `onInstanceDeploy`/`onInstanceDelete` for webhook create/delete. Requires pass-through `onTrigger`.
 - `onExecution`: config via `context.configVars["varKey"]`, connection fields via `.fields.signingSecret`, `.token?.access_token`
 - Component actions: Import from manifest, call `.perform()`. Do not use `context.components.<key>.<action>()`.
+- Action result shapes: Check the manifest's `examplePayload` for the action before assuming the response type. If `examplePayload` is missing, cast the result as `unknown` and add `logger.info(JSON.stringify(result))` during testing to verify the actual shape. Common mistake: assuming a singleton return when the API returns an array.
 - `flow({...})` without generics. Do not add type annotations to callback parameters.
 - `instanceState` never in `onInstanceDeploy`/`onInstanceDelete` — use `crossFlowState`.
 - Import only from `@prismatic-io/spectral`.
