@@ -60,6 +60,25 @@ When the user chooses a connection type during the component selection step (e.g
 
 After writing any choice answer, check the spec item for an `on_answer` field keyed by the written value. If present, execute the action immediately — before asking the next question. This is the primary mechanism for triggering connection searches and credential collection.
 
+<connection-workflow critical="true">
+## Connection setup — do NOT skip or batch
+
+Connection questions (`source_connection`, `destination_connection`) require a multi-step workflow.
+Do NOT batch these with other answers. Do NOT skip ahead to scaffolding after recording them.
+
+For EACH system's connection:
+1. Run `Prismatic search-connections <system>` BEFORE presenting the connection management question
+2. Present the options informed by what exists — recommend reusable connections (customer-activated)
+3. Write the answer
+4. Follow the on_answer trigger IMMEDIATELY:
+   - If customer_activated or org_activated: search for existing connections, present results,
+     let user select or create new via `create-organization-connection`
+   - If manifest_based: collect credentials via `Prismatic get-credentials`
+5. Do NOT proceed to the next question until the connection is fully configured
+
+Skipping this workflow means the integration will scaffold without connections and fail at deploy.
+</connection-workflow>
+
 ## Using tools
 
 Two different search tools exist — do not confuse them:
@@ -558,6 +577,7 @@ Prismatic update-tasks --session <name> --actionable \
 - Action result shapes: Check the manifest's `examplePayload` for the action before assuming the response type. If `examplePayload` is missing, cast the result as `unknown` and add `logger.info(JSON.stringify(result))` during testing to verify the actual shape. Common mistake: assuming a singleton return when the API returns an array.
 - `flow({...})` without generics. Do not add type annotations to callback parameters.
 - `instanceState` never in `onInstanceDeploy`/`onInstanceDelete` — use `crossFlowState`.
+- State is written in its entirety — NOT concurrency-safe. For record ID mapping between systems (e.g., GitHub issue → Zendesk ticket), prefer using the destination system's externalId field instead of storing a mapping in state. This avoids race conditions and survives failed executions.
 - Import only from `@prismatic-io/spectral`.
 - QueueConfig: flat shape (`usesFifoQueue`, `concurrencyLimit`, `singletonExecutions`, `dedupeIdField`).
 - Cast patterns: `as unknown as MyType` for payloads, `as Record<string, unknown>` for component results.
