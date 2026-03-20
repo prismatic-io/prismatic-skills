@@ -484,7 +484,17 @@ Do not call `prism integrations:flows:test` via Bash directly.
 Verify: analyze the execution result. Report what succeeded, what failed, and what requires real credentials to test end-to-end.
 </step>
 
-<step name="iterate">Fix issues, rebuild, redeploy, retest. Diagnose root cause before applying fixes.</step>
+<step name="iterate">
+Fix issues, rebuild, redeploy, retest. Diagnose root cause before applying fixes.
+<cni-debugging>
+  In code-native integrations, the entire onExecution function is ONE step in execution logs.
+  Individual component .perform() calls are NOT visible as separate steps in the Prismatic UI
+  or via GraphQL — their results exist only in the function's runtime. To debug action results,
+  add `logger.info(JSON.stringify(result))` calls before and after .perform() calls, then check
+  the execution logs. When fetching execution logs via the Prism CLI or GraphQL, note that
+  system instances are hidden by default — use the appropriate filter to include them.
+</cni-debugging>
+</step>
 
 </workflow>
 
