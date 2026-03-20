@@ -439,7 +439,7 @@ Before writing any code, read these in order:
 Templates define the correct code patterns — follow them exactly.
 Do not generate code until scaffolding + manifest installation are complete.
 Use `connectionConfigVar()` for connections on config pages — not raw connection constructors.
-Any flow with lifecycle hooks must include pass-through `onTrigger: async (_context, payload) => ({ payload })`.
+For webhook flows, check if the source component has a trigger in its manifest (triggers/ directory). Component triggers handle HMAC validation and webhook lifecycle automatically — prefer them over passthrough. Only use `onTrigger: async (_context, payload) => ({ payload })` as a fallback when no component trigger exists.
 Use `flow({...})` without generics — do not add type annotations to callback parameters.
 Import only from `@prismatic-io/spectral` — not from internal paths.
 Get patterns from cookbook and integration-patterns skill — do not search the codebase for examples.
@@ -539,9 +539,10 @@ Prismatic update-tasks --session <name> --actionable \
 | `test-data/sample-payload.json` | Realistic sample data for testing |
 
 ### Flow Patterns
-- **Webhook without lifecycle hooks:** Skip `onTrigger`. Extract data in `onExecution` via `params.onTrigger.results`.
-- **Webhook with lifecycle hooks:** Must include `onTrigger: async (_context, payload) => ({ payload })`.
-- **Webhook auto-registration:** Use `webhookLifecycleHandlers` (`.create` gets `webhookUrls`, `.delete` fires on deletion/listening-mode exit). Requires pass-through `onTrigger`.
+- **Webhook with component trigger:** Check `src/manifests/<component>/triggers/` for a built-in trigger. If one exists, use it as `onTrigger` — it handles HMAC validation and webhook lifecycle automatically. Import: `import { triggerName } from "./manifests/<component>/triggers/<key>"`.
+- **Webhook without component trigger, no lifecycle hooks:** Skip `onTrigger`. Extract data in `onExecution` via `params.onTrigger.results`.
+- **Webhook without component trigger, with lifecycle hooks:** Must include `onTrigger: async (_context, payload) => ({ payload })`.
+- **Webhook auto-registration (no component trigger):** Use `onInstanceDeploy`/`onInstanceDelete` for webhook create/delete. Requires pass-through `onTrigger`.
 - `onExecution`: config via `context.configVars["varKey"]`, connection fields via `.fields.signingSecret`, `.token?.access_token`
 - Component actions: Import from manifest, call `.perform()`. Do not use `context.components.<key>.<action>()`.
 - `flow({...})` without generics. Do not add type annotations to callback parameters.

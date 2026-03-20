@@ -52,6 +52,11 @@ trigger_type:
   docs:
     - https://prismatic.io/docs/integrations/triggers.md
   cookbook_section: "answer: trigger_type → flow structure"
+  references:
+    - file: references/code-generation-guide.md
+      phase: code-gen
+      section: "Trigger Decision Tree"
+      note: "Check for component triggers before writing passthrough onTrigger"
 
 schedule_value:
   question: "How often should the integration run?"
