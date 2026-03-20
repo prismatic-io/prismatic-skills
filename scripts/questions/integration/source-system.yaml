@@ -85,43 +85,59 @@ source_connection:
     WARNING: Build-only/demo connections cannot be used with organizationActivatedConnection().
     If only build-only connections exist for org-activated, switch to manifest-based.
   agent_context: |
+    <before-presenting>
+      BEFORE presenting this question, run `Prismatic search-connections ${source_system}` to check
+      what reusable connections already exist in the user's Prismatic org. Use the results to inform
+      your recommendation — if a matching connection exists, lead with that.
+    </before-presenting>
+    <recommend>
+      Reusable connections (customer-activated or org-activated) are the recommended approach.
+      They're managed centrally in Prismatic, shared across integrations, and keep credentials
+      out of your code. Only fall back to manifest-based if no reusable connection exists and
+      the user doesn't want to create one.
+    </recommend>
     <present-as>
-      <option value="org_activated">Org-managed — your team configures one shared connection in Prismatic admin. All customer instances use it. Best when you control the account (e.g., your own internal service).</option>
-      <option value="customer_activated">Customer-managed — each customer authorizes their own account during instance setup. Standard for multi-tenant SaaS.</option>
-      <option value="manifest_based">Config page connection — created fresh on the config page using the component's built-in auth helper. Customer completes OAuth or enters credentials during setup. Most flexible.</option>
-      <option value="no_connection">No auth needed — for public APIs or when auth is handled differently.</option>
+      <option value="customer_activated" recommended="true">Customer-managed (reusable) — each customer authorizes their own account. The connection is created once in Prismatic and reused across integrations. Standard for multi-tenant SaaS with OAuth.</option>
+      <option value="org_activated">Org-managed (reusable) — your team configures one shared connection in Prismatic admin. All customer instances use it. Best when you control the account (e.g., your own internal Slack workspace).</option>
+      <option value="manifest_based">Integration-specific — credentials are embedded in this integration's config page. Not reusable across integrations. Use as a fallback when reusable connections aren't set up yet.</option>
+      <option value="no_connection">No auth needed — for public APIs or webhook-only endpoints.</option>
     </present-as>
-    Present all four options. If one doesn't apply, mention it briefly and explain why.
     <connection-search-rules>
-      After writing the answer, on_answer triggers a connection search. If results show only org-activated demo/build-only connections AND user chose customer_activated, do NOT offer the demo connection — it's architecturally incompatible. OAuth auth-code connections cannot be org-managed — each customer authorizes individually.
+      If existing reusable connections are found, present them: "I found these existing connections
+      for [system]: [list]. Want to use one of these, or create a new one?"
+      If none are found: "No reusable connections found for [system]. I'd recommend setting up a
+      customer-activated connection — want me to create one? This keeps credentials out of your code
+      and lets you reuse the connection across integrations."
+      If only build-only/demo connections exist AND user chose customer_activated, do NOT offer them —
+      they're architecturally incompatible. Skip straight to "create new."
     </connection-search-rules>
   implications:
-    "org_activated": >
-      One connection shared across all instances. Managed in Prismatic admin, not by customers.
-      Uses organizationActivatedConnection() in scopedConfigVars. Cannot use build-only/demo
-      connections — they fail at deploy.
     "customer_activated": >
-      Each customer authorizes their own account during setup. Uses customerActivatedConnection()
-      in configPages. Good for multi-tenant scenarios where each customer has their own credentials.
+      Each customer authorizes their own account. Reusable across integrations. Standard for
+      multi-tenant SaaS where each customer has their own credentials.
+    "org_activated": >
+      One shared connection for all instances. Managed centrally in Prismatic admin. Reusable
+      across integrations. Cannot use build-only/demo connections — they fail at deploy.
     "manifest_based": >
-      Creates a connection using the component's manifest helper (e.g., slackOauth2()) on the
-      config page. Customer completes OAuth or enters API keys during setup. Most common and
-      most flexible option.
+      Integration-specific connection embedded in this integration's config page. Credentials
+      are baked into the build. Not reusable across integrations — use as a fallback when
+      reusable connections aren't set up yet.
     "no_connection": >
       No authentication required. Suitable for public endpoints or when auth is handled
       differently (e.g., API key passed as a config variable).
   on_answer:
     org_activated: >
-      IMMEDIATELY run `search-connections.ts ${source_system}` to find existing org connections.
+      IMMEDIATELY run `Prismatic search-connections ${source_system}` to find existing org connections.
       Present results to the user and let them select one. Do not proceed to the next question
       until a connection is selected. Build-only/demo connections cannot be used with
       organizationActivatedConnection() — warn if only those exist.
     customer_activated: >
-      IMMEDIATELY run `search-connections.ts ${source_system}` to find existing connections.
-      Present results to the user and let them select one.
+      IMMEDIATELY run `Prismatic search-connections ${source_system}` to find existing connections.
+      Present results to the user and let them select one. If none exist, offer to create one
+      with `create-organization-connection`.
     manifest_based: >
       The next question will ask about providing credentials. Prepare to run
-      `get-credential-prompts.ts` if the user chooses to provide them now.
+      `Prismatic get-credentials` if the user chooses to provide them now.
   docs:
     - https://prismatic.io/docs/integrations/connections.md
   cookbook_section: "Connection Strategy Code Paths"
