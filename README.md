@@ -1,6 +1,6 @@
 # Prismatic Skills
 
-Claude Code plugin for building and managing Prismatic integrations through conversation. Build custom components, generate Code Native Integrations, explore your Prismatic environment, and operate the platform — all from your editor.
+Claude Code plugin for building and managing [Prismatic](https://www.prismatic.io) integrations through conversation. Build custom components, generate Code Native Integrations, explore your Prismatic environment, and operate the platform — all from your editor.
 
 ## Prerequisites
 
