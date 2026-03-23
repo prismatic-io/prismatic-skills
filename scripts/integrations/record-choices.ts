@@ -257,15 +257,70 @@ function main(): number {
     }
   }
 
-  // Validation for connection-type questions
-  const connectionQuestions = [
+  // Validation for connection-type questions (must be full JSON objects)
+  const connectionTypeQuestions = [
     "source_connection_type",
     "destination_connection_type",
+  ];
+
+  // Connection strategy questions require search-connections to be run first
+  const connectionStrategyQuestions = [
+    "source_connection",
+    "destination_connection",
   ];
 
   const written: string[] = [];
   const onAnswerActions: string[] = [];
   let hasValidationErrors = false;
+
+  // Gate: connection strategy answers require prior connection search
+  for (const key of connectionStrategyQuestions) {
+    if (batch[key] && typeof batch[key] === "string") {
+      const value = batch[key] as string;
+      // Gate: any connection strategy requires searching for existing connections first
+      if (value !== "no_connection") {
+        const system = key.startsWith("source") ? "source" : "destination";
+        const systemName = (batch[`${system}_system`] as string) || (answers[`${system}_system`] as string) || system;
+        const existingKey = `${system}_connection_existing`;
+        const existingValue = batch[existingKey] || answers[existingKey];
+
+        if (!existingValue) {
+          // No search done yet — block and redirect
+          console.log(
+            `<connection-required key="${key}" value="${value}" system="${systemName}">\n` +
+            `  Before recording a connection strategy, search for existing connections first.\n` +
+            `  <steps>\n` +
+            `    <step>Run: prismatic-tools search-connections ${systemName}</step>\n` +
+            `    <step>Present results to the user — recommend reusable connections (customer-activated)</step>\n` +
+            `    <step>Record the selected connection as ${existingKey}</step>\n` +
+            `    <step>Then re-run this command to record ${key}</step>\n` +
+            `  </steps>\n` +
+            `</connection-required>`
+          );
+          process.exit(0);
+        }
+
+        if (existingValue === "none" && value !== "manifest_based" && value !== "no_connection") {
+          // No connections found — block until user decides about creating a reusable SCV
+          console.log(
+            `<action-required blocking="true" type="connection-setup" system="${systemName}">\n` +
+            `  No existing reusable connections found for ${systemName}.\n` +
+            `  You MUST ask the user the following question. Do NOT answer it yourself.\n` +
+            `  Do NOT choose manifest_based or any other option on behalf of the user.\n` +
+            `  STOP and WAIT for the user's response.\n` +
+            `  <ask-user>\n` +
+            `    "No existing ${systemName} connections in your Prismatic org. I'd recommend creating a\n` +
+            `    reusable customer-activated connection — it keeps credentials out of your integration code\n` +
+            `    and can be shared across integrations. Want me to set one up, or would you prefer an\n` +
+            `    integration-specific connection instead?"\n` +
+            `  </ask-user>\n` +
+            `</action-required>`
+          );
+          process.exit(0);
+        }
+      }
+    }
+  }
 
   for (const [questionId, rawAnswer] of Object.entries(batch)) {
     let answer = rawAnswer;
@@ -298,13 +353,12 @@ function main(): number {
                 `    <choice value="${c}">${c}</choice>`
               ).join("\n");
             }
-            console.error(
+            console.log(
               `<validation-error key="${questionId}" attempted="${answer}">\n` +
               `  <valid-choices>\n${choiceLines}\n  </valid-choices>\n` +
               `  <instruction>Use ONLY the exact value= strings above. Present these choices to the user if needed. Do NOT invent alternatives.</instruction>\n` +
               `</validation-error>`
             );
-            hasValidationErrors = true;
             continue; // Skip writing this invalid answer
           }
         }
@@ -326,28 +380,28 @@ function main(): number {
     target[questionId] = answer;
     written.push(questionId);
 
-    if (connectionQuestions.includes(questionId)) {
+    if (connectionTypeQuestions.includes(questionId)) {
       if (typeof answer === "object" && answer !== null) {
         const obj = answer as Record<string, unknown>;
         if (
           !obj.inputs ||
           (Array.isArray(obj.inputs) && obj.inputs.length === 0)
         ) {
-          console.error(
+          console.log(
             `WARNING: ${questionId} is missing 'inputs' array — will cause credentials error later.`
           );
         }
       } else {
-        console.error(
+        console.log(
           `WARNING: ${questionId} should be an object, not string.`
         );
       }
     }
   }
 
-  if (hasValidationErrors && written.length === 0) {
-    console.error("No valid answers to write.");
-    return 1;
+  if (written.length === 0) {
+    // Nothing was written — validation errors or connection gate already output guidance
+    return 0;
   }
 
   // Write back

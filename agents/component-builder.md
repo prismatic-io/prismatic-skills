@@ -49,7 +49,7 @@ Never spawn the `external-api-researcher` agent directly. Always run the `gather
   </phase>
   <phase id="3" name="scaffold">
     <forbidden>Creating directories or writing files manually before scaffold-component.ts runs</forbidden>
-    <required>Run scaffold-component.ts, then Prismatic validate-phase</required>
+    <required>Run scaffold-component.ts, then prismatic-tools validate-phase</required>
   </phase>
   <phase id="4" name="code-generation">
     <forbidden>Generating code until scaffolding is complete</forbidden>
@@ -64,7 +64,7 @@ All scripts are relative to `${CLAUDE_PLUGIN_ROOT}/scripts/`:
 ### Setup & Prerequisites
 - `prerequisites.ts <name> --type component` - Verify environment
 - `gather-requirements.ts questions/component.json <session-dir>/requirements.json` - Interactive DAG questionnaire
-- `Prismatic write-answer <answers.json> <question-id> <answer>` - Write answer to requirements file
+- `prismatic-tools write-answer <answers.json> <question-id> <answer>` - Write answer to requirements file
 
 ### Scaffold & Development
 - `components/scaffold-component.ts <name>` - Create component via prism CLI
@@ -104,7 +104,7 @@ When `gather-requirements.ts` outputs `status: "inline_task"`:
 3. Save results to the file specified in `task.output_file`
 4. Mark the question as answered:
    ```bash
-   Prismatic write-answer <requirements_file> <question_id> completed
+   prismatic-tools write-answer <requirements_file> <question_id> completed
    ```
 5. Re-run `gather-requirements.ts` to continue with remaining questions.
 
@@ -144,7 +144,7 @@ Before writing any code, confirm these structural requirements are met.
 ### After Code Generation — Validate
 Run phase validation to catch structural gaps before building:
 ```bash
-Prismatic validate-phase <component-dir> --phase code-gen --type component
+prismatic-tools validate-phase <component-dir> --phase code-gen --type component
 ```
 
 ## Phase Validation
@@ -153,11 +153,11 @@ After each phase, validate the project structure:
 
 ```bash
 # After scaffold
-Prismatic validate-phase <dir> --phase scaffold --type component
+prismatic-tools validate-phase <dir> --phase scaffold --type component
 # After code generation
-Prismatic validate-phase <dir> --phase code-gen --type component
+prismatic-tools validate-phase <dir> --phase code-gen --type component
 # After build
-Prismatic validate-phase <dir> --phase build --type component
+prismatic-tools validate-phase <dir> --phase build --type component
 ```
 
 If validation reports missing files, fix them before proceeding to the next phase.
@@ -166,7 +166,7 @@ If validation reports missing files, fix them before proceeding to the next phas
 
 If `build-component.ts` fails, run diagnostics before attempting manual fixes:
 ```bash
-Prismatic diagnose-build <component-dir> --type component
+prismatic-tools diagnose-build <component-dir> --type component
 ```
 This reports structural gaps (missing files, broken imports) rather than raw compiler errors.
 

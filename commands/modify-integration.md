@@ -24,7 +24,7 @@ Narrate every step with educational depth — explain what you're doing and why.
 Run the state extractor to find the existing integration and build a "before" snapshot:
 
 ```bash
-Prismatic extract-state <project-path-or-name>
+prismatic-tools extract-state <project-path-or-name>
 ```
 
 If the user didn't provide a path:
@@ -63,7 +63,7 @@ domain files from `integration.yaml` are relevant.
 
 **After capturing intent, sync the task list:**
 ```bash
-Prismatic update-tasks --session <name> --actionable \
+prismatic-tools update-tasks --session <name> --actionable \
   --mode modify \
   --extracted-state <session-dir>/extracted-state.json \
   --scope "<modification_scope choices>"
@@ -89,7 +89,7 @@ This outputs `create_required` items. Create a "Gather modification requirements
 4. Check architectural interactions (e.g., changing to sync mode invalidates retryConfig)
 
 ### "Add or change a component"
-1. Search component registry via `Prismatic find-components`
+1. Search component registry via `prismatic-tools find-components`
 2. Install manifest: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <project-dir> --add-component <component>`
 3. Update `componentRegistry.ts` with new import
 4. Add config page entries for the component's connections
@@ -105,9 +105,9 @@ This outputs `create_required` items. Create a "Gather modification requirements
 3. Apply code changes to the flow file(s)
 
 ### "Fix a bug"
-1. Run `Prismatic diagnose-build` if build error:
+1. Run `prismatic-tools diagnose-build` if build error:
    ```bash
-   Prismatic diagnose-build <project-dir> --type integration
+   prismatic-tools diagnose-build <project-dir> --type integration
    ```
 2. Read error logs, identify root cause, fix
 3. Rebuild and verify
@@ -126,7 +126,7 @@ This outputs `create_required` items. Create a "Gather modification requirements
 - Adding a new flow → create the new file, update barrel export and index.ts
 - NOT: regenerating flows.ts from scratch because one property changed
 
-6. Validate: `Prismatic validate-phase <project-dir> --phase code-gen --type integration`
+6. Validate: `prismatic-tools validate-phase <project-dir> --phase code-gen --type integration`
 
 ## Phase 4: Build, Deploy, Test
 
@@ -136,5 +136,5 @@ This outputs `create_required` items. Create a "Gather modification requirements
 
 If build fails, diagnose first:
 ```bash
-Prismatic diagnose-build <project-dir> --type integration
+prismatic-tools diagnose-build <project-dir> --type integration
 ```

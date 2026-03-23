@@ -723,7 +723,7 @@ function main(): number {
       toCreateOptional.filter(t => t.inference !== "prohibited").length;
     if (inferableCount > 0 && toComplete.length < 5) {
       // First run or early run — many items to infer
-      console.error(
+      console.log(
         `<present-inferences>\n` +
         `  Before writing any inferred answers, present them to the user first.\n` +
         `  For each inference: WHAT value, WHY (quote the user's words), and IMPACT on architecture.\n` +
@@ -734,9 +734,30 @@ function main(): number {
       );
     }
 
+    // Emit connection setup instruction when connection items are pending
+    const connectionKeys = ["source_connection", "destination_connection"];
+    const pendingConnectionItems = toCreate.filter(t => connectionKeys.includes(t.spec_key));
+    if (pendingConnectionItems.length > 0) {
+      const systems = pendingConnectionItems.map(t => {
+        const system = t.spec_key.startsWith("source") ? "source" : "destination";
+        return answers[`${system}_system`] || system;
+      });
+      console.log(
+        `<connection-setup-required systems="${systems.join(",")}">\n` +
+        `  Connection management decisions are pending. These CANNOT be inferred or batch-written.\n` +
+        `  For EACH system, you MUST:\n` +
+        `  1. Run prismatic-tools search-connections <system> to check for existing reusable connections\n` +
+        `  2. Present the results to the user and recommend reusable (customer-activated) connections\n` +
+        `  3. Ask the user which approach they want — do NOT choose for them\n` +
+        `  4. Record the connection ONLY after the user responds\n` +
+        `  Do NOT batch these with other answers. Do NOT infer a connection strategy.\n` +
+        `</connection-setup-required>`
+      );
+    }
+
     // Emit task creation instruction
     const totalItems = toCreate.length + toCreateOptional.length + toComplete.length;
-    console.error(
+    console.log(
       `<task-creation>\n` +
       `  Create tasks for ALL ${totalItems} items — answered AND pending.\n` +
       `  - ${toComplete.length} answered items: TaskCreate then immediately TaskUpdate(completed).\n` +

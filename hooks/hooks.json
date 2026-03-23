@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Use the search script instead: Prismatic find-components <keyword>\"}}' >&2 && exit 2",
+            "command": "echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Use the search script instead: prismatic-tools find-components <keyword>\"}}' >&2 && exit 2",
             "timeout": 5
           }
         ]

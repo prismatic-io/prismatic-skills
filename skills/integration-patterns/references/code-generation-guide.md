@@ -273,7 +273,7 @@ dataSourceConfigVar({
 
 **How to decide:**
 
-1. Search for available connections: `Prismatic search-connections <platform>`
+1. Search for available connections: `prismatic-tools search-connections <platform>`
 2. If found → Use appropriate integration-agnostic connection type
 3. If not found → Use `connectionConfigVar`
 
@@ -696,7 +696,7 @@ Component manifests are auto-generated TypeScript wrappers that provide type-saf
 
 **For integrations with external systems (Salesforce, Slack, databases, AWS, etc.):**
 
-1. ✅ **Search:** `Prismatic find-components <system>`
+1. ✅ **Search:** `prismatic-tools find-components <system>`
 2. ✅ **Scaffold with manifests:** `scaffold-project.ts <name> --components slack,salesforce`
 3. ✅ **Register:** Create `componentRegistry.ts`
 4. ✅ **Configure:** Use connection helpers in `configPages.ts`
@@ -870,7 +870,7 @@ const result = await slackActions.postMessage.perform({
 
 ### Finding Component Information
 
-Use `Prismatic find-components` to discover available components by keyword.
+Use `prismatic-tools find-components` to discover available components by keyword.
 This returns component keys for use with `--components` flag.
 
 **Complete guide:** See [manifest-pattern.md](manifest-pattern.md) for detailed patterns and examples.

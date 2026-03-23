@@ -23,7 +23,7 @@ const syntheticLines = Object.entries(manifest.synthetic)
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([name, entry]) => {
     const usage = entry.usage ? ` ${entry.usage}` : "";
-    return `- \`Prismatic ${name}${usage}\` — ${entry.desc}`;
+    return `- \`prismatic-tools ${name}${usage}\` — ${entry.desc}`;
   })
   .join("\n");
 
@@ -52,7 +52,7 @@ ${syntheticLines}
 ## Explicit Tools (require confirmation)
 
 These must be invoked via \`npx tsx \${CLAUDE_PLUGIN_ROOT}/scripts/run.ts <name> [args]\`.
-Do NOT use the \`Prismatic\` prefix for these — they need user confirmation.
+Do NOT use the \`prismatic-tools\` prefix for these — they need user confirmation.
 
 ${explicitLines}
 </explicit-tools>`;

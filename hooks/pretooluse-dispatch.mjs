@@ -55,7 +55,7 @@ const command = input?.tool_input?.command ?? "";
 // 1. Synthetic tool dispatch (prismatic prefix)
 // =============================================
 // Match with or without ANSI color codes
-const PREFIX = "Prismatic ";
+const PREFIX = "prismatic-tools ";
 
 if (command.startsWith(PREFIX)) {
   const remainder = command.slice(PREFIX.length);
@@ -82,7 +82,7 @@ if (command.startsWith(PREFIX)) {
       );
     }
     deny(
-      `Unknown synthetic tool: '${toolName}'. Use Prismatic <name> where name is a registered synthetic tool.`
+      `Unknown synthetic tool: '${toolName}'. Use prismatic-tools <name> where name is a registered synthetic tool.`
     );
   }
 
@@ -141,9 +141,7 @@ if (command.startsWith(PREFIX)) {
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 
-  // Soft Black 900 (#101017) background for contrast on any terminal theme
-  const bg = "\x1b[48;2;16;16;23m";
-  const brandName = `${bg}\x1b[1m ${gradient("Prismatic", 101, 213, 218, 69, 115, 174)} \x1b[0m`;
+  const brandName = `\x1b[1m${gradient("Prismatic", 101, 213, 218, 69, 115, 174)}\x1b[0m`;
   const header =
     `${brandName} \x1b[2mv${version}\x1b[0m · \x1b[1m${titleCase}\x1b[0m · \x1b[2m${elapsed}s\x1b[0m\n` +
     (desc ? `\x1b[2m${desc}\x1b[0m\n` : "") +

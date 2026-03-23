@@ -422,19 +422,24 @@ function main(): number {
     if (parsed.apiKey) fieldValues.api_key = parsed.apiKey;
     if (parsed.baseUrl) fieldValues.app_base_url = parsed.baseUrl;
 
-    console.log("Creating test customer config variable...");
-    const { result, error } = createCustomerConfigVariable(
-      scopedConfigVar.id as string,
-      fieldValues
-    );
+    if (Object.keys(fieldValues).length === 0) {
+      console.log("No credentials provided — skipping test customer config variable.");
+      console.log("Customers will provide their own credentials during instance configuration.");
+    } else {
+      console.log("Creating test customer config variable...");
+      const { result, error } = createCustomerConfigVariable(
+        scopedConfigVar.id as string,
+        fieldValues
+      );
 
-    if (error || !result) {
-      console.log(`Error creating customer config variable: ${error}`);
-      return 3;
+      if (error || !result) {
+        console.log(`Error creating customer config variable: ${error}`);
+        return 3;
+      }
+
+      customerConfigVar = result;
+      console.log(`Created test customer config variable: ${customerConfigVar.id}`);
     }
-
-    customerConfigVar = result;
-    console.log(`Created test customer config variable: ${customerConfigVar.id}`);
   }
 
   console.log("");
@@ -459,7 +464,28 @@ function main(): number {
   console.log(JSON.stringify(output, null, 2));
   console.log("");
   console.log("Use this stable_key in your CNI integration:");
-  console.log(`  organizationActivatedConnection({ stableKey: "${stableKey}" })`);
+  console.log(`  For customer-activated: customerActivatedConnection({ stableKey: "${stableKey}" })`);
+  console.log(`  For org-activated:      organizationActivatedConnection({ stableKey: "${stableKey}" })`);
+
+  if (!customerConfigVar) {
+    console.log(
+      `\n<action-required blocking="true" type="test-credentials">\n` +
+      `  Connection created but no test credentials configured.\n` +
+      `  You MUST ask the user before proceeding. Do NOT skip this step.\n` +
+      `  <ask-user>\n` +
+      `    "Want to provide test credentials now so we can verify the connection works\n` +
+      `    during development? Or skip — customers will provide their own during instance setup."\n` +
+      `  </ask-user>\n` +
+      `  <on-yes>\n` +
+      `    Collect the required credential values from the user, then re-run this command\n` +
+      `    with the credential values to create a test customer config variable.\n` +
+      `  </on-yes>\n` +
+      `  <on-no>\n` +
+      `    Record the connection and continue. Testing will require real customer credentials later.\n` +
+      `  </on-no>\n` +
+      `</action-required>`
+    );
+  }
 
   return 0;
 }

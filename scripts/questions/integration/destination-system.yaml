@@ -110,7 +110,7 @@ destination_connection:
     WARNING: Build-only/demo connections cannot be used with organizationActivatedConnection().
   agent_context: |
     <before-presenting>
-      BEFORE presenting this question, run `Prismatic search-connections ${destination_system}` to check
+      BEFORE presenting this question, run `prismatic-tools search-connections ${destination_system}` to check
       what reusable connections already exist in the user's Prismatic org. Use the results to inform
       your recommendation — if a matching connection exists, lead with that.
     </before-presenting>
@@ -148,17 +148,17 @@ destination_connection:
       No auth required for the destination.
   on_answer:
     org_activated: >
-      IMMEDIATELY run `Prismatic search-connections ${destination_system}` to find existing org connections.
+      IMMEDIATELY run `prismatic-tools search-connections ${destination_system}` to find existing org connections.
       Present results to the user and let them select one. Do not proceed to the next question
       until a connection is selected. Build-only/demo connections cannot be used with
       organizationActivatedConnection() — warn if only those exist.
     customer_activated: >
-      IMMEDIATELY run `Prismatic search-connections ${destination_system}` to find existing connections.
+      IMMEDIATELY run `prismatic-tools search-connections ${destination_system}` to find existing connections.
       Present results to the user and let them select one. If none exist, offer to create one
       with `create-organization-connection`.
     manifest_based: >
       The next question will ask about providing credentials. Prepare to run
-      `Prismatic get-credentials` if the user chooses to provide them now.
+      `prismatic-tools get-credentials` if the user chooses to provide them now.
   docs:
     - https://prismatic.io/docs/integrations/connections.md
   cookbook_section: "Connection Strategy Code Paths"
