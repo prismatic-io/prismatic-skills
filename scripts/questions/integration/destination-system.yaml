@@ -109,31 +109,13 @@ destination_connection:
     - No connection → no connection config needed
     WARNING: Build-only/demo connections cannot be used with organizationActivatedConnection().
   agent_context: |
-    <before-presenting>
-      BEFORE presenting this question, run `prismatic-tools search-connections ${destination_system}` to check
-      what reusable connections already exist in the user's Prismatic org. Use the results to inform
-      your recommendation — if a matching connection exists, lead with that.
-    </before-presenting>
-    <recommend>
-      Reusable connections (customer-activated or org-activated) are the recommended approach.
-      They're managed centrally in Prismatic, shared across integrations, and keep credentials
-      out of your code. Only fall back to manifest-based if no reusable connection exists and
-      the user doesn't want to create one.
-    </recommend>
     <present-as>
-      <option value="customer_activated" recommended="true">Customer-managed (reusable) — each customer authorizes their own account. The connection is created once in Prismatic and reused across integrations. Standard for multi-tenant SaaS with OAuth.</option>
-      <option value="org_activated">Org-managed (reusable) — your team configures one shared connection in Prismatic admin. All customer instances use it. Best when you control the account.</option>
-      <option value="manifest_based">Integration-specific — credentials are embedded in this integration's config page. Not reusable across integrations. Fallback when reusable connections aren't set up yet.</option>
-      <option value="no_connection">No auth needed — for public APIs or webhook-only endpoints.</option>
+      <option value="customer_activated" recommended="true">Customer-activated (reusable) — each customer authorizes their own account. Connection is managed centrally in Prismatic and reusable across integrations.</option>
+      <option value="org_activated">Org-activated (reusable) — your team configures one shared connection. All customer instances use it.</option>
+      <option value="manifest_based">Integration-specific — credentials embedded in this integration only. Not reusable. Fallback option.</option>
+      <option value="no_connection">No auth needed.</option>
     </present-as>
-    <connection-search-rules>
-      If existing reusable connections are found, present them: "I found these existing connections
-      for [system]: [list]. Want to use one of these, or create a new one?"
-      If none are found: "No reusable connections found for [system]. I'd recommend setting up a
-      customer-activated connection — want me to create one?"
-      If only build-only/demo connections exist AND user chose customer_activated, do NOT offer them —
-      they're architecturally incompatible. Skip straight to "create new."
-    </connection-search-rules>
+    Recommend customer_activated for most cases. The record-choices script will guide next steps.
   implications:
     "customer_activated": >
       Each customer authorizes their own account. Reusable across integrations. Most common

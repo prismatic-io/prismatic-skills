@@ -275,20 +275,23 @@ function main(): number {
 
   // Gate: connection strategy answers require prior connection search
   for (const key of connectionStrategyQuestions) {
-    if (batch[key] && typeof batch[key] === "string") {
-      const value = batch[key] as string;
+    if (batch[key] !== undefined) {
+      const rawValue = batch[key];
+      const value = typeof rawValue === "string" ? rawValue : JSON.stringify(rawValue);
       // Gate: any connection strategy requires searching for existing connections first
       if (value !== "no_connection") {
         const system = key.startsWith("source") ? "source" : "destination";
-        const systemName = (batch[`${system}_system`] as string) || (answers[`${system}_system`] as string) || system;
+        const rawSystem = batch[`${system}_system`] || answers[`${system}_system`] || system;
+        const systemName = typeof rawSystem === "string" ? rawSystem : (rawSystem as Record<string, unknown>)?.source as string || (rawSystem as Record<string, unknown>)?.name as string || system;
         const existingKey = `${system}_connection_existing`;
         const existingValue = batch[existingKey] || answers[existingKey];
 
         if (!existingValue) {
           // No search done yet — block and redirect
           console.log(
+            `0 answers written. ${key} was NOT recorded.\n\n` +
             `<connection-required key="${key}" value="${value}" system="${systemName}">\n` +
-            `  Before recording a connection strategy, search for existing connections first.\n` +
+            `  ${key} was rejected because connection search has not been done yet.\n` +
             `  <steps>\n` +
             `    <step>Run: prismatic-tools search-connections ${systemName}</step>\n` +
             `    <step>Present results to the user — recommend reusable connections (customer-activated)</step>\n` +
@@ -300,14 +303,16 @@ function main(): number {
           process.exit(0);
         }
 
-        if (existingValue === "none" && value !== "manifest_based" && value !== "no_connection") {
+        if (existingValue === "none" && !value.includes("manifest_based") && value !== "no_connection") {
           // No connections found — block until user decides about creating a reusable SCV
           console.log(
+            `0 answers written. ${key} was NOT recorded.\n\n` +
             `<action-required blocking="true" type="connection-setup" system="${systemName}">\n` +
             `  No existing reusable connections found for ${systemName}.\n` +
+            `  ${key} was rejected because no reusable connection has been set up yet.\n` +
             `  You MUST ask the user the following question. Do NOT answer it yourself.\n` +
             `  Do NOT choose manifest_based or any other option on behalf of the user.\n` +
-            `  STOP and WAIT for the user's response.\n` +
+            `  Do NOT retry this command until the user responds.\n` +
             `  <ask-user>\n` +
             `    "No existing ${systemName} connections in your Prismatic org. I'd recommend creating a\n` +
             `    reusable customer-activated connection — it keeps credentials out of your integration code\n` +

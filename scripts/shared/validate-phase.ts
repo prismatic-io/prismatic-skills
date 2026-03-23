@@ -385,6 +385,16 @@ function semanticChecks(
           reference: "code-anti-patterns.md#raw-config-objects",
         });
       }
+
+      // Check for process.env in configPages (secrets should be in connections, not env vars)
+      if (/process\.env\./.test(content)) {
+        guidance.push({
+          severity: "error",
+          issue: "configPages.ts references process.env — secrets should not be in environment variables",
+          fix: "Use reusable connections (customerActivatedConnection or organizationActivatedConnection) for credentials. Do not embed secrets via process.env. Connection credentials should be managed in Prismatic's connection system, not in build-time environment variables.",
+          reference: "cni-examples/integration-agnostic-connections.md",
+        });
+      }
     } catch {}
   }
 
@@ -430,6 +440,30 @@ function semanticChecks(
           fix: "Remove the generic type parameter from flow(). Use `flow({...})` without generics — type annotations on callbacks cause TS2345 mismatches with Spectral's internal types.",
           reference: "code-anti-patterns.md#typed-flow-generics",
         });
+      }
+
+      // Check for passthrough onTrigger when component triggers might exist
+      if (
+        /onTrigger\s*:\s*async\s*\(_?context,?\s*payload\)\s*=>\s*\(\s*\{\s*payload\s*\}\s*\)/.test(content)
+      ) {
+        // Check if any manifest has a triggers/ directory
+        const manifestsDir = join(projectDir, "src", "manifests");
+        if (existsSync(manifestsDir)) {
+          try {
+            const components = readdirSync(manifestsDir);
+            const triggersExist = components.some(c =>
+              existsSync(join(manifestsDir, c, "triggers"))
+            );
+            if (triggersExist) {
+              guidance.push({
+                severity: "warning",
+                issue: `${relPath}: passthrough onTrigger but component triggers exist in manifests`,
+                fix: "Check src/manifests/*/triggers/ for built-in triggers that handle HMAC validation and webhook lifecycle. Import and use them instead of a passthrough: `import { triggerName } from './manifests/<component>/triggers/<key>'`",
+                reference: "code-generation-guide.md#trigger-decision-tree",
+              });
+            }
+          } catch {}
+        }
       }
 
       // Check for webhookLifecycleHandlers

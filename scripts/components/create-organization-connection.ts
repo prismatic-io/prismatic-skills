@@ -8,8 +8,7 @@
  *   --component-key <key> \
  *   --connection-key <key> \
  *   --name <name> \
- *   [--api-key <value>] \
- *   [--base-url <value>] \
+ *   [--credentials '{"host":"...","username":"...","password":"..."}'] \
  *   [--stable-key <key>] \
  *   [--skip-test-connection]
  *
@@ -283,16 +282,14 @@ function parseArgs(args: string[]): {
   componentKey: string;
   connectionKey: string;
   name: string;
-  apiKey?: string;
-  baseUrl?: string;
+  credentials?: Record<string, string>;
   stableKey?: string;
   skipTestConnection: boolean;
 } {
   let componentKey = "";
   let connectionKey = "";
   let name = "";
-  let apiKey: string | undefined;
-  let baseUrl: string | undefined;
+  let credentials: Record<string, string> | undefined;
   let stableKey: string | undefined;
   let skipTestConnection = false;
 
@@ -308,11 +305,12 @@ function parseArgs(args: string[]): {
       case "--name":
         name = args[++i] ?? "";
         break;
-      case "--api-key":
-        apiKey = args[++i];
-        break;
-      case "--base-url":
-        baseUrl = args[++i];
+      case "--credentials":
+        try {
+          credentials = JSON.parse(args[++i] ?? "{}");
+        } catch {
+          console.error("Invalid JSON for --credentials");
+        }
         break;
       case "--stable-key":
         stableKey = args[++i];
@@ -324,7 +322,7 @@ function parseArgs(args: string[]): {
     i++;
   }
 
-  return { componentKey, connectionKey, name, apiKey, baseUrl, stableKey, skipTestConnection };
+  return { componentKey, connectionKey, name, credentials, stableKey, skipTestConnection };
 }
 
 function main(): number {
@@ -332,7 +330,7 @@ function main(): number {
 
   if (!parsed.componentKey || !parsed.connectionKey || !parsed.name) {
     console.error(
-      "Usage: npx tsx create-organization-connection.ts --component-key <key> --connection-key <key> --name <name>"
+      "Usage: npx tsx create-organization-connection.ts --component-key <key> --connection-key <key> --name <name> [--credentials '<json>']"
     );
     return 1;
   }
@@ -418,9 +416,7 @@ function main(): number {
 
   // Create test customer config variable if not skipped and doesn't exist
   if (!parsed.skipTestConnection && !customerVarExisted && scopedConfigVar) {
-    const fieldValues: Record<string, string> = {};
-    if (parsed.apiKey) fieldValues.api_key = parsed.apiKey;
-    if (parsed.baseUrl) fieldValues.app_base_url = parsed.baseUrl;
+    const fieldValues: Record<string, string> = parsed.credentials ?? {};
 
     if (Object.keys(fieldValues).length === 0) {
       console.log("No credentials provided — skipping test customer config variable.");

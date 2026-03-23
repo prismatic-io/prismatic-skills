@@ -740,7 +740,10 @@ function main(): number {
     if (pendingConnectionItems.length > 0) {
       const systems = pendingConnectionItems.map(t => {
         const system = t.spec_key.startsWith("source") ? "source" : "destination";
-        return answers[`${system}_system`] || system;
+        const raw = answers[`${system}_system`];
+        if (typeof raw === "string") return raw;
+        if (raw && typeof raw === "object") return (raw as Record<string, unknown>).source as string || (raw as Record<string, unknown>).name as string || system;
+        return system;
       });
       console.log(
         `<connection-setup-required systems="${systems.join(",")}">\n` +

@@ -85,43 +85,27 @@ source_connection:
     WARNING: Build-only/demo connections cannot be used with organizationActivatedConnection().
     If only build-only connections exist for org-activated, switch to manifest-based.
   agent_context: |
-    <before-presenting>
-      BEFORE presenting this question, run `prismatic-tools search-connections ${source_system}` to check
-      what reusable connections already exist in the user's Prismatic org. Use the results to inform
-      your recommendation — if a matching connection exists, lead with that.
-    </before-presenting>
-    <recommend>
-      Reusable connections (customer-activated or org-activated) are the recommended approach.
-      They're managed centrally in Prismatic, shared across integrations, and keep credentials
-      out of your code. Only fall back to manifest-based if no reusable connection exists and
-      the user doesn't want to create one.
-    </recommend>
     <present-as>
-      <option value="customer_activated" recommended="true">Customer-managed (reusable) — each customer authorizes their own account. The connection is created once in Prismatic and reused across integrations. Standard for multi-tenant SaaS with OAuth.</option>
-      <option value="org_activated">Org-managed (reusable) — your team configures one shared connection in Prismatic admin. All customer instances use it. Best when you control the account (e.g., your own internal Slack workspace).</option>
-      <option value="manifest_based">Integration-specific — credentials are embedded in this integration's config page. Not reusable across integrations. Use as a fallback when reusable connections aren't set up yet.</option>
-      <option value="no_connection">No auth needed — for public APIs or webhook-only endpoints.</option>
+      <option value="customer_activated" recommended="true">Customer-activated (reusable) — each customer provides and authorizes their own credentials (OAuth flow or API keys). The connection is defined once in Prismatic and reusable across integrations. Code: customerActivatedConnection() in configPages.</option>
+      <option value="org_activated">Org-activated (reusable) — your team provides credentials on behalf of customers. Can be per-customer (unique creds per customer) or global (one shared connection for all). Code: organizationActivatedConnection() in scopedConfigVars.</option>
+      <option value="manifest_based">Integration-specific — connection defined on this integration's config page only. Not reusable across integrations. Org provides OAuth app creds, customer authorizes during setup. Code: connectionConfigVar() or manifest helper in configPages.</option>
+      <option value="no_connection">No auth needed.</option>
     </present-as>
-    <connection-search-rules>
-      If existing reusable connections are found, present them: "I found these existing connections
-      for [system]: [list]. Want to use one of these, or create a new one?"
-      If none are found: "No reusable connections found for [system]. I'd recommend setting up a
-      customer-activated connection — want me to create one? This keeps credentials out of your code
-      and lets you reuse the connection across integrations."
-      If only build-only/demo connections exist AND user chose customer_activated, do NOT offer them —
-      they're architecturally incompatible. Skip straight to "create new."
-    </connection-search-rules>
+    Recommend customer_activated for most cases. The record-choices script will guide next steps.
   implications:
     "customer_activated": >
-      Each customer authorizes their own account. Reusable across integrations. Standard for
-      multi-tenant SaaS where each customer has their own credentials.
+      Each customer provides and authorizes their own credentials during instance setup.
+      Connection defined once in Prismatic, reusable across integrations. Uses
+      customerActivatedConnection({ stableKey }) in configPages.ts.
     "org_activated": >
-      One shared connection for all instances. Managed centrally in Prismatic admin. Reusable
-      across integrations. Cannot use build-only/demo connections — they fail at deploy.
+      Your team provides credentials — either unique per customer or one shared connection
+      for all customers. Not visible to customers in the config wizard. Uses
+      organizationActivatedConnection({ stableKey }) in index.ts scopedConfigVars.
     "manifest_based": >
-      Integration-specific connection embedded in this integration's config page. Credentials
-      are baked into the build. Not reusable across integrations — use as a fallback when
-      reusable connections aren't set up yet.
+      Integration-specific connection on the config page. Org provides the OAuth app
+      registration (client ID/secret set post-deploy in Prismatic admin). Customer
+      completes the OAuth flow during setup. Not reusable across integrations. Uses
+      connectionConfigVar() or manifest helpers (e.g., slackOauth2()) in configPages.ts.
     "no_connection": >
       No authentication required. Suitable for public endpoints or when auth is handled
       differently (e.g., API key passed as a config variable).
