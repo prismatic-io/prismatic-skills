@@ -1,47 +1,45 @@
 // Template: Component Actions
-// Slots: ACTIONS (array of {key, label, description, inputs, performBody})
+// Source: components repo standardization (actions.md, inputs.md)
 //
-// Required patterns:
-//   - Extract credentials from params.connection.fields
-//   - Return { data: <result> } from perform
-//   - Type all inputs with input() definitions
+// STRUCTURE: Actions use folder-based organization:
+//   src/actions/
+//   ├── index.ts                    # Barrel export with spread
+//   ├── <resource>/
+//   │   ├── index.ts
+//   │   └── <verb><Resource>.ts    # One action per file
+//   └── misc/
+//       ├── index.ts
+//       └── rawRequest.ts           # REQUIRED in every component
 //
-// Usage: Define one action per API resource operation.
+// INPUTS: All inputs defined in src/inputs/ (never inline in actions).
+// Each non-connection input MUST have: label, type, required, comments, clean.
+// String inputs also need: placeholder, example.
+//
+// EXAMPLE PAYLOADS: All in src/examplePayloads/ with verification headers.
+//
+// This template shows the pattern for a SINGLE action file.
+// Repeat this pattern for each action in its own file.
 
-import { action, input } from "@prismatic-io/spectral";
-import { createClient } from "./client";
+import { action } from "@prismatic-io/spectral";
+import { createClient } from "../../client";
+import { connection } from "../../inputs";
+import { {{actionName}}ExamplePayload } from "../../examplePayloads";
 
-{{#each ACTIONS}}
-const {{key}} = action({
+export const {{actionName}} = action({
   display: {
-    label: "{{label}}",
-    description: "{{description}}",
+    label: "{{ActionLabel}}",
+    description: "{{ActionDescription}}.",
   },
   inputs: {
-    connection: input({
-      label: "Connection",
-      type: "connection",
-      required: true,
-    }),
+    connection,
     {{#each inputs}}
-    {{key}}: input({
-      label: "{{label}}",
-      type: "{{type:string}}",
-      required: {{required:true}},
-      {{#if comments}}comments: "{{comments}}",{{/if}}
-    }),
+    {{key}},
     {{/each}}
   },
-  perform: async (context, params) => {
-    const client = createClient(params.connection);
-    // {{performBody}}
-    return { data: result };
+  perform: async (context, { connection, {{destructuredInputs}} }) => {
+    const client = createClient(connection, context.debug.enabled);
+    const { data } = await client.get("{{endpoint}}");
+    return { data };
   },
+  examplePayload: {{actionName}}ExamplePayload,
 });
-{{/each}}
-
-export default {
-  {{#each ACTIONS}}
-  {{key}},
-  {{/each}}
-};

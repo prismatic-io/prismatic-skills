@@ -158,22 +158,22 @@ Client determines auth by checking `connection.token?.access_token` first, then 
 
 ```typescript
 import { trigger } from "@prismatic-io/spectral";
-import { MyClient } from "./client";
+import { createClient } from "./client";
 import { connectionInput } from "./inputs";
 
 const webhookTrigger = trigger({
   display: { label: "Webhook", description: "Receive webhook events" },
   inputs: { connection: connectionInput },
-  onInstanceDeploy: async (context, inputs) => {
-    const client = new MyClient({ connection: inputs.connection });
+  onInstanceDeploy: async (context, { connection }) => {
+    const client = createClient(connection, false);
     const webhookUrl = context.webhookUrls[context.flow.name];
     const result = await client.webhooks.register({ url: webhookUrl });
     return { instanceState: { webhookId: result.id } };
   },
-  onInstanceDelete: async (context, inputs) => {
+  onInstanceDelete: async (context, { connection }) => {
     const webhookId = context.instanceState?.webhookId;
     if (webhookId) {
-      const client = new MyClient({ connection: inputs.connection });
+      const client = createClient(connection, false);
       await client.webhooks.delete(webhookId as string);
     }
   },
@@ -222,14 +222,15 @@ Actions expose cursor/page inputs, return partial results:
 ```typescript
 const listItems = action({
   display: { label: "List Items", description: "List items with pagination" },
+  examplePayload: listItemsExamplePayload,
   inputs: {
     connection: connectionInput,
     cursor: input({ label: "Cursor", type: "string", required: false }),
     limit: input({ label: "Limit", type: "string", default: "100", clean: util.types.toInt }),
   },
-  perform: async (context, params) => {
-    const client = new MyClient({ connection: params.connection });
-    const result = await client.items.list({ cursor: params.cursor, limit: params.limit });
+  perform: async (context, { connection, cursor, limit }) => {
+    const client = createClient(connection, context.debug.enabled);
+    const result = await client.items.list({ cursor, limit });
     return { data: { items: result.data, nextCursor: result.next_cursor } };
   },
 });
@@ -244,20 +245,20 @@ Single request, no pagination logic needed.
 ## answer: data_source_support → data source pattern
 
 ```typescript
-import { dataSource } from "@prismatic-io/spectral";
-import { MyClient } from "./client";
+import { dataSource, type Element } from "@prismatic-io/spectral";
+import { createClient } from "./client";
 import { connectionInput } from "./inputs";
 
 const selectItem = dataSource({
   display: { label: "Select Item", description: "Choose an item from the list" },
   dataSourceType: "picklist",
   inputs: { connection: connectionInput },
-  perform: async (context, params) => {
-    const client = new MyClient({ connection: params.connection });
+  perform: async (context, { connection }) => {
+    const client = createClient(connection, context.debug.enabled);
     const items = await client.items.list();
     const result = items
-      .map((item) => ({ label: item.name, key: item.id }))
-      .sort((a, b) => a.label.localeCompare(b.label));
+      .map((item): Element => ({ label: item.name, key: item.id }))
+      .sort((a, b) => (a.label < b.label ? -1 : 1));
     return { result };
   },
 });
@@ -276,14 +277,14 @@ Picklist element shape: `{ label: string, key: string }`.
 ```typescript
 import { ConnectionError } from "@prismatic-io/spectral";
 
-perform: async (context, params) => {
+perform: async (context, { connection }) => {
   try {
-    const client = new MyClient({ connection: params.connection });
+    const client = createClient(connection, context.debug.enabled);
     const result = await client.items.list();
     return { data: result };
   } catch (error) {
     if (error instanceof Error && (error.message.includes("401") || error.message.includes("403"))) {
-      throw new ConnectionError(params.connection, `Authentication failed: ${error.message}`);
+      throw new ConnectionError(connection, `Authentication failed: ${error.message}`);
     }
     throw error;
   }
@@ -293,9 +294,9 @@ perform: async (context, params) => {
 ### error_handling_strategy: "try_catch"
 
 ```typescript
-perform: async (context, params) => {
+perform: async (context, { connection, ...params }) => {
   try {
-    const client = new MyClient({ connection: params.connection });
+    const client = createClient(connection, context.debug.enabled);
     const result = await client.items.create(params);
     return { data: result };
   } catch (error) {
@@ -309,3 +310,49 @@ perform: async (context, params) => {
 ### error_handling_strategy: "none"
 
 No try/catch — errors propagate to the integration's error handler.
+
+---
+
+## Required Structure
+
+Every connector component must include:
+- `src/client.ts` — function-based `createClient` returning `HttpClient`
+- `src/inputs/` — folder with all input definitions (never inline in actions)
+- `src/actions/` — folder tree with one action per file
+- `src/actions/misc/rawRequest.ts` — REQUIRED raw HTTP request action
+- `src/examplePayloads/` — folder with verified payloads for each action
+- `src/connections.ts` — connection definitions
+- `src/index.ts` — component definition with `hooks: { error: handleErrors }`
+
+---
+
+## Input Clean Functions
+
+Every non-connection input MUST have a `clean` function:
+
+| Input type | Clean function |
+|-----------|---------------|
+| Required string | `clean: util.types.toString` |
+| Optional string | `clean: (val) => util.types.toString(val) \|\| undefined` |
+| Boolean | `clean: util.types.toBool` |
+| Number | `clean: util.types.toNumber` |
+| JSON/object | `clean: util.types.toObject` |
+| Data (binary) | `clean: util.types.toData` |
+
+String inputs also need `placeholder` and `example` fields.
+All inputs need a `comments` field.
+
+---
+
+## Error Hooks
+
+Every component definition MUST include error hooks:
+
+```typescript
+import { handleErrors } from "@prismatic-io/spectral/dist/clients/http";
+
+export default component({
+  // ...
+  hooks: { error: handleErrors },
+});
+```

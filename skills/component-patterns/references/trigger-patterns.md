@@ -9,7 +9,7 @@ external events and forward payloads to the integration.
 
 ```typescript
 import { trigger } from "@prismatic-io/spectral";
-import { MyClient } from "./client";
+import { createClient } from "./client";
 import { connectionInput } from "./inputs";
 
 const webhookTrigger = trigger({
@@ -21,23 +21,23 @@ const webhookTrigger = trigger({
     connection: connectionInput,
   },
 
-  onInstanceDeploy: async (context, inputs) => {
-    const client = new MyClient({ connection: inputs.connection });
+  onInstanceDeploy: async (context, { connection }) => {
+    const client = createClient(connection, false);
     const webhookUrl = context.webhookUrls[context.flow.name];
     const result = await client.webhooks.register({ url: webhookUrl, events: ["item.created"] });
     return { instanceState: { webhookId: result.id } };
   },
 
-  onInstanceDelete: async (context, inputs) => {
+  onInstanceDelete: async (context, { connection }) => {
     const webhookId = context.instanceState?.webhookId;
     if (webhookId) {
-      const client = new MyClient({ connection: inputs.connection });
+      const client = createClient(connection, false);
       await client.webhooks.delete(webhookId as string);
     }
   },
 
   perform: async (context, payload) => {
-    return { payload };
+    return Promise.resolve({ payload: { headers: payload.headers, body: payload.body.data, rawBody: payload.rawBody, contentType: payload.contentType } });
   },
 
   scheduleSupport: "invalid",
@@ -72,10 +72,10 @@ perform: async (context, payload) => {
       contentType: "application/json",
       body: JSON.stringify({ error: "Invalid signature" }),
     };
-    return { payload, response };
+    return { payload: { headers: payload.headers, body: payload.body.data, rawBody: payload.rawBody, contentType: payload.contentType }, response };
   }
 
-  return { payload };
+  return Promise.resolve({ payload: { headers: payload.headers, body: payload.body.data, rawBody: payload.rawBody, contentType: payload.contentType } });
 },
 ```
 
@@ -98,9 +98,9 @@ const webhookTrigger = trigger({
       clean: util.types.toString,
     }),
   },
-  onInstanceDeploy: async (context, inputs) => {
-    const events = inputs.eventTypes ? inputs.eventTypes.split(",").map((e) => e.trim()) : ["*"];
-    const client = new MyClient({ connection: inputs.connection });
+  onInstanceDeploy: async (context, { connection, eventTypes }) => {
+    const events = eventTypes ? eventTypes.split(",").map((e) => e.trim()) : ["*"];
+    const client = createClient(connection, false);
     const webhookUrl = context.webhookUrls[context.flow.name];
     const result = await client.webhooks.register({ url: webhookUrl, events });
     return { instanceState: { webhookId: result.id } };

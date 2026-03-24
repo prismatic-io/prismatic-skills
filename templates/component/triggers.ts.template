@@ -8,10 +8,7 @@
 // Usage: Fill in the webhook registration/deregistration logic.
 
 import { trigger, input, HttpResponse } from "@prismatic-io/spectral";
-import { createClient, apiRequest } from "./client";
-{{#if WEBHOOK_HMAC}}
-import { createHmac } from "node:crypto";
-{{/if}}
+import { createClient } from "./client";
 
 const webhook = trigger({
   display: {
@@ -37,57 +34,44 @@ const webhook = trigger({
 
   // Process incoming webhook payloads
   perform: async (context, payload, params) => {
-    {{#if WEBHOOK_HMAC}}
-    // HMAC signature verification
-    const signingSecret = params.connection.fields.{{HMAC_SECRET_FIELD:signingSecret}} as string;
-    const signature = payload.headers?.["{{HMAC_HEADER:x-signature}}"] as string;
-    const rawBody = payload.rawBody?.data ?? "";
-    const computed = createHmac("{{HMAC_ALGORITHM:sha256}}", signingSecret)
-      .update(typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody))
-      .digest("hex");
-    if (signature !== computed) {
-      return {
-        payload: { body: "Unauthorized" },
-        response: { statusCode: 401, body: "Invalid signature" } as HttpResponse,
-      };
-    }
-    {{/if}}
-
-    const body = payload.body?.data ?? payload.rawBody?.data;
-    return {
+    return Promise.resolve({
       payload: {
-        body,
-        contentType: payload.headers?.["content-type"] ?? "application/json",
+        headers: payload.headers,
+        body: payload.body.data,
+        rawBody: payload.rawBody,
+        contentType: payload.contentType,
       },
-    };
+    });
   },
 
   // Called when an instance using this trigger is deployed
-  onInstanceDeploy: async (context, params) => {
-    const client = createClient(params.connection);
-    const webhookUrl = params.webhookUrls["{{COMPONENT_KEY}}-webhook"];
+  onInstanceDeploy: async (context, { connection }) => {
+    const client = createClient(connection, false);
+    const webhookUrl = context.webhookUrls[context.flow.name];
 
     // Register webhook with external API
-    // const result = await apiRequest(client, "POST", "/webhooks", {
-    //   url: webhookUrl,
-    //   events: params.events?.split(",").map(e => e.trim()),
-    // });
+    const result = await client.post("/webhooks", {
+      url: webhookUrl,
+      {{#if WEBHOOK_EVENTS}}
+      events: "{{WEBHOOK_EVENTS}}".split(",").map((e) => e.trim()),
+      {{/if}}
+    });
 
     // Store webhook ID for cleanup
-    // await context.instanceState.set("webhookId", result.id);
+    await context.instanceState.set("webhookId", result.data.id);
   },
 
   // Called when an instance using this trigger is deleted
-  onInstanceDelete: async (context, params) => {
-    const client = createClient(params.connection);
+  onInstanceDelete: async (context, { connection }) => {
+    const client = createClient(connection, false);
 
     // Retrieve stored webhook ID
-    // const webhookId = await context.instanceState.get("webhookId");
+    const webhookId = await context.instanceState.get("webhookId");
 
     // Deregister webhook from external API
-    // if (webhookId) {
-    //   await apiRequest(client, "DELETE", `/webhooks/${webhookId}`);
-    // }
+    if (webhookId) {
+      await client.delete(`/webhooks/${webhookId}`);
+    }
   },
 });
 

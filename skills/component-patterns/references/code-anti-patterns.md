@@ -232,3 +232,129 @@ const listItemsSince = action({
 ```
 </right>
 </anti-pattern>
+
+---
+
+## Client Architecture
+
+<anti-pattern name="class-based-client">
+<wrong>
+```typescript
+class MyClient {
+  constructor(connection) { ... }
+}
+```
+</wrong>
+<why>The components repo uses a function-based client factory, not classes. Class-based clients add unnecessary complexity and diverge from the established pattern.</why>
+<right>
+```typescript
+export const createClient = (connection: Connection, debug = false): HttpClient =>
+  createHttpClient({...})
+```
+</right>
+</anti-pattern>
+
+---
+
+## Error Hooks
+
+<anti-pattern name="missing-handle-errors-hook">
+<wrong>
+```typescript
+export default component({ key, actions, connections })
+```
+</wrong>
+<why>Without the `handleErrors` hook, HTTP errors from the spectral client are not normalized. Auth failures (401/403) won't surface as connection errors in the Prismatic UI.</why>
+<right>
+```typescript
+import { handleErrors } from "@prismatic-io/spectral/dist/clients/http";
+
+export default component({ key, actions, connections, hooks: { error: handleErrors } })
+```
+</right>
+</anti-pattern>
+
+---
+
+## Data Source Elements
+
+<anti-pattern name="wrong-element-format">
+<wrong>
+```typescript
+{ label: "Bucket A", value: "bucket-a" }
+```
+</wrong>
+<why>The `Element` type from spectral uses `key`, not `value`. Using `value` causes type errors and broken picklists in the config UI.</why>
+<right>
+```typescript
+{ label: "Bucket A", key: "bucket-a" }
+```
+</right>
+</anti-pattern>
+
+---
+
+## Input Definitions
+
+<anti-pattern name="inline-inputs-in-actions">
+<wrong>
+```typescript
+inputs: { name: input({ label: "Name", type: "string" }) }
+```
+</wrong>
+<why>Inline inputs in action files prevent reuse across actions and data sources. All inputs belong in `src/inputs/` and are imported by reference.</why>
+<right>
+```typescript
+import { name } from "../../inputs";
+// then in action:
+inputs: { connection, name }
+```
+</right>
+</anti-pattern>
+
+---
+
+## Clean Functions
+
+<anti-pattern name="missing-clean-functions">
+<wrong>
+```typescript
+input({ label: "Name", type: "string", required: true })
+```
+</wrong>
+<why>Without a `clean` function, input values arrive as `unknown` and require manual casting. Clean functions ensure type safety and consistent coercion. String inputs also require `comments`, `placeholder`, and `example`.</why>
+<right>
+```typescript
+input({ label: "Name", type: "string", required: true, clean: util.types.toString, comments: "The item name", placeholder: "e.g. My Item" })
+```
+</right>
+</anti-pattern>
+
+---
+
+## Example Payloads
+
+<anti-pattern name="missing-example-payload">
+<wrong>
+```typescript
+const listUsers = action({
+  display: { label: "List Users", description: "..." },
+  inputs: { connection },
+  perform: async (context, { connection }) => { ... },
+});
+```
+</wrong>
+<why>Every action must include an `examplePayload` property so the platform can display sample output in the integration designer. Payloads are imported from `src/examplePayloads/`.</why>
+<right>
+```typescript
+import { listUsersExamplePayload } from "../../examplePayloads";
+
+const listUsers = action({
+  display: { label: "List Users", description: "..." },
+  examplePayload: listUsersExamplePayload,
+  inputs: { connection },
+  perform: async (context, { connection }) => { ... },
+});
+```
+</right>
+</anti-pattern>

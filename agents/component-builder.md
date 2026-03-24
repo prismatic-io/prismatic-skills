@@ -1,7 +1,7 @@
 ---
 name: component-builder
 description: Builds Prismatic custom components. Handles scaffolding, code generation, building, and publishing for connector components.
-tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, TaskCreate, TaskUpdate, TaskList, TaskGet
+tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, TaskCreate, TaskUpdate, TaskList, TaskGet, AskUserQuestion
 skills:
   - component-patterns
 model: inherit
@@ -127,7 +127,7 @@ Read the spec item before presenting any choice — the `choices` array is the o
 
 For items marked `inference: allowed`, you may infer from the user's description — but present all inferences to the user for confirmation before writing them. Show what you inferred, why (quote the user's words), and the architectural impact. Wait for the user to confirm before persisting. Do not silently batch-write inferences.
 
-For items marked `inference: prohibited`, present the choices and wait. Do not infer, guess, or skip these.
+For items marked `inference: prohibited` with 4 or fewer choices, use AskUserQuestion to present the options. This hard-enforces the valid choices — the user can only pick from what the spec defines, preventing hallucinated options. The only prohibited item that exceeds 4 choices is `auth_type` (5 choices) — present that one conversationally using the spec's `<present-as>` block. Do not infer, guess, or skip prohibited items.
 
 Optional items are the user's decision. Present them with your recommendation. Do not silently fill them in — these are real architectural choices that affect the component's behavior.
 
@@ -476,28 +476,46 @@ prismatic-tools update-tasks --session <name> --type component --actionable
 
 ## Code Generation Checklist
 
+### Required Structure (ALL connectors)
+- `src/client.ts` — function-based `createClient` returning `HttpClient` (NOT class-based)
+- `src/inputs/` — folder with all input definitions (NEVER inline in actions)
+- `src/actions/` — folder tree: `actions/<resource>/<verb><Resource>.ts`, one action per file
+- `src/actions/misc/rawRequest.ts` — REQUIRED raw HTTP request action in every component
+- `src/examplePayloads/` — folder with verified payloads imported by each action
+- `src/connections.ts` — connection definitions
+- `src/dataSources/` — folder with data source definitions
+- `src/triggers/` — folder with trigger definitions
+- `src/types.ts` — API resource type definitions
+- `src/index.ts` — component definition with `hooks: { error: handleErrors }`
+- Barrel exports (`index.ts`) at every folder level using spread pattern
+
 ### Connector Components — Required Patterns
-- Every action `perform` function: extract credentials from `params.connection.fields`
-- Webhook triggers: implement `onInstanceDeploy` (register) and `onInstanceDelete` (deregister)
-- OAuth2 connections: include `authorizeUrl`, `tokenUrl`, `scopes` fields
-- API Key connections: include `apiKey` and `endpoint` (or `baseUrl`) fields
-- Bearer Token connections: include `token` and `endpoint` fields
-- All HTTP calls: use the client helper in `src/client.ts`, not raw `fetch` or `axios`
+- `createClient(connection, context.debug.enabled)` in every action perform — function-based, returns HttpClient
+- `ConnectionError` thrown in client.ts for connection type mismatches (NOT in actions)
+- `handleErrors` hook on component: `hooks: { error: handleErrors }` (from `@prismatic-io/spectral/dist/clients/http`)
+- `examplePayload` on every action — imported from `src/examplePayloads/`, verified against API
+- `clean` function on every non-connection input: `util.types.toString`, `util.types.toBool`, `util.types.toNumber`
+- `placeholder` and `example` on every string/text input
+- `comments` on every input
+- All HTTP calls through the client helper — NEVER raw `fetch` or `axios` in actions
 - Action return values: always `{ data: <result> }` format
+- Data source return: `{ result: Element[] }` with `{ label, key }` format (NOT `{ label, value }`)
+- Webhook triggers: `onInstanceDeploy` + `onInstanceDelete`, webhook URL via `context.webhookUrls[context.flow.name]`
+- Trigger perform return: `Promise.resolve({ payload: { headers, body, rawBody, contentType } })`
+- Connection keys: simple names (`"apiKey"`, `"oauth2"`) — NOT `"component-api-key"`
 
 ### Utility Components — Required Patterns
-- Every action: typed `inputs` with `input()` definitions (label, type, required)
-- Action `perform` function: validate inputs before processing
-- Return values: always `{ data: <result> }` format
+- Same input requirements: `clean`, `comments`, `placeholder`, `example`
+- Same `examplePayload` on every action
+- Same `{ data }` return wrapper
+- Same folder structure for actions and inputs
+- `hooks: { error: handleErrors }` on component definition
 
 ### Common Patterns
-- `component()` with key, display (label, description, iconPath), actions array
-- `action()` with key, display, inputs, perform function
-- `connection()` with key, label, inputs for auth fields
-- `trigger()` with key, display, inputs, perform, and optional lifecycle hooks
-- `input()` with label, type, required, comments, default
-- Import only from `@prismatic-io/spectral`
-- Use `util.types` for input type constants
+- Import from `@prismatic-io/spectral` (exception: `@prismatic-io/spectral/dist/clients/http` for createClient and handleErrors)
+- Use `util.types` for clean functions
+- Inputs destructured in perform: `async (context, { connection, fieldName }) => { ... }`
+- Debug wiring: `context.debug.enabled` → `createClient(connection, debug)`
 
 </code-patterns>
 

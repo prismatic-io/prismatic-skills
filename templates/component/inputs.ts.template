@@ -1,0 +1,63 @@
+// Template: Component Inputs
+// Source: components repo standardization (inputs.md)
+//
+// ALL inputs defined here, imported by actions. Never inline in action files.
+// Every non-connection input MUST have: label, type, required, comments, clean.
+// String inputs also need: placeholder, example.
+//
+// STRUCTURE:
+//   src/inputs/
+//   ├── index.ts      # Barrel export
+//   ├── common.ts     # connection, pagination inputs
+//   └── <resource>.ts # Resource-specific inputs
+
+import { input, util } from "@prismatic-io/spectral";
+
+// Connection input (shared across all actions and data sources)
+export const connection = input({
+  label: "Connection",
+  type: "connection",
+  required: true,
+  comments: "The {{COMPONENT_LABEL}} connection to use.",
+});
+
+// Pagination inputs (shared across list actions)
+export const fetchAll = input({
+  label: "Fetch All",
+  type: "boolean",
+  required: false,
+  default: "false",
+  comments: "When true, automatically fetches all pages of results.",
+  clean: util.types.toBool,
+});
+
+export const pageSize = input({
+  label: "Page Size",
+  type: "string",
+  required: false,
+  comments: "Number of results per page.",
+  clean: util.types.toNumber,
+  placeholder: "Enter page size",
+  example: "100",
+});
+
+export const cursor = input({
+  label: "Cursor",
+  type: "string",
+  required: false,
+  comments: "Pagination cursor from a previous response.",
+  clean: util.types.toString,
+  placeholder: "Enter cursor token",
+});
+
+// Example resource-specific inputs (replace with actual inputs):
+//
+// export const resourceId = input({
+//   label: "Resource ID",
+//   type: "string",
+//   required: true,
+//   comments: "The unique identifier of the resource.",
+//   clean: util.types.toString,
+//   placeholder: "Enter resource ID",
+//   example: "res_abc123",
+// });

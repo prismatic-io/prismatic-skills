@@ -7,14 +7,15 @@ import { connection, input } from "@prismatic-io/spectral";
 
 {{#if CONNECTION_TYPE_OAUTH2}}
 const {{COMPONENT_KEY}}OAuth2 = connection({
-  key: "{{COMPONENT_KEY}}-oauth2",
-  label: "{{COMPONENT_LABEL}} OAuth2",
+  key: "oauth2",
+  label: "OAuth 2.0",
   oauth2Type: "authorization_code",
   inputs: {
     authorizeUrl: input({
       label: "Authorize URL",
       type: "string",
       required: true,
+      shown: false,
       default: "{{AUTHORIZE_URL}}",
       comments: "OAuth2 authorization endpoint",
     }),
@@ -22,6 +23,7 @@ const {{COMPONENT_KEY}}OAuth2 = connection({
       label: "Token URL",
       type: "string",
       required: true,
+      shown: false,
       default: "{{TOKEN_URL}}",
       comments: "OAuth2 token endpoint",
     }),
@@ -29,16 +31,19 @@ const {{COMPONENT_KEY}}OAuth2 = connection({
       label: "Client ID",
       type: "string",
       required: true,
+      shown: true,
     }),
     clientSecret: input({
       label: "Client Secret",
       type: "password",
       required: true,
+      shown: true,
     }),
     scopes: input({
       label: "Scopes",
       type: "string",
       required: false,
+      shown: true,
       default: "{{SCOPES}}",
       comments: "Space-separated OAuth2 scopes",
     }),
@@ -50,18 +55,20 @@ export default [{{COMPONENT_KEY}}OAuth2];
 
 {{#if CONNECTION_TYPE_APIKEY}}
 const {{COMPONENT_KEY}}ApiKey = connection({
-  key: "{{COMPONENT_KEY}}-api-key",
-  label: "{{COMPONENT_LABEL}} API Key",
+  key: "apiKey",
+  label: "API Key",
   inputs: {
     apiKey: input({
       label: "API Key",
       type: "password",
       required: true,
+      shown: true,
     }),
     endpoint: input({
       label: "API Endpoint",
       type: "string",
       required: true,
+      shown: false,
       default: "{{BASE_URL}}",
       comments: "Base URL for API requests",
     }),
@@ -73,18 +80,20 @@ export default [{{COMPONENT_KEY}}ApiKey];
 
 {{#if CONNECTION_TYPE_BEARER}}
 const {{COMPONENT_KEY}}Bearer = connection({
-  key: "{{COMPONENT_KEY}}-bearer",
-  label: "{{COMPONENT_LABEL}} Bearer Token",
+  key: "bearer",
+  label: "Bearer Token",
   inputs: {
     token: input({
       label: "Bearer Token",
       type: "password",
       required: true,
+      shown: true,
     }),
     endpoint: input({
       label: "API Endpoint",
       type: "string",
       required: true,
+      shown: false,
       default: "{{BASE_URL}}",
       comments: "Base URL for API requests",
     }),
@@ -96,23 +105,26 @@ export default [{{COMPONENT_KEY}}Bearer];
 
 {{#if CONNECTION_TYPE_BASIC}}
 const {{COMPONENT_KEY}}Basic = connection({
-  key: "{{COMPONENT_KEY}}-basic",
-  label: "{{COMPONENT_LABEL}} Basic Auth",
+  key: "basic",
+  label: "Basic Auth",
   inputs: {
     username: input({
       label: "Username",
       type: "string",
       required: true,
+      shown: true,
     }),
     password: input({
       label: "Password",
       type: "password",
       required: true,
+      shown: true,
     }),
     endpoint: input({
       label: "API Endpoint",
       type: "string",
       required: true,
+      shown: false,
       default: "{{BASE_URL}}",
       comments: "Base URL for API requests",
     }),

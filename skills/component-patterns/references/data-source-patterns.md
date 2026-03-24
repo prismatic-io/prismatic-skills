@@ -8,21 +8,21 @@ values for dropdown inputs in the integration config UI.
 ## Picklist Data Source
 
 ```typescript
-import { dataSource } from "@prismatic-io/spectral";
-import { MyClient } from "./client";
+import { dataSource, type Element } from "@prismatic-io/spectral";
+import { createClient } from "./client";
 import { connectionInput } from "./inputs";
 
 const selectItem = dataSource({
   display: { label: "Select Item", description: "Choose an item" },
   dataSourceType: "picklist",
   inputs: { connection: connectionInput },
-  perform: async (context, params) => {
-    const client = new MyClient({ connection: params.connection });
+  perform: async (context, { connection }) => {
+    const client = createClient(connection, context.debug.enabled);
     const items = await client.items.list();
     return {
       result: items
-        .map((item) => ({ label: item.name, key: item.id }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
+        .map((item): Element => ({ label: item.name, key: item.id }))
+        .sort((a, b) => (a.label < b.label ? -1 : 1)),
     };
   },
 });
@@ -30,7 +30,11 @@ const selectItem = dataSource({
 export default { selectItem };
 ```
 
-Element shape: `{ label: string, key: string }`. Always sort alphabetically by label.
+Element shape: `{ label: string, key: string }` (import `type Element` from spectral). Always sort alphabetically by label using `.sort((a, b) => (a.label < b.label ? -1 : 1))`.
+
+DataSource labels must start with an action verb (e.g., "Select Bucket", not "Buckets").
+
+`dataSourceType: "picklist"` is required for all picklist data sources.
 
 ---
 
@@ -70,13 +74,13 @@ const selectSubCategory = dataSource({
     connection: connectionInput,
     category: input({ label: "Category", type: "string", required: true, clean: util.types.toString }),
   },
-  perform: async (context, params) => {
-    const client = new MyClient({ connection: params.connection });
-    const subCategories = await client.categories.listChildren(params.category);
+  perform: async (context, { connection, category }) => {
+    const client = createClient(connection, context.debug.enabled);
+    const subCategories = await client.categories.listChildren(category);
     return {
       result: subCategories
-        .map((sc) => ({ label: sc.name, key: sc.id }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
+        .map((sc): Element => ({ label: sc.name, key: sc.id }))
+        .sort((a, b) => (a.label < b.label ? -1 : 1)),
     };
   },
 });

@@ -105,9 +105,16 @@ Full reference list for manual lookup:
 
 ## Component Key Patterns
 
-1. **Connection Fields**: Include appropriate auth fields for the target API — use `references/authentication-patterns.md` for exact patterns
-2. **Webhook Lifecycle**: Always implement `onInstanceDeploy` and `onInstanceDelete` for triggers
-3. **Component Key**: Component name in lowercase kebab-case (e.g., `canny`, `my-custom-component`)
-4. **Action Return Values**: Always `{ data: <result> }` format
-5. **Client Helper**: All HTTP calls go through `src/client.ts` — never raw `fetch` or `axios` in actions
-6. **Input Types**: Use `util.types` constants for input type definitions
+1. **Function-based client**: `createClient(connection, debug)` returning `HttpClient` from spectral — NOT class-based
+2. **handleErrors hook**: Every component MUST include `hooks: { error: handleErrors }` from `@prismatic-io/spectral/dist/clients/http`
+3. **rawRequest action**: REQUIRED in every component at `actions/misc/rawRequest.ts`
+4. **Folder-based structure**: `actions/<resource>/`, `inputs/`, `examplePayloads/`, `dataSources/`, `triggers/`
+5. **examplePayload**: Every action must have one, imported from `src/examplePayloads/`, verified against API
+6. **Clean functions**: Every non-connection input needs `clean: util.types.toString` (or toBool, toNumber, etc.)
+7. **Input requirements**: `comments`, `placeholder`, `example` on every string input
+8. **Data source elements**: `{ label, key }` format (NOT `{ label, value }`) — type is `Element` from spectral
+9. **Debug wiring**: `context.debug.enabled` → `createClient(connection, debug)` in actions, `false` in lifecycle hooks
+10. **ConnectionError**: Thrown in client.ts for connection type mismatches, NOT in actions
+11. **Webhook URL**: `context.webhookUrls[context.flow.name]` in lifecycle hooks
+12. **Connection keys**: Simple names (`"apiKey"`, `"oauth2"`) — NOT `"component-api-key"`
+13. **Action return**: Always `{ data: <result> }`. DataSource return: `{ result: Element[] }`

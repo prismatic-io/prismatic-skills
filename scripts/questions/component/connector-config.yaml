@@ -28,7 +28,7 @@ api_docs_url:
 auth_type:
   question: "What authentication method does this API use?"
   type: choice
-  choices: [oauth2, apikey, bearer, basic, multiple]
+  choices: [oauth2, apikey, api_key_secret, bearer, basic, multiple]
   inference: prohibited
   scope: component
   condition:
@@ -39,6 +39,7 @@ auth_type:
       <option value="oauth2">OAuth 2.0 — full OAuth flow with authorization code grant. User redirects to the provider to authorize. Requires client ID, client secret, authorize URL, token URL. Most common for user-facing SaaS APIs (Salesforce, Slack, HubSpot).</option>
       <option value="apikey">API Key — single key passed as a header or query parameter. Simple setup, no OAuth flow. Common for internal/developer APIs (Canny, SendGrid, Datadog).</option>
       <option value="bearer">Bearer Token — static token passed in the Authorization header. Similar to API key but uses the standard Bearer scheme. Common for personal access tokens.</option>
+      <option value="api_key_secret">API Key + Secret — two credential fields (key ID + key/secret) exchanged for a short-lived session token via an authorize endpoint. The client handles token exchange internally. Common for cloud storage APIs (Backblaze B2, AWS-style).</option>
       <option value="basic">Basic Auth — username and password sent as Base64-encoded Authorization header. Common for legacy APIs and some REST services (Jira, Confluence).</option>
       <option value="multiple">Multiple auth methods — the component supports more than one connection type. Users choose which to use during instance setup. Common for APIs that offer both OAuth and API key access.</option>
       <do-not-present>hmac, digest, certificate, saml, custom</do-not-present>
@@ -60,6 +61,10 @@ auth_type:
     basic: >
       Generates a connection with username and password inputs. The scaffold includes the
       connection type and a helper to set the Base64-encoded Authorization header.
+    api_key_secret: >
+      Generates a connection with two credential fields (Key ID + Key/Secret). The client
+      calls an authorize endpoint on first use to exchange credentials for a session token
+      and API URL. Subsequent calls use the token. Common for cloud storage APIs.
     multiple: >
       Generates multiple connection definitions — one per auth method. The scaffold includes
       all connection types and a utility to detect which connection type is in use at runtime.
