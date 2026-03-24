@@ -1,14 +1,17 @@
 // Template: Component Connections
-// Slots: CONNECTION_TYPE (oauth2 | apikey | bearer | basic)
+// Source: spectral types — DefaultConnectionDefinition requires { key, display: { label, description }, inputs }
 //
 // Usage: Choose one connection type. Fill in the fields for your API.
 
 import { connection, input } from "@prismatic-io/spectral";
 
 {{#if CONNECTION_TYPE_OAUTH2}}
-const {{COMPONENT_KEY}}OAuth2 = connection({
+export const oauth2Connection = connection({
   key: "oauth2",
-  label: "OAuth 2.0",
+  display: {
+    label: "OAuth 2.0",
+    description: "Authenticate using OAuth 2.0 authorization code flow.",
+  },
   oauth2Type: "authorization_code",
   inputs: {
     authorizeUrl: input({
@@ -32,12 +35,14 @@ const {{COMPONENT_KEY}}OAuth2 = connection({
       type: "string",
       required: true,
       shown: true,
+      comments: "OAuth2 client ID from the developer console",
     }),
     clientSecret: input({
       label: "Client Secret",
       type: "password",
       required: true,
       shown: true,
+      comments: "OAuth2 client secret from the developer console",
     }),
     scopes: input({
       label: "Scopes",
@@ -50,19 +55,23 @@ const {{COMPONENT_KEY}}OAuth2 = connection({
   },
 });
 
-export default [{{COMPONENT_KEY}}OAuth2];
+export default [oauth2Connection];
 {{/if}}
 
 {{#if CONNECTION_TYPE_APIKEY}}
-const {{COMPONENT_KEY}}ApiKey = connection({
+export const apiKeyConnection = connection({
   key: "apiKey",
-  label: "API Key",
+  display: {
+    label: "API Key",
+    description: "Authenticate using an API key.",
+  },
   inputs: {
     apiKey: input({
       label: "API Key",
       type: "password",
       required: true,
       shown: true,
+      comments: "API key from the developer console",
     }),
     endpoint: input({
       label: "API Endpoint",
@@ -75,19 +84,23 @@ const {{COMPONENT_KEY}}ApiKey = connection({
   },
 });
 
-export default [{{COMPONENT_KEY}}ApiKey];
+export default [apiKeyConnection];
 {{/if}}
 
 {{#if CONNECTION_TYPE_BEARER}}
-const {{COMPONENT_KEY}}Bearer = connection({
+export const bearerConnection = connection({
   key: "bearer",
-  label: "Bearer Token",
+  display: {
+    label: "Bearer Token",
+    description: "Authenticate using a bearer token.",
+  },
   inputs: {
     token: input({
       label: "Bearer Token",
       type: "password",
       required: true,
       shown: true,
+      comments: "Bearer token for authentication",
     }),
     endpoint: input({
       label: "API Endpoint",
@@ -100,25 +113,30 @@ const {{COMPONENT_KEY}}Bearer = connection({
   },
 });
 
-export default [{{COMPONENT_KEY}}Bearer];
+export default [bearerConnection];
 {{/if}}
 
 {{#if CONNECTION_TYPE_BASIC}}
-const {{COMPONENT_KEY}}Basic = connection({
+export const basicConnection = connection({
   key: "basic",
-  label: "Basic Auth",
+  display: {
+    label: "Basic Auth",
+    description: "Authenticate using username and password.",
+  },
   inputs: {
     username: input({
       label: "Username",
       type: "string",
       required: true,
       shown: true,
+      comments: "Username for authentication",
     }),
     password: input({
       label: "Password",
       type: "password",
       required: true,
       shown: true,
+      comments: "Password for authentication",
     }),
     endpoint: input({
       label: "API Endpoint",
@@ -131,5 +149,5 @@ const {{COMPONENT_KEY}}Basic = connection({
   },
 });
 
-export default [{{COMPONENT_KEY}}Basic];
+export default [basicConnection];
 {{/if}}

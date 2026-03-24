@@ -17,12 +17,12 @@ const selectItem = dataSource({
   dataSourceType: "picklist",
   inputs: { connection: connectionInput },
   perform: async (context, { connection }) => {
-    const client = createClient(connection, context.debug.enabled);
+    const client = createClient(connection, false);
     const items = await client.items.list();
     return {
       result: items
         .map((item): Element => ({ label: item.name, key: item.id }))
-        .sort((a, b) => (a.label < b.label ? -1 : 1)),
+        .sort((a, b) => ((a.label ?? "") < (b.label ?? "") ? -1 : 1)),
     };
   },
 });
@@ -30,7 +30,7 @@ const selectItem = dataSource({
 export default { selectItem };
 ```
 
-Element shape: `{ label: string, key: string }` (import `type Element` from spectral). Always sort alphabetically by label using `.sort((a, b) => (a.label < b.label ? -1 : 1))`.
+Element shape: `{ label: string, key: string }` (import `type Element` from spectral). Always sort alphabetically by label using `.sort((a, b) => ((a.label ?? "") < (b.label ?? "") ? -1 : 1))`.
 
 DataSource labels must start with an action verb (e.g., "Select Bucket", not "Buckets").
 
@@ -75,12 +75,12 @@ const selectSubCategory = dataSource({
     category: input({ label: "Category", type: "string", required: true, clean: util.types.toString }),
   },
   perform: async (context, { connection, category }) => {
-    const client = createClient(connection, context.debug.enabled);
+    const client = createClient(connection, false);
     const subCategories = await client.categories.listChildren(category);
     return {
       result: subCategories
         .map((sc): Element => ({ label: sc.name, key: sc.id }))
-        .sort((a, b) => (a.label < b.label ? -1 : 1)),
+        .sort((a, b) => ((a.label ?? "") < (b.label ?? "") ? -1 : 1)),
     };
   },
 });

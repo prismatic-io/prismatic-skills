@@ -36,8 +36,9 @@ const webhookTrigger = trigger({
     }
   },
 
+  // Return the full TriggerPayload as-is — do NOT reconstruct a partial object
   perform: async (context, payload) => {
-    return Promise.resolve({ payload: { headers: payload.headers, body: payload.body.data, rawBody: payload.rawBody, contentType: payload.contentType } });
+    return Promise.resolve({ payload });
   },
 
   scheduleSupport: "invalid",
@@ -72,10 +73,12 @@ perform: async (context, payload) => {
       contentType: "application/json",
       body: JSON.stringify({ error: "Invalid signature" }),
     };
-    return { payload: { headers: payload.headers, body: payload.body.data, rawBody: payload.rawBody, contentType: payload.contentType }, response };
+    // Return the original payload with a 401 response — do NOT reconstruct payload
+    return { payload, response };
   }
 
-  return Promise.resolve({ payload: { headers: payload.headers, body: payload.body.data, rawBody: payload.rawBody, contentType: payload.contentType } });
+  // Pass through the full TriggerPayload as-is
+  return Promise.resolve({ payload });
 },
 ```
 

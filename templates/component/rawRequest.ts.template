@@ -36,6 +36,7 @@ export const rawRequest = action({
   ) => {
     const client = createClient(connection, debug);
     const { data } = await sendRawRequest(
+      "{{BASE_URL}}",
       { ...httpClientInputs, debugRequest: debug },
       client.defaults?.headers ?? {},
     );

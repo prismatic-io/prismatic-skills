@@ -67,3 +67,21 @@ export const createClient = (
     headers: getAuthHeaders(connection),
     debug,
   });
+
+{{#if HAS_BINARY_DOWNLOADS}}
+/**
+ * Download client — returns binary data as Buffer instead of parsed JSON.
+ * Use for file download actions where the response is a file, not a JSON object.
+ * If the API uses a separate download URL, replace the baseUrl below.
+ */
+export const createDownloadClient = (
+  connection: Connection,
+  debug = false,
+): HttpClient =>
+  createHttpClient({
+    baseUrl: "{{DOWNLOAD_URL:{{BASE_URL}}}}",
+    headers: getAuthHeaders(connection),
+    debug,
+    responseType: "arraybuffer",
+  });
+{{/if}}

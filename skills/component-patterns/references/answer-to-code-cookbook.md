@@ -3,6 +3,97 @@
 Maps component spec answers to TypeScript code. When generating code,
 look up each answer and copy the corresponding snippet. Do NOT improvise types or imports.
 
+## Code Planning: Answer Combinations → Architecture
+
+Read this section FIRST, before looking up individual answers. It maps answer combinations
+to architectural decisions and documents spectral type constraints that affect code structure.
+
+### Spectral Type Constraints
+
+These are from the actual `@prismatic-io/spectral` type definitions. Violating them causes
+compile errors that the templates alone won't catch.
+
+**TriggerPayload** — has 13+ required properties (`headers`, `queryParameters`, `rawBody`,
+`body`, `pathFragment`, `webhookUrls`, `webhookApiKeys`, etc.). Trigger `perform` MUST return
+the original payload, not a reconstructed subset:
+```typescript
+// CORRECT — pass through the original TriggerPayload
+perform: async (context, payload, inputs) => {
+  return Promise.resolve({ payload });
+}
+
+// WRONG — reconstructing a partial object fails type checking
+perform: async (context, payload, inputs) => {
+  return { payload: { headers: payload.headers, body: payload.body.data } };
+}
+```
+
+**DataSourceContext** — does NOT have `.debug`. Always pass `false` for debug in data sources:
+```typescript
+// CORRECT
+perform: async (_context, { connection }) => {
+  const client = createClient(connection, false);
+}
+
+// WRONG — DataSourceContext has no .debug property
+perform: async (context, { connection }) => {
+  const client = createClient(connection, context.debug.enabled);
+}
+```
+
+**Element** — `label` is optional (`label?: string`). Sort must handle undefined:
+```typescript
+.sort((a, b) => ((a.label ?? "") < (b.label ?? "") ? -1 : 1))
+```
+
+**DefaultConnectionDefinition** — `label` and `description` go inside `display`, not at root:
+```typescript
+// CORRECT
+connection({ key: "apiKey", display: { label: "API Key", description: "..." }, inputs: {...} })
+
+// WRONG — label at root causes TS2353
+connection({ key: "apiKey", label: "API Key", inputs: {...} })
+```
+
+**sendRawRequest** — takes three args: `(baseUrl: string, values, authHeaders?)`:
+```typescript
+// CORRECT
+await sendRawRequest("https://api.example.com", { ...inputs, debugRequest: debug }, headers)
+
+// WRONG — missing baseUrl arg
+await sendRawRequest({ ...inputs, debugRequest: debug }, headers)
+```
+
+### Combination Decision Tree
+
+**Token exchange auth (`api_key_secret`)**
+When the API authenticates via key ID + key exchanged for a session token (e.g., Backblaze B2):
+- `client.ts` needs an `authorize()` function that calls the auth endpoint, returns `{ authorizationToken, apiUrl, downloadUrl }`
+- `createClient()` takes the auth result, not the raw connection — the base URL is dynamic
+- Connection defines two fields: key ID + key
+- Every action calls `authorize()` first, then `createClient()` with the result
+
+**Binary data (upload/download)**
+When actions need to transfer files rather than JSON:
+- Download: use `responseType: "arraybuffer"` on the client, return `{ data: Buffer, contentType }` where contentType comes from response headers
+- If the API uses a different URL for downloads (e.g., Backblaze `downloadUrl`), create a separate `createDownloadClient()` factory
+- Upload: may need multipart form data or raw binary body depending on API — check the API research
+- Standard actions still return `{ data }` JSON — only file operations return Buffer
+
+**Webhook triggers with HMAC verification**
+- `perform` receives the full `TriggerPayload` — return `{ payload }` for pass-through
+- For HMAC: compute hash from `payload.rawBody.data`, compare with header value, return `{ payload, response: { statusCode: 401, body: "..." } }` on mismatch
+- Registration in `onInstanceDeploy`: POST to webhook endpoint with `context.webhookUrls[context.flow.name]`
+- Cleanup in `onInstanceDelete`: DELETE using stored ID from `context.instanceState`
+- Lifecycle hooks use `createClient(connection, false)` — no debug in lifecycle
+
+**Data sources that depend on auth**
+- `DataSourceContext` has no `.debug` — always pass `false` to `createClient`
+- Elements use `{ label?: string, key: string }` — `label` is optional, sort needs null handling
+- If the data source uses token-exchange auth, `authorize()` is called inside the perform function
+
+---
+
 ## Critical Import Rules
 
 ```typescript
@@ -253,12 +344,13 @@ const selectItem = dataSource({
   display: { label: "Select Item", description: "Choose an item from the list" },
   dataSourceType: "picklist",
   inputs: { connection: connectionInput },
-  perform: async (context, { connection }) => {
-    const client = createClient(connection, context.debug.enabled);
+  perform: async (_context, { connection }) => {
+    // DataSourceContext does NOT have .debug — always pass false
+    const client = createClient(connection, false);
     const items = await client.items.list();
     const result = items
       .map((item): Element => ({ label: item.name, key: item.id }))
-      .sort((a, b) => (a.label < b.label ? -1 : 1));
+      .sort((a, b) => ((a.label ?? "") < (b.label ?? "") ? -1 : 1));
     return { result };
   },
 });

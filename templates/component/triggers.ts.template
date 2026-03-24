@@ -32,16 +32,10 @@ const webhook = trigger({
     {{/if}}
   },
 
-  // Process incoming webhook payloads
+  // Process incoming webhook payloads — return the full TriggerPayload as-is
+  // TriggerPayload has 13+ required properties; do NOT reconstruct a partial object
   perform: async (context, payload, params) => {
-    return Promise.resolve({
-      payload: {
-        headers: payload.headers,
-        body: payload.body.data,
-        rawBody: payload.rawBody,
-        contentType: payload.contentType,
-      },
-    });
+    return Promise.resolve({ payload });
   },
 
   // Called when an instance using this trigger is deployed
