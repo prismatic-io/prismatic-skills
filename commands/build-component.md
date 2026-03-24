@@ -82,7 +82,8 @@ Voice and narration style are defined in the agent instructions. Follow them.
       <substep>Present choices with tradeoffs, then STOP and wait for the user's response</substep>
       <substep>Write the answer with record-choices --type component. The output includes both the write confirmation and the sync result.</substep>
       <substep>Mark the task completed with TaskUpdate</substep>
-      <substep>If on_answer action triggered (e.g., api_docs_url → inline research), execute it immediately</substep>
+      <substep>If api_docs_url was just answered, spawn external-api-researcher with the URL and WAIT for results before continuing</substep>
+      <substep>If on_answer action triggered for other items, execute it immediately</substep>
       <substep>Create tasks for any new `create_required` items from the sync output</substep>
       <substep>Repeat from top — present the NEXT single question</substep>
     </loop>

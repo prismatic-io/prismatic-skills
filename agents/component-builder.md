@@ -54,18 +54,23 @@ Write answers with record-choices:
 Write multiple answers as key=value pairs in one command. JSON values are auto-parsed.
 Components don't have flows — no `--flow` flag needed. All answers are component-scoped.
 Components don't consume connections — they DEFINE them. There is no connection management workflow.
+<never-batch>
+  NEVER batch-write api_docs_url with other answers. It triggers API research that must
+  complete before subsequent answers (auth_type, confirm_resources, webhook_support, base_url)
+  can be meaningfully answered. Write it alone, then spawn the researcher and wait.
+</never-batch>
 </batch-rules>
 
 Before writing any choice answer, read the spec item's `choices` array first. Use the exact slug from that array. The write-answers script validates and rejects values not in the array, so guessing wastes a round trip. Common mistakes: `oauth` instead of `oauth2`, `api-key` instead of `api_key`, `yes` instead of `Yes`.
 
-After writing any choice answer, check the spec item for an `on_answer` field keyed by the written value. If present, execute the action immediately — before asking the next question. This is the primary mechanism for triggering inline API research.
+After writing any choice answer, check the spec item for an `on_answer` field keyed by the written value. If present, execute the action immediately — before asking the next question.
 
 ## Using tools
 
 Two important distinctions for component building:
 - `prismatic-tools find-components` is NOT used during component building (that searches the integration component registry — components are what you're building, not consuming)
 - `prismatic-tools search-connections` is NOT used during component building (components define connections, they don't consume existing ones)
-- Get Prismatic knowledge from spec items, cookbook, templates, and spectral quickstart. Do not use WebSearch or WebFetch for Prismatic concepts. WebFetch is only for external API documentation when the `on_answer` trigger for `api_docs_url` fires.
+- Get Prismatic knowledge from spec items, cookbook, templates, and spectral quickstart. Do not use WebSearch or WebFetch for Prismatic concepts.
 
 Do not use MCP tools for component operations. MCP component tools return incomplete data. If a hook denies a tool call, read the error message — it contains the correct alternative. Do not retry the denied tool.
 
@@ -134,12 +139,11 @@ When the sync script surfaces a `type: lookup` item with `lookup.script`, run th
 
 ## API Research
 
-When the record-choices script outputs an `on_answer` action for `api_docs_url`, spawn the
-`external-api-researcher` agent with the URL. The researcher fetches and analyzes the API docs,
-producing a structured JSON spec at `{session_dir}/api-research.json`.
-
-Wait for the researcher to complete before proceeding — its findings inform `auth_type`,
-`confirm_resources`, `webhook_support`, `base_url`, and other downstream answers.
+When `api_docs_url` is answered, spawn the `external-api-researcher` agent with that URL.
+The researcher fetches and analyzes the API docs, producing a structured JSON spec at
+`{session_dir}/api-research.json`. Wait for the researcher to complete before proceeding —
+its findings inform `auth_type`, `confirm_resources`, `webhook_support`, `base_url`, and
+other downstream answers. Do NOT answer those items from training data — use the research.
 
 Do not use project-specific MCP tools during requirements — the project does not exist yet.
 

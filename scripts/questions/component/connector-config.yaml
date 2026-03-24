@@ -24,12 +24,6 @@ api_docs_url:
     The primary API documentation URL. This will be passed to the external-api-researcher
     agent to discover endpoints, authentication methods, resource schemas, and payload shapes.
     Provide the root docs page or the API reference index — the researcher navigates from there.
-  on_answer:
-    _any: >
-      Spawn the external-api-researcher agent with this URL. The researcher will fetch and
-      analyze the API docs, producing a structured JSON spec at {session_dir}/api-research.json.
-      Wait for the researcher to complete before proceeding — its findings inform auth_type,
-      confirm_resources, webhook_support, and base_url.
 
 auth_type:
   question: "What authentication method does this API use?"

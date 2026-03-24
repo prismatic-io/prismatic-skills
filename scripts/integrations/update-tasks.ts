@@ -794,6 +794,30 @@ function main(): number {
       }
     }
 
+    // Emit API research gate for components: api_docs_url must be written alone
+    // and trigger research BEFORE downstream answers can be written.
+    if (sessionType === "component") {
+      const allPending = [...toCreate, ...toCreateOptional];
+      const docsUrlPending = allPending.find(t => t.spec_key === "api_docs_url");
+      const docsUrlInferred = toComplete.find(t => t.spec_key === "api_docs_url");
+      const researchDependents = ["auth_type", "base_url", "confirm_resources", "resource_actions",
+        "webhook_support", "webhook_events", "webhook_security", "pagination_strategy"];
+
+      if (docsUrlPending || docsUrlInferred) {
+        // api_docs_url is about to be written — gate everything downstream
+        console.log(
+          `<api-research-required>\n` +
+          `  api_docs_url MUST be written ALONE — do NOT batch it with other answers.\n` +
+          `  After writing api_docs_url, IMMEDIATELY spawn the external-api-researcher agent\n` +
+          `  with the URL. WAIT for research to complete before writing any of these:\n` +
+          `  ${researchDependents.join(", ")}\n` +
+          `  Do NOT infer auth_type, resources, or webhook support from training data.\n` +
+          `  Use the researcher's findings.\n` +
+          `</api-research-required>`
+        );
+      }
+    }
+
     // Emit task creation instruction
     const totalItems = toCreate.length + toCreateOptional.length + toComplete.length;
     console.log(

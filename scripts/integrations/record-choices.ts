@@ -339,6 +339,28 @@ function main(): number {
     }
   }
 
+  // Gate: api_docs_url must be written alone for components — it triggers research
+  if (sessionType === "component" && batch.api_docs_url !== undefined) {
+    const otherKeys = Object.keys(batch).filter(k => k !== "api_docs_url");
+    if (otherKeys.length > 0) {
+      console.log(
+        `0 answers written. Batch was REJECTED.\n\n` +
+        `<api-docs-url-must-be-alone>\n` +
+        `  api_docs_url cannot be batch-written with other answers.\n` +
+        `  It triggers API research that must complete BEFORE writing:\n` +
+        `  ${otherKeys.join(", ")}\n` +
+        `  <steps>\n` +
+        `    <step>Write api_docs_url ALONE: prismatic-tools record-choices --session <name> --type component api_docs_url=<url></step>\n` +
+        `    <step>Spawn external-api-researcher with the URL</step>\n` +
+        `    <step>WAIT for research to complete</step>\n` +
+        `    <step>THEN write the remaining answers using research findings</step>\n` +
+        `  </steps>\n` +
+        `</api-docs-url-must-be-alone>`
+      );
+      process.exit(0);
+    }
+  }
+
   for (const [questionId, rawAnswer] of Object.entries(batch)) {
     let answer = rawAnswer;
 
