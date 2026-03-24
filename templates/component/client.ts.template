@@ -43,6 +43,16 @@ export function createClient(connection: Connection): ClientConfig {
     },
   };
   {{/if}}
+
+  {{#if CONNECTION_TYPE_BASIC}}
+  return {
+    baseUrl: fields.endpoint as string,
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${fields.username}:${fields.password}`).toString("base64")}`,
+      "Content-Type": "application/json",
+    },
+  };
+  {{/if}}
 }
 
 export async function apiRequest(

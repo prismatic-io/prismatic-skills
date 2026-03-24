@@ -214,11 +214,15 @@ function main(): number {
   let specFile = "";
   let answersFile = "";
   let sessionName = "";
+  let sessionType: "integration" | "component" = "integration";
 
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--session" && i + 1 < args.length) {
       sessionName = args[i + 1];
+      i++;
+    } else if (args[i] === "--type" && i + 1 < args.length) {
+      sessionType = args[i + 1] as "integration" | "component";
       i++;
     } else if (!args[i].startsWith("-")) {
       positional.push(args[i]);
@@ -228,14 +232,14 @@ function main(): number {
   if (!sessionName && positional.length < 2) {
     console.error(
       "Usage: npx tsx validate-requirements.ts <spec.yaml> <answers.json>\n" +
-      "       npx tsx validate-requirements.ts --session <name>"
+      "       npx tsx validate-requirements.ts --session <name> [--type component|integration]"
     );
     return 2;
   }
 
   if (sessionName) {
-    specFile = join(getPluginRoot(), "scripts", "questions", "integration.yaml");
-    answersFile = join(getSessionDirectory(sessionName, "integrations"), "requirements.json");
+    specFile = join(getPluginRoot(), "scripts", "questions", sessionType === "component" ? "component.yaml" : "integration.yaml");
+    answersFile = join(getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"), "requirements.json");
   } else {
     specFile = positional[0];
     answersFile = positional[1];
@@ -261,8 +265,9 @@ function main(): number {
     return 2;
   }
 
-  // Detect multi-flow mode
+  // Detect multi-flow mode (integrations only — components don't have flows)
   const isMultiFlow =
+    sessionType !== "component" &&
     answers.flows !== undefined &&
     typeof answers.flows === "object" &&
     !Array.isArray(answers.flows) &&

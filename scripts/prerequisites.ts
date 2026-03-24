@@ -261,9 +261,7 @@ function main(): number {
     }
     console.log("");
     console.log("Next: Run requirements gathering");
-    console.log(`   npx tsx scripts/gather-requirements.ts \\`);
-    console.log(`     scripts/questions/${workflowType}.json \\`);
-    console.log(`     ${requirementsFile}`);
+    console.log(`   prismatic-tools update-tasks --session ${name} --type ${workflowType} --actionable`);
     console.log("");
     console.log("--- Setup Data (JSON) ---");
     console.log(JSON.stringify(output, null, 2));

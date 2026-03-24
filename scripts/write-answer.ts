@@ -28,7 +28,7 @@ function main(): number {
   if (args.length < 2) {
     console.log(
       "Usage: npx tsx write-answer.ts <answers-file> [--flow <flow-id>] <question-id> <answer>\n" +
-      "       npx tsx write-answer.ts --session <name> [--flow <flow-id>] <question-id> <answer>"
+      "       npx tsx write-answer.ts --session <name> [--type component|integration] [--flow <flow-id>] <question-id> <answer>"
     );
     return 1;
   }
@@ -36,6 +36,7 @@ function main(): number {
   // Parse all flags first, collect positional args
   let flowId: string | null = null;
   let sessionName: string | null = null;
+  let sessionType: "integration" | "component" = "integration";
   const positional: string[] = [];
 
   let i = 0;
@@ -46,6 +47,13 @@ function main(): number {
         return 1;
       }
       sessionName = args[i + 1];
+      i += 2;
+    } else if (args[i] === "--type") {
+      if (i + 1 >= args.length) {
+        console.error("--type requires a value (component or integration)");
+        return 1;
+      }
+      sessionType = args[i + 1] as "integration" | "component";
       i += 2;
     } else if (args[i] === "--flow") {
       if (i + 1 >= args.length) {
@@ -70,7 +78,7 @@ function main(): number {
   let answerRaw: string | undefined;
 
   if (sessionName) {
-    answersFile = join(getSessionDirectory(sessionName, "integrations"), "requirements.json");
+    answersFile = join(getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"), "requirements.json");
     questionId = positional[0];
     answerRaw = positional[1];
   } else {
@@ -137,33 +145,35 @@ function main(): number {
   // Add/update answer
   target[questionId] = answer;
 
-  // Validation warning for connection-type questions
-  const connectionQuestions = [
-    "source_connection_type",
-    "destination_connection_type",
-  ];
+  // Validation warning for connection-type questions (integrations only)
+  if (sessionType !== "component") {
+    const connectionQuestions = [
+      "source_connection_type",
+      "destination_connection_type",
+    ];
 
-  if (connectionQuestions.includes(questionId)) {
-    if (typeof answer === "object" && answer !== null) {
-      const obj = answer as Record<string, unknown>;
-      if (!obj.inputs || (Array.isArray(obj.inputs) && obj.inputs.length === 0)) {
+    if (connectionQuestions.includes(questionId)) {
+      if (typeof answer === "object" && answer !== null) {
+        const obj = answer as Record<string, unknown>;
+        if (!obj.inputs || (Array.isArray(obj.inputs) && obj.inputs.length === 0)) {
+          console.error("");
+          console.error("WARNING: Connection answer is missing 'inputs' array!");
+          console.error("   This will cause 'No credentials needed' error later.");
+          console.error("");
+          console.error("   Expected: Full object from choice 'value' field with:");
+          console.error("   - key");
+          console.error("   - label");
+          console.error("   - auth_type");
+          console.error("   - required_inputs (array)");
+          console.error("   - inputs (array) <- CRITICAL FOR CREDENTIALS");
+          console.error("");
+        }
+      } else {
         console.error("");
-        console.error("WARNING: Connection answer is missing 'inputs' array!");
-        console.error("   This will cause 'No credentials needed' error later.");
-        console.error("");
-        console.error("   Expected: Full object from choice 'value' field with:");
-        console.error("   - key");
-        console.error("   - label");
-        console.error("   - auth_type");
-        console.error("   - required_inputs (array)");
-        console.error("   - inputs (array) <- CRITICAL FOR CREDENTIALS");
+        console.error("WARNING: Connection answer should be an object, not string!");
+        console.error("   Use the full 'value' object from the choice, not just label.");
         console.error("");
       }
-    } else {
-      console.error("");
-      console.error("WARNING: Connection answer should be an object, not string!");
-      console.error("   Use the full 'value' object from the choice, not just label.");
-      console.error("");
     }
   }
 

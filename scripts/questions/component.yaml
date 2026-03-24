@@ -1,0 +1,99 @@
+# component.yaml — Requirements spec for building a Prismatic custom component
+#
+# Version 1: Initial component builder spec.
+#
+# Each item has a `scope` annotation:
+#   scope: component — asked once for the whole component (stored at root)
+#
+# Components have no flows, so there is no scope: flow.
+#
+# ── Progressive Loading ──────────────────────────────────────────────
+#
+# This master file is the TABLE OF CONTENTS — groups, required items,
+# and the include manifest. Item definitions live in domain files under
+# component/, loaded on demand.
+#
+# The agent uses progressive disclosure:
+#   1. Read THIS file first → know the groups, required items, and include list
+#   2. Read each domain file ONLY when entering that section of conversation
+#   3. Skip domain files entirely when conditions eliminate the group
+#      (e.g., component_type=utility → skip connector_config, resources, triggers, data_sources)
+#      (e.g., component_type=connector → skip utility_config)
+#
+# Domain files (each is a flat map of item_id → item_definition):
+#   component/overview.yaml          — component_type, component_name, component_description
+#   component/connector-config.yaml  — api_name, api_docs_url, auth_type, base_url
+#   component/resources.yaml         — confirm_resources, resource_actions, pagination_strategy
+#   component/triggers.yaml          — webhook_support, webhook_events, webhook_security, polling_support
+#   component/data-sources.yaml      — data_source_support, data_source_resources
+#   component/utility-config.yaml    — utility_actions, utility_inputs
+#   component/additional.yaml        — error_handling_strategy, additional_requirements
+
+version: 1
+
+completion:
+  action: scaffold
+  description: "Scaffold the component project with prism CLI"
+
+required:
+  always:
+    - component_type
+    - component_name
+    - component_description
+    - error_handling_strategy
+  when:
+    - condition: { component_type: connector }
+      items: [api_name, api_docs_url, auth_type, confirm_resources]
+    - condition: { component_type: utility }
+      items: [utility_actions]
+
+groups:
+  - id: overview
+    label: "Component Overview"
+    docs:
+      - https://prismatic.io/docs/custom-connectors/code-native.md
+    items: [component_type, component_name, component_description]
+
+  - id: connector_config
+    label: "API & Auth Configuration"
+    docs:
+      - https://prismatic.io/docs/custom-connectors/connections.md
+    items: [api_name, api_docs_url, auth_type, base_url]
+
+  - id: resources
+    label: "Resources & Actions"
+    docs:
+      - https://prismatic.io/docs/custom-connectors/actions.md
+    items: [confirm_resources, resource_actions, pagination_strategy]
+
+  - id: triggers
+    label: "Triggers & Webhooks"
+    docs:
+      - https://prismatic.io/docs/custom-connectors/triggers.md
+    items: [webhook_support, webhook_events, webhook_security, polling_support]
+
+  - id: data_sources
+    label: "Data Sources"
+    docs:
+      - https://prismatic.io/docs/custom-connectors/data-sources.md
+    items: [data_source_support, data_source_resources]
+
+  - id: utility_config
+    label: "Utility Actions & Inputs"
+    items: [utility_actions, utility_inputs]
+
+  - id: additional
+    label: "Error Handling & Additional"
+    items: [error_handling_strategy, additional_requirements]
+
+# Item definitions are loaded from domain files via $include.
+# Each file contains a flat map of item_id → item_definition.
+items:
+  $include:
+    - component/overview.yaml
+    - component/connector-config.yaml
+    - component/resources.yaml
+    - component/triggers.yaml
+    - component/data-sources.yaml
+    - component/utility-config.yaml
+    - component/additional.yaml

@@ -61,7 +61,7 @@
     "update-tasks": {
       "script": "update-tasks",
       "desc": "See what questions are answered, what's left, and what's next",
-      "usage": "--session <name> --actionable [--mode build|modify] [--extracted-state <state.json>] [--scope \"<scopes>\"]",
+      "usage": "--session <name> --actionable [--type component|integration] [--mode build|modify] [--extracted-state <state.json>] [--scope \"<scopes>\"]",
       "timeout": 30
     },
     "verify-code": {
@@ -72,17 +72,17 @@
     "validate-requirements": {
       "script": "validate-requirements",
       "desc": "Make sure all required questions have been answered",
-      "usage": "--session <name>"
+      "usage": "--session <name> [--type component|integration]"
     },
     "record-choices": {
       "script": "record-choices",
       "desc": "Record design decisions",
-      "usage": "--session <name> key=value [key2=value2] [--flow <flow-id>]"
+      "usage": "--session <name> [--type component|integration] key=value [key2=value2] [--flow <flow-id>]"
     },
     "write-answer": {
       "script": "write-answer",
       "desc": "Record a single answer",
-      "usage": "--session <name> <question_id> <value>"
+      "usage": "--session <name> [--type component|integration] <question_id> <value>"
     }
   },
   "explicit": {
@@ -96,7 +96,6 @@
     "publish-component": "Publishes component to Prismatic (destructive)",
     "package-for-download": "Creates archive files (disk writes)",
     "prerequisites": "Multi-step setup with progress output (creates session dirs)",
-    "gather-requirements": "Interactive DAG questionnaire (exit code 42 protocol)",
     "validate-component": "Validates component structure",
     "create-organization-connection": "Creates org-level connection (platform write)"
   }

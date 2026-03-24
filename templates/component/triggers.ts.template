@@ -9,6 +9,9 @@
 
 import { trigger, input, HttpResponse } from "@prismatic-io/spectral";
 import { createClient, apiRequest } from "./client";
+{{#if WEBHOOK_HMAC}}
+import { createHmac } from "node:crypto";
+{{/if}}
 
 const webhook = trigger({
   display: {
@@ -34,6 +37,22 @@ const webhook = trigger({
 
   // Process incoming webhook payloads
   perform: async (context, payload, params) => {
+    {{#if WEBHOOK_HMAC}}
+    // HMAC signature verification
+    const signingSecret = params.connection.fields.{{HMAC_SECRET_FIELD:signingSecret}} as string;
+    const signature = payload.headers?.["{{HMAC_HEADER:x-signature}}"] as string;
+    const rawBody = payload.rawBody?.data ?? "";
+    const computed = createHmac("{{HMAC_ALGORITHM:sha256}}", signingSecret)
+      .update(typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody))
+      .digest("hex");
+    if (signature !== computed) {
+      return {
+        payload: { body: "Unauthorized" },
+        response: { statusCode: 401, body: "Invalid signature" } as HttpResponse,
+      };
+    }
+    {{/if}}
+
     const body = payload.body?.data ?? payload.rawBody?.data;
     return {
       payload: {

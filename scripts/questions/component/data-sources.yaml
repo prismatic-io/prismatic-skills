@@ -1,0 +1,39 @@
+# Data sources — dynamic dropdowns for config pages
+# All items conditioned on component_type: connector
+
+data_source_support:
+  question: "Should this component include data sources (dynamic dropdowns for config pages)?"
+  type: choice
+  choices: [yes, no]
+  inference: allowed
+  scope: component
+  condition:
+    component_type: connector
+  agent_context: >
+    Data sources are actions that fetch data from the API at config time to populate dropdowns
+    in the integration config wizard. For example, a Slack component might have a "Select Channel"
+    data source that lists all channels in the customer's workspace. Data sources make config
+    pages dynamic and user-friendly instead of requiring users to type IDs manually.
+  implications:
+    yes: >
+      The scaffold generates data source definitions that call the API to fetch options.
+      Each data source returns a list of { label, value } pairs for use in config page
+      dropdowns. Integration builders reference these in their configPages definitions.
+    no: >
+      No data sources. Integration builders will use static config variables (text fields,
+      hardcoded dropdowns) or pass resource IDs directly in action inputs.
+
+data_source_resources:
+  question: "Which resources should have data sources? (e.g., 'channels, users, projects — for dropdown selectors')"
+  type: text
+  inference: allowed
+  scope: component
+  depends_on: [data_source_support]
+  condition:
+    data_source_support: yes
+  agent_context: >
+    List which resources should be available as data source dropdowns. Each one generates a
+    data source action that fetches items from the API and returns { label, value } pairs.
+    Common examples: "channels" for a messaging app, "projects" for a project tool, "boards"
+    for a Kanban app. Keep the list focused on resources that integration builders would
+    realistically need to select during config setup.

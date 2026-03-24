@@ -93,3 +93,31 @@ const {{COMPONENT_KEY}}Bearer = connection({
 
 export default [{{COMPONENT_KEY}}Bearer];
 {{/if}}
+
+{{#if CONNECTION_TYPE_BASIC}}
+const {{COMPONENT_KEY}}Basic = connection({
+  key: "{{COMPONENT_KEY}}-basic",
+  label: "{{COMPONENT_LABEL}} Basic Auth",
+  inputs: {
+    username: input({
+      label: "Username",
+      type: "string",
+      required: true,
+    }),
+    password: input({
+      label: "Password",
+      type: "password",
+      required: true,
+    }),
+    endpoint: input({
+      label: "API Endpoint",
+      type: "string",
+      required: true,
+      default: "{{BASE_URL}}",
+      comments: "Base URL for API requests",
+    }),
+  },
+});
+
+export default [{{COMPONENT_KEY}}Basic];
+{{/if}}

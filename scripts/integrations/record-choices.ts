@@ -44,13 +44,14 @@ import { dirname, join } from "node:path";
 import { loadSpec, type LoadedSpec } from "../shared/load-spec.js";
 import { getSessionDirectory } from "../shared/project-directory.js";
 
-/** Try to find the integration spec relative to this script's location. */
-function findSpecPath(answersFile: string): string | null {
+/** Try to find the spec relative to this script's location. */
+function findSpecPath(answersFile: string, type: string = "integration"): string | null {
   // Try relative to the script location (standard plugin layout)
   const scriptDir = new URL(".", import.meta.url).pathname;
+  const specName = type === "component" ? "component.yaml" : "integration.yaml";
   const candidates = [
-    join(scriptDir, "questions", "integration.yaml"),
-    join(dirname(answersFile), "..", "..", "..", "scripts", "questions", "integration.yaml"),
+    join(scriptDir, "questions", specName),
+    join(dirname(answersFile), "..", "..", "..", "scripts", "questions", specName),
   ];
   for (const p of candidates) {
     if (existsSync(p)) return p;
@@ -64,7 +65,7 @@ function main(): number {
   if (args.length < 1) {
     console.log(
       'Usage: npx tsx record-choices.ts <answers-file> [--flow <flow-id>] \'<json-object>\'\n' +
-      '       npx tsx record-choices.ts --session <name> key=value [--flow <flow-id>]'
+      '       npx tsx record-choices.ts --session <name> [--type component|integration] key=value [--flow <flow-id>]'
     );
     return 1;
   }
@@ -74,6 +75,7 @@ function main(): number {
   let inputFile: string | null = null;
   let syncSpec: string | null = null;
   let sessionName: string | null = null;
+  let sessionType: "integration" | "component" = "integration";
   let batchRaw: string | undefined;
   const kvPairs: Array<[string, string]> = [];
   const positional: string[] = [];
@@ -86,6 +88,13 @@ function main(): number {
         return 1;
       }
       sessionName = args[i + 1];
+      i += 2;
+    } else if (args[i] === "--type") {
+      if (i + 1 >= args.length) {
+        console.error("--type requires a value (component or integration)");
+        return 1;
+      }
+      sessionType = args[i + 1] as "integration" | "component";
       i += 2;
     } else if (args[i] === "--flow") {
       if (i + 1 >= args.length) {
@@ -126,7 +135,7 @@ function main(): number {
   // Resolve answersFile: --session takes priority, then first positional arg
   let answersFile: string;
   if (sessionName) {
-    answersFile = join(getSessionDirectory(sessionName, "integrations"), "requirements.json");
+    answersFile = join(getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"), "requirements.json");
     // First positional (if any) becomes batchRaw
     if (positional.length > 0 && !positional[0].includes("=")) {
       batchRaw = positional[0];
@@ -222,7 +231,8 @@ function main(): number {
   }
 
   // When flow_definitions is written, bootstrap the flows object and copy all properties
-  if (batch.flow_definitions && Array.isArray(batch.flow_definitions) && !flowId) {
+  // (integrations only — components don't have flows)
+  if (sessionType !== "component" && batch.flow_definitions && Array.isArray(batch.flow_definitions) && !flowId) {
     if (!answers.flows || typeof answers.flows !== "object") {
       answers.flows = {};
     }
@@ -248,7 +258,7 @@ function main(): number {
 
   // Load spec for validation if available
   let spec: LoadedSpec | null = null;
-  const specPath = syncSpec || findSpecPath(answersFile);
+  const specPath = syncSpec || findSpecPath(answersFile, sessionType);
   if (specPath) {
     try {
       spec = loadSpec(specPath);
@@ -273,55 +283,57 @@ function main(): number {
   const onAnswerActions: string[] = [];
   let hasValidationErrors = false;
 
-  // Gate: connection strategy answers require prior connection search
-  for (const key of connectionStrategyQuestions) {
-    if (batch[key] !== undefined) {
-      const rawValue = batch[key];
-      const value = typeof rawValue === "string" ? rawValue : JSON.stringify(rawValue);
-      // Gate: any connection strategy requires searching for existing connections first
-      if (value !== "no_connection") {
-        const system = key.startsWith("source") ? "source" : "destination";
-        const rawSystem = batch[`${system}_system`] || answers[`${system}_system`] || system;
-        const systemName = typeof rawSystem === "string" ? rawSystem : (rawSystem as Record<string, unknown>)?.source as string || (rawSystem as Record<string, unknown>)?.name as string || system;
-        const existingKey = `${system}_connection_existing`;
-        const existingValue = batch[existingKey] || answers[existingKey];
+  // Gate: connection strategy answers require prior connection search (integrations only)
+  if (sessionType !== "component") {
+    for (const key of connectionStrategyQuestions) {
+      if (batch[key] !== undefined) {
+        const rawValue = batch[key];
+        const value = typeof rawValue === "string" ? rawValue : JSON.stringify(rawValue);
+        // Gate: any connection strategy requires searching for existing connections first
+        if (value !== "no_connection") {
+          const system = key.startsWith("source") ? "source" : "destination";
+          const rawSystem = batch[`${system}_system`] || answers[`${system}_system`] || system;
+          const systemName = typeof rawSystem === "string" ? rawSystem : (rawSystem as Record<string, unknown>)?.source as string || (rawSystem as Record<string, unknown>)?.name as string || system;
+          const existingKey = `${system}_connection_existing`;
+          const existingValue = batch[existingKey] || answers[existingKey];
 
-        if (!existingValue) {
-          // No search done yet — block and redirect
-          console.log(
-            `0 answers written. ${key} was NOT recorded.\n\n` +
-            `<connection-required key="${key}" value="${value}" system="${systemName}">\n` +
-            `  ${key} was rejected because connection search has not been done yet.\n` +
-            `  <steps>\n` +
-            `    <step>Run: prismatic-tools search-connections ${systemName}</step>\n` +
-            `    <step>Present results to the user — recommend reusable connections (customer-activated)</step>\n` +
-            `    <step>Record the selected connection as ${existingKey}</step>\n` +
-            `    <step>Then re-run this command to record ${key}</step>\n` +
-            `  </steps>\n` +
-            `</connection-required>`
-          );
-          process.exit(0);
-        }
+          if (!existingValue) {
+            // No search done yet — block and redirect
+            console.log(
+              `0 answers written. ${key} was NOT recorded.\n\n` +
+              `<connection-required key="${key}" value="${value}" system="${systemName}">\n` +
+              `  ${key} was rejected because connection search has not been done yet.\n` +
+              `  <steps>\n` +
+              `    <step>Run: prismatic-tools search-connections ${systemName}</step>\n` +
+              `    <step>Present results to the user — recommend reusable connections (customer-activated)</step>\n` +
+              `    <step>Record the selected connection as ${existingKey}</step>\n` +
+              `    <step>Then re-run this command to record ${key}</step>\n` +
+              `  </steps>\n` +
+              `</connection-required>`
+            );
+            process.exit(0);
+          }
 
-        if (existingValue === "none" && !value.includes("manifest_based") && value !== "no_connection") {
-          // No connections found — block until user decides about creating a reusable SCV
-          console.log(
-            `0 answers written. ${key} was NOT recorded.\n\n` +
-            `<action-required blocking="true" type="connection-setup" system="${systemName}">\n` +
-            `  No existing reusable connections found for ${systemName}.\n` +
-            `  ${key} was rejected because no reusable connection has been set up yet.\n` +
-            `  You MUST ask the user the following question. Do NOT answer it yourself.\n` +
-            `  Do NOT choose manifest_based or any other option on behalf of the user.\n` +
-            `  Do NOT retry this command until the user responds.\n` +
-            `  <ask-user>\n` +
-            `    "No existing ${systemName} connections in your Prismatic org. I'd recommend creating a\n` +
-            `    reusable customer-activated connection — it keeps credentials out of your integration code\n` +
-            `    and can be shared across integrations. Want me to set one up, or would you prefer an\n` +
-            `    integration-specific connection instead?"\n` +
-            `  </ask-user>\n` +
-            `</action-required>`
-          );
-          process.exit(0);
+          if (existingValue === "none" && !value.includes("manifest_based") && value !== "no_connection") {
+            // No connections found — block until user decides about creating a reusable SCV
+            console.log(
+              `0 answers written. ${key} was NOT recorded.\n\n` +
+              `<action-required blocking="true" type="connection-setup" system="${systemName}">\n` +
+              `  No existing reusable connections found for ${systemName}.\n` +
+              `  ${key} was rejected because no reusable connection has been set up yet.\n` +
+              `  You MUST ask the user the following question. Do NOT answer it yourself.\n` +
+              `  Do NOT choose manifest_based or any other option on behalf of the user.\n` +
+              `  Do NOT retry this command until the user responds.\n` +
+              `  <ask-user>\n` +
+              `    "No existing ${systemName} connections in your Prismatic org. I'd recommend creating a\n` +
+              `    reusable customer-activated connection — it keeps credentials out of your integration code\n` +
+              `    and can be shared across integrations. Want me to set one up, or would you prefer an\n` +
+              `    integration-specific connection instead?"\n` +
+              `  </ask-user>\n` +
+              `</action-required>`
+            );
+            process.exit(0);
+          }
         }
       }
     }

@@ -271,7 +271,7 @@ function findGroupLabel(spec: Spec, groupId: string): string {
  * "source_connection_type", "trigger_type"). The question field is too long
  * for a task subject but good for description.
  */
-// Override subjects for spec keys that don't humanize well
+// Override subjects for spec keys that don't humanize well (integration)
 const SUBJECT_OVERRIDES: Record<string, string> = {
   systems: "Identify source and destination systems",
   data_flow: "Describe what data moves between systems and how",
@@ -302,16 +302,42 @@ const SUBJECT_OVERRIDES: Record<string, string> = {
   schedule_value: "What schedule should the flow run on?",
 };
 
+// Override subjects for component spec keys
+const COMPONENT_SUBJECT_OVERRIDES: Record<string, string> = {
+  component_type: "What type of component are you building?",
+  component_name: "Name the component",
+  component_description: "Describe what the component does",
+  api_name: "What external API does this connector wrap?",
+  api_docs_url: "API documentation URL",
+  auth_type: "Which authentication method?",
+  base_url: "Base URL for the API",
+  confirm_resources: "Which API resources should the component support?",
+  resource_actions: "What operations per resource (CRUD)?",
+  pagination_strategy: "How should pagination be handled?",
+  webhook_support: "Does this API support webhooks?",
+  webhook_events: "Which webhook events to listen for?",
+  webhook_security: "How are webhooks verified?",
+  polling_support: "Should the component support polling?",
+  data_source_support: "Include data source (picklist) actions?",
+  data_source_resources: "Which resources need data sources?",
+  utility_actions: "What actions should this utility provide?",
+  utility_inputs: "What input types will actions work with?",
+  error_handling_strategy: "How should API errors be handled?",
+  additional_requirements: "Any additional requirements?",
+};
+
 function buildSubject(
   item: SpecItem,
   id: string,
   _groupLabel: string,
-  flowName?: string
+  flowName?: string,
+  sessionType?: string
 ): string {
   const prefix = flowName ? `${flowName}: ` : "";
 
-  // Use override if available
-  const override = SUBJECT_OVERRIDES[id];
+  // Use override if available (type-aware)
+  const overrides = sessionType === "component" ? COMPONENT_SUBJECT_OVERRIDES : SUBJECT_OVERRIDES;
+  const override = overrides[id];
   if (override) return `${prefix}${override}`;
 
   // Humanize the spec key: some_config_option → "some config option"
@@ -395,7 +421,9 @@ const SCOPE_TO_GROUPS: Record<string, string[]> = {
   "Fix a bug": [], // No spec items for bug fixes — agent handles directly
 };
 
-function getRelevantGroups(modificationScopes: string[]): Set<string> | null {
+function getRelevantGroups(modificationScopes: string[], sessionType?: string): Set<string> | null {
+  // Scope filtering only applies to integrations; components have no scope map
+  if (sessionType === "component") return null;
   if (modificationScopes.length === 0) return null; // No filter — show all
 
   const groups = new Set<string>();
@@ -419,6 +447,7 @@ function buildManifest(
     mode: "build" | "modify";
     extractedState?: Answers;
     modificationScopes?: string[];
+    sessionType?: string;
   }
 ): TaskManifest {
   const tasks: TaskEntry[] = [];
@@ -436,7 +465,7 @@ function buildManifest(
   // In modify mode, filter to relevant groups based on modification scope
   const relevantGroups =
     options.mode === "modify" && options.modificationScopes
-      ? getRelevantGroups(options.modificationScopes)
+      ? getRelevantGroups(options.modificationScopes, options.sessionType)
       : null;
 
   for (const [id, item] of Object.entries(spec.items)) {
@@ -489,7 +518,7 @@ function buildManifest(
 
         tasks.push({
           spec_key: id,
-          subject: buildSubject(item, id, groupLabel, flowDisplayName),
+          subject: buildSubject(item, id, groupLabel, flowDisplayName, options.sessionType),
           description: buildDescription(item, id, options.extractedState),
           group,
           scope,
@@ -520,7 +549,7 @@ function buildManifest(
 
       tasks.push({
         spec_key: id,
-        subject: buildSubject(item, id, groupLabel),
+        subject: buildSubject(item, id, groupLabel, undefined, options.sessionType),
         description: buildDescription(item, id, options.extractedState),
         group,
         scope,
@@ -620,11 +649,15 @@ function main(): number {
   let extractedStateFile = "";
   let scopeFilter: string[] = [];
   let sessionName = "";
+  let sessionType: "integration" | "component" = "integration";
 
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--session" && i + 1 < args.length) {
       sessionName = args[i + 1];
+      i++;
+    } else if (args[i] === "--type" && i + 1 < args.length) {
+      sessionType = args[i + 1] as "integration" | "component";
       i++;
     } else if (args[i] === "--mode" && i + 1 < args.length) {
       mode = args[i + 1] as "build" | "modify";
@@ -643,14 +676,14 @@ function main(): number {
   if (!sessionName && positional.length < 2) {
     console.error(
       "Usage: npx tsx sync-task-list.ts <spec.yaml> <answers.json> [--mode build|modify] [--extracted-state <file>] [--scope <scopes>]\n" +
-      "       npx tsx sync-task-list.ts --session <name> --actionable [--mode build|modify]"
+      "       npx tsx sync-task-list.ts --session <name> [--type component|integration] --actionable [--mode build|modify]"
     );
     return 2;
   }
 
   if (sessionName) {
-    specFile = join(getPluginRoot(), "scripts", "questions", "integration.yaml");
-    answersFile = join(getSessionDirectory(sessionName, "integrations"), "requirements.json");
+    specFile = join(getPluginRoot(), "scripts", "questions", sessionType === "component" ? "component.yaml" : "integration.yaml");
+    answersFile = join(getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"), "requirements.json");
   } else {
     specFile = positional[0];
     answersFile = positional[1];
@@ -703,6 +736,7 @@ function main(): number {
     mode,
     extractedState,
     modificationScopes: scopeFilter,
+    sessionType,
   });
 
   // --actionable mode: output only items the agent should act on NOW
@@ -734,28 +768,30 @@ function main(): number {
       );
     }
 
-    // Emit connection setup instruction when connection items are pending
-    const connectionKeys = ["source_connection", "destination_connection"];
-    const pendingConnectionItems = toCreate.filter(t => connectionKeys.includes(t.spec_key));
-    if (pendingConnectionItems.length > 0) {
-      const systems = pendingConnectionItems.map(t => {
-        const system = t.spec_key.startsWith("source") ? "source" : "destination";
-        const raw = answers[`${system}_system`];
-        if (typeof raw === "string") return raw;
-        if (raw && typeof raw === "object") return (raw as Record<string, unknown>).source as string || (raw as Record<string, unknown>).name as string || system;
-        return system;
-      });
-      console.log(
-        `<connection-setup-required systems="${systems.join(",")}">\n` +
-        `  Connection management decisions are pending. These CANNOT be inferred or batch-written.\n` +
-        `  For EACH system, you MUST:\n` +
-        `  1. Run prismatic-tools search-connections <system> to check for existing reusable connections\n` +
-        `  2. Present the results to the user and recommend reusable (customer-activated) connections\n` +
-        `  3. Ask the user which approach they want — do NOT choose for them\n` +
-        `  4. Record the connection ONLY after the user responds\n` +
-        `  Do NOT batch these with other answers. Do NOT infer a connection strategy.\n` +
-        `</connection-setup-required>`
-      );
+    // Emit connection setup instruction when connection items are pending (integrations only)
+    if (sessionType !== "component") {
+      const connectionKeys = ["source_connection", "destination_connection"];
+      const pendingConnectionItems = toCreate.filter(t => connectionKeys.includes(t.spec_key));
+      if (pendingConnectionItems.length > 0) {
+        const systems = pendingConnectionItems.map(t => {
+          const system = t.spec_key.startsWith("source") ? "source" : "destination";
+          const raw = answers[`${system}_system`];
+          if (typeof raw === "string") return raw;
+          if (raw && typeof raw === "object") return (raw as Record<string, unknown>).source as string || (raw as Record<string, unknown>).name as string || system;
+          return system;
+        });
+        console.log(
+          `<connection-setup-required systems="${systems.join(",")}">\n` +
+          `  Connection management decisions are pending. These CANNOT be inferred or batch-written.\n` +
+          `  For EACH system, you MUST:\n` +
+          `  1. Run prismatic-tools search-connections <system> to check for existing reusable connections\n` +
+          `  2. Present the results to the user and recommend reusable (customer-activated) connections\n` +
+          `  3. Ask the user which approach they want — do NOT choose for them\n` +
+          `  4. Record the connection ONLY after the user responds\n` +
+          `  Do NOT batch these with other answers. Do NOT infer a connection strategy.\n` +
+          `</connection-setup-required>`
+        );
+      }
     }
 
     // Emit task creation instruction
@@ -776,7 +812,16 @@ function main(): number {
       pendingGroups.add(t.group);
     }
     if (pendingGroups.size > 0) {
-      const groupFileMap: Record<string, string> = {
+      const componentGroupFileMap: Record<string, string> = {
+        overview: "component/overview.yaml",
+        connector_config: "component/connector-config.yaml",
+        resources: "component/resources.yaml",
+        triggers: "component/triggers.yaml",
+        data_sources: "component/data-sources.yaml",
+        utility_config: "component/utility-config.yaml",
+        additional: "component/additional.yaml",
+      };
+      const integrationGroupFileMap: Record<string, string> = {
         overview: "integration/overview.yaml",
         flow_planning: "integration/flow-planning.yaml",
         flow_config: "integration/flow-config.yaml",
@@ -790,6 +835,7 @@ function main(): number {
         payload_and_config: "integration/payload-and-behavior.yaml",
         behavior: "integration/payload-and-behavior.yaml",
       };
+      const groupFileMap = sessionType === "component" ? componentGroupFileMap : integrationGroupFileMap;
       const filesToRead = [...new Set(
         [...pendingGroups].map(g => groupFileMap[g]).filter(Boolean)
       )];

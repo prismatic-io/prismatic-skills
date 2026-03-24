@@ -3,86 +3,144 @@ name: build-component
 description: Build and deploy a Prismatic custom component
 context: fork
 agent: component-builder
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion, WebFetch, WebSearch
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, TaskCreate, TaskUpdate, TaskList, TaskGet
 ---
 
 Build a Prismatic custom component for $ARGUMENTS.
 
-<express-mode>
-  <trigger>User's $ARGUMENTS contains more than a simple name — describes API, auth type, actions, or URLs</trigger>
-  <procedure>
-    <step>Extract answers from the description into a context JSON file</step>
-    <step>Write to {session_dir}/express-context.json</step>
-    <step>Run gather-requirements.ts with --context {session_dir}/express-context.json</step>
-    <step>DAG skips pre-populated questions, only asks unknowns</step>
-  </procedure>
-  <extraction-rules>
-    <rule>"utility" / "helper" / "transform" → component_type = "Utility/Logic Component"</rule>
-    <rule>"connector" / "API" / "integration" → component_type = "Application Connector"</rule>
-    <rule>API/service names → api_name</rule>
-    <rule>URLs (https://...) → api_docs_url</rule>
-    <rule>Action descriptions → utility_actions or component_description</rule>
-  </extraction-rules>
-</express-mode>
+Voice and narration style are defined in the agent instructions. Follow them.
 
-## STOP — Read Before Proceeding
+<rules context="command" critical="true">
+  <rule name="spec-drives-everything">
+    <always>Let the sync script determine what tasks to create and what questions to ask. It reads the spec, evaluates conditions, and returns actionable items.</always>
+    <never>Pre-decide what auth type or actions are needed. Never write answers before the sync script tells you to.</never>
+  </rule>
+  <rule name="build-commands">
+    <always>Use `npm run build --prefix <project-dir>` for builds</always>
+    <never>Run `npx webpack` or `npx tsc` directly</never>
+    <never>cd into the project directory — use `--prefix` for npm</never>
+  </rule>
+  <rule name="answer-writing" critical="true">
+    <always>Write ALL answers with key=value pairs in one command: `prismatic-tools record-choices --session <name> --type component key=value key2=value2`. JSON values are auto-parsed.</always>
+    <never>Edit requirements.json directly with Edit or Write tools</never>
+    <never>Create temp JSON files with the Write tool for answer persistence</never>
+    <never>Construct JSON with heredocs (`cat > file << EOF`) or echo redirects</never>
+  </rule>
+  <rule name="cookbook-before-code">
+    <always>Read the answer-to-code cookbook BEFORE writing ANY code</always>
+    <never>Generate code without first reading the cookbook and templates</never>
+  </rule>
+</rules>
 
-- Do NOT spawn the `external-api-researcher` agent. Research is performed inline when the DAG requests it.
-- The questionnaire DAG (`gather-requirements.ts`) searches for existing Prismatic components automatically and will emit an `inline_task` when API research is actually needed.
-- If the user provides an API docs URL in their request, hold onto it — do NOT use it to eagerly launch research. The questionnaire will ask for it at the right time.
+<procedure name="workflow">
 
-<procedure name="setup">
-  <step>Run prerequisites.ts with --type component</step>
-  <step>Capture session_dir and requirements_file from JSON output</step>
-  <step>Do NOT manually mkdir session directories</step>
+  <step name="setup">
+    Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <name> --type component`. Brief the user on what you're verifying and what the session directory is for.
+  </step>
+
+  <step name="run-sync-script">
+    Run the task sync script to discover what spec items need user input:
+    <command>
+      prismatic-tools update-tasks --session <name> --type component --actionable
+    </command>
+    Parse the JSON output. It contains `create_required`, `mark_completed`, `create_optional`, `blocked_count`, and `ready_for_next_phase`.
+  </step>
+
+  <step name="create-requirement-tasks" depends="run-sync-script" critical="true">
+    <rules critical="true">
+      <always>Create a task for EVERY item in `create_required` — all TaskCreate calls in parallel.</always>
+      <never>Skip items from `create_required`</never>
+      <never>Create phase tasks (Scaffold, Build, Publish) during requirements — they clutter the task list</never>
+      <never>Create tasks for `mark_completed` items (already inferred) or `create_optional` items (handle conversationally)</never>
+    </rules>
+    Use item.subject as the task subject.
+  </step>
+
+  <step name="narrate-inferences" depends="run-sync-script">
+    For items in `mark_completed`, explain to the user IN THE CONVERSATION what you inferred:
+    - What you picked up from their description
+    - Which spec answer it maps to
+    - What it means for the component architecture
+    Be verbose and educational. This is where personality shines.
+  </step>
+
+  <step name="gather-requirements">
+    <rules critical="true">
+      <rule name="one-at-a-time">
+        <always>Present exactly ONE question per message. After presenting, STOP and wait for the user's response.</always>
+        <never>Batch multiple questions into one message — even if they seem related.</never>
+      </rule>
+      <rule name="sync-after-each-answer">
+        <always>After writing each answer, re-run the sync script with --type component --actionable. The sync script determines what question comes next — not you.</always>
+        <never>Decide the next question yourself. The sync script evaluates conditions and may surface follow-up questions (e.g., webhook config after component_type is chosen).</never>
+      </rule>
+    </rules>
+
+    <loop name="requirement-loop">
+      <substep>Pick the next pending task from the task list</substep>
+      <substep>Explain the question — what Prismatic concept it configures and why it matters</substep>
+      <substep>Present choices with tradeoffs, then STOP and wait for the user's response</substep>
+      <substep>Write the answer with record-choices --type component. The output includes both the write confirmation and the sync result.</substep>
+      <substep>Mark the task completed with TaskUpdate</substep>
+      <substep>If on_answer action triggered (e.g., api_docs_url → inline research), execute it immediately</substep>
+      <substep>Create tasks for any new `create_required` items from the sync output</substep>
+      <substep>Repeat from top — present the NEXT single question</substep>
+    </loop>
+
+    When the sync script reports `ready_for_next_phase: true`, requirements are complete.
+  </step>
+
+  <step name="scaffold">
+    TaskCreate(subject: "Scaffold component") and mark in_progress.
+    Run: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-component <name>`
+    <rules>
+      <never>Create directories or write files manually before the scaffold script runs</never>
+      <never>Use MCP tools for scaffolding</never>
+    </rules>
+    Validate: `prismatic-tools validate-phase <project-dir> --phase scaffold --type component`
+    Mark completed.
+  </step>
+
+  <step name="generate-code">
+    TaskCreate(subject: "Generate component code") and mark in_progress.
+
+    BEFORE writing ANY code, read these files in this order:
+    1. Cookbook: skill `component-patterns/references/answer-to-code-cookbook.md`
+    2. Templates: `${CLAUDE_PLUGIN_ROOT}/templates/component/` (read ALL that apply)
+    3. requirements.json to get all answers
+    4. For each answer with `cookbook_section`, Grep for that heading in the cookbook
+
+    <rules>
+      <always>Follow templates exactly for file structure</always>
+      <always>Use connection credentials via `params.connection.fields` in action perform functions</always>
+      <never>Use raw fetch or axios — use the client helper</never>
+      <never>Generate code without first reading the cookbook and templates</never>
+    </rules>
+
+    Required files depend on component type (see agent code-patterns section).
+    Validate: `prismatic-tools validate-phase <project-dir> --phase code-gen --type component`
+    Mark completed.
+  </step>
+
+  <step name="build-publish">
+    TaskCreate(subject: "Build component") and mark in_progress.
+    Build: `npm run build --prefix <project-dir>`
+    Validate: `prismatic-tools validate-phase <project-dir> --phase build --type component`
+    If build fails: run `prismatic-tools diagnose-build <project-dir> --type component` before attempting manual fixes.
+    Mark completed.
+
+    TaskCreate(subject: "Publish to Prismatic") and mark in_progress.
+    Publish: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts publish-component <project-dir>`
+    Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-component <project-dir>`
+    Mark completed.
+  </step>
+
+  <step name="iterate">
+    Fix issues, rebuild, republish. Explain root cause before each fix.
+  </step>
+
+  <step name="summary">
+    Return summary of what was created: component name, key, auth type, actions, triggers, and where the project lives.
+  </step>
+
 </procedure>
-
-<procedure name="requirements-loop">
-  <step>Run gather-requirements.ts</step>
-  <step>Check exit code per exit-code-protocol</step>
-  <step>If exit 42: use AskUserQuestion, write answer with prismatic-tools write-answer, re-run</step>
-  <step>If exit 0 + inline_task: perform research directly using WebFetch/WebSearch, save to output_file, mark answered, re-run</step>
-  <step>If exit 0 + question (allow_inference): infer if 100% confident, otherwise ask user, write answer, re-run</step>
-  <step>If exit 0 + complete: proceed to next phase</step>
-</procedure>
-
-## Phase 1: Setup
-
-Run prerequisites:
-
-```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/prerequisites.ts <component-name> --type component
-```
-
-Capture `session_dir` and `requirements_file` from the JSON output.
-
-**Do NOT manually create session directories with `mkdir`. Always use `prerequisites.ts`.**
-
-## Workflow
-
-1. Run prerequisites check (see Phase 1 above — the `--type component` flag is required)
-2. Gather requirements via the DAG questionnaire — it handles component search and conditionally triggers API research
-   - If the completion output includes `"shape_valid": false`, warn the user about missing requirements before proceeding
-3. Scaffold component with `scaffold-component.ts`
-4. **Validate scaffold:** `prismatic-tools validate-phase <component-dir> --phase scaffold --type component`
-5. Generate code using component-patterns skill and templates from `${CLAUDE_PLUGIN_ROOT}/templates/component/`
-   - Read the relevant template files to understand required structure
-   - Only load phase-appropriate skill references (see SKILL.md phase tags)
-6. **Validate code generation:** `prismatic-tools validate-phase <component-dir> --phase code-gen --type component`
-7. Build, publish, and validate
-   - If build fails, run `prismatic-tools diagnose-build <component-dir> --type component` before attempting manual fixes
-8. **Validate build:** `prismatic-tools validate-phase <component-dir> --phase build --type component`
-9. Return summary of what was created
-
-## Inline Task Handling
-
-When `gather-requirements.ts` outputs `status: "inline_task"`:
-
-1. Perform the task described in `task.description` directly using WebFetch/WebSearch
-2. Follow the instructions in `task.instructions`
-3. Save results to the file specified in `task.output_file`
-4. Mark the question as answered:
-   ```bash
-   prismatic-tools write-answer <requirements_file> <question_id> completed
-   ```
-5. Re-run `gather-requirements.ts` to continue with remaining questions.
