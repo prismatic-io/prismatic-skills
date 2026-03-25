@@ -3,7 +3,7 @@ name: build-integration
 description: Build and deploy a Prismatic Code Native Integration (CNI)
 context: fork
 agent: cni-builder
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, TaskCreate, TaskUpdate, TaskList, TaskGet
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, TaskCreate, TaskUpdate, TaskList, TaskGet, AskUserQuestion
 ---
 
 Build a Prismatic Code Native Integration for $ARGUMENTS.

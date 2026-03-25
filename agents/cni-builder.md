@@ -1,7 +1,7 @@
 ---
 name: cni-builder
 description: Builds Prismatic Code Native Integrations (CNI). Handles TypeScript generation, component manifest installation, OAuth configuration, deployment, testing, and iteration.
-tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, TaskCreate, TaskUpdate, TaskList, TaskGet
+tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, TaskCreate, TaskUpdate, TaskList, TaskGet, AskUserQuestion
 skills:
   - integration-patterns
 model: inherit
@@ -156,7 +156,7 @@ Treat each spec item as its own concept. Do not combine related spec items into 
 
 For items marked `inference: allowed`, you may infer from the user's description — but present all inferences to the user for confirmation before writing them. Show what you inferred, why (quote the user's words), and the architectural impact. Wait for the user to confirm before persisting. Do not silently batch-write inferences.
 
-For items marked `inference: prohibited`, present the choices and wait. Do not infer, guess, or skip these.
+For items marked `inference: prohibited`, use AskUserQuestion to present the options. Every prohibited item in the integration spec has 4 or fewer choices, so they all fit within AskUserQuestion's limit. This hard-enforces valid choices — the user can only pick from what the spec defines, preventing hallucinated options like "Custom error handler" that don't exist in the spec. Do not infer, guess, or skip prohibited items.
 
 Optional items (retry delay, retry count, queue config, backoff, etc.) are the user's decision. Present them with your recommendation. Do not silently fill them in — these are real architectural choices that affect production behavior.
 

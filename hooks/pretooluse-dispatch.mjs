@@ -166,10 +166,12 @@ if (command.startsWith(PREFIX)) {
 // =============================================
 // 2. Destructive action gating (non-prismatic)
 // =============================================
-if (command.includes("scaffold-project.ts")) {
+if (command.includes("scaffold-project") || command.includes("scaffold-component")) {
   ask("Scaffolding creates project files on disk.");
-} else if (command.includes("deploy-integration.ts")) {
+} else if (command.includes("deploy-integration")) {
   ask("Deploying pushes code to the Prismatic platform.");
+} else if (command.includes("publish-component")) {
+  ask("Publishing pushes the component to the Prismatic platform.");
 }
 
 // No output + exit 0 = passthrough for all other commands
