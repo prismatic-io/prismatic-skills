@@ -902,7 +902,7 @@ function main(): number {
       const filesToRead = [...new Set(
         [...pendingGroups].map(g => groupFileMap[g]).filter(Boolean)
       )];
-      console.error(
+      console.log(
         `<read-spec-before-asking>\n` +
         `  Before presenting any choice to the user, read the spec item from its domain file.\n` +
         `  The item's agent_context contains <present-as> XML with the exact options and natural language labels.\n` +
@@ -914,13 +914,13 @@ function main(): number {
     }
 
     // Emit communication reminder
-    console.error(
+    console.log(
       `<communication>Do not mention scripts, sync, spec, tasks, requirements, validation, items, or internal process to the user. Rewrite as what the user experiences.</communication>`
     );
 
     // Emit confirm gate instruction when ready
     if (manifest.ready_for_next_phase) {
-      console.error(
+      console.log(
         `<confirm-before-scaffold>\n` +
         `  All required answers are collected. Before scaffolding:\n` +
         `  1. Present a summary of ALL decisions to the user (systems, components, connections, flows, error handling, everything).\n` +

@@ -40,23 +40,15 @@
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { loadSpec, type LoadedSpec } from "../shared/load-spec.js";
-import { getSessionDirectory } from "../shared/project-directory.js";
+import { getSessionDirectory, getPluginRoot } from "../shared/project-directory.js";
 
-/** Try to find the spec relative to this script's location. */
-function findSpecPath(answersFile: string, type: string = "integration"): string | null {
-  // Try relative to the script location (standard plugin layout)
-  const scriptDir = new URL(".", import.meta.url).pathname;
+/** Find the spec file using getPluginRoot (same resolution as update-tasks and validate-requirements). */
+function findSpecPath(type: string = "integration"): string | null {
   const specName = type === "component" ? "component.yaml" : "integration.yaml";
-  const candidates = [
-    join(scriptDir, "questions", specName),
-    join(dirname(answersFile), "..", "..", "..", "scripts", "questions", specName),
-  ];
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
-  }
-  return null;
+  const specPath = join(getPluginRoot(), "scripts", "questions", specName);
+  return existsSync(specPath) ? specPath : null;
 }
 
 function main(): number {
@@ -258,7 +250,7 @@ function main(): number {
 
   // Load spec for validation if available
   let spec: LoadedSpec | null = null;
-  const specPath = syncSpec || findSpecPath(answersFile, sessionType);
+  const specPath = syncSpec || findSpecPath(sessionType);
   if (specPath) {
     try {
       spec = loadSpec(specPath);

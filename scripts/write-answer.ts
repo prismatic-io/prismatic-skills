@@ -18,9 +18,10 @@
  *   1 - Error
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { getSessionDirectory } from "./shared/project-directory.js";
+import { getSessionDirectory, getPluginRoot } from "./shared/project-directory.js";
+import { loadSpec } from "./shared/load-spec.js";
 
 function main(): number {
   const args = process.argv.slice(2);
@@ -111,6 +112,36 @@ function main(): number {
     answer = JSON.parse(answerRaw);
   } catch {
     answer = answerRaw;
+  }
+
+  // Validate against spec choices (same validation as record-choices)
+  if (typeof answer === "string") {
+    const specName = sessionType === "component" ? "component.yaml" : "integration.yaml";
+    const specPath = join(getPluginRoot(), "scripts", "questions", specName);
+    if (existsSync(specPath)) {
+      try {
+        const spec = loadSpec(specPath);
+        const specItem = spec.items[questionId];
+        if (specItem && Array.isArray(specItem.choices)) {
+          const validChoices = specItem.choices as string[];
+          if (!validChoices.includes(answer)) {
+            const match = validChoices.find(c => c.toLowerCase() === answer.toLowerCase());
+            if (match) {
+              answer = match;
+              console.error(`NOTE: Auto-corrected "${answerRaw}" → "${match}" for ${questionId}`);
+            } else {
+              console.log(
+                `Answer REJECTED: "${answer}" is not a valid choice for ${questionId}.\n` +
+                `Valid choices: ${validChoices.join(", ")}`
+              );
+              return 1;
+            }
+          }
+        }
+      } catch {
+        // Spec not available — skip validation
+      }
+    }
   }
 
   // Load existing answers

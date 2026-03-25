@@ -84,6 +84,13 @@ For EACH system's connection:
    - If manifest_based: collect credentials via `prismatic-tools get-credentials`
 5. Do NOT proceed to the next question until the connection is fully configured
 
+**If the user defers credentials (says "skip for now"):**
+Record `manifest_based` as the connection strategy — NOT `customer_activated_deferred` or any
+invented value. `manifest_based` means the connection is defined on the config page and the user
+provides OAuth credentials post-deploy in Prismatic admin. Do NOT attempt to deploy with a
+`customerActivatedConnection` pointing to a connection that doesn't exist — it will fail.
+Never invent spec values. The only valid values are those in the spec's `choices` array.
+
 Skipping this workflow means the integration will scaffold without connections and fail at deploy.
 </connection-workflow>
 
