@@ -307,22 +307,28 @@ function main(): number {
           }
 
           if (existingValue === "none" && !value.includes("manifest_based") && value !== "no_connection") {
-            // No connections found — block until user decides about creating a reusable SCV
+            // No connections found — present options via AskUserQuestion, then act on the choice
+            const connType = value === "customer_activated" ? "customer-activated" : value === "org_activated" ? "org-activated" : value;
             console.log(
               `0 answers written. ${key} was NOT recorded.\n\n` +
-              `<action-required blocking="true" type="connection-setup" system="${systemName}">\n` +
-              `  No existing reusable connections found for ${systemName}.\n` +
-              `  ${key} was rejected because no reusable connection has been set up yet.\n` +
-              `  You MUST ask the user the following question. Do NOT answer it yourself.\n` +
-              `  Do NOT choose manifest_based or any other option on behalf of the user.\n` +
-              `  Do NOT retry this command until the user responds.\n` +
-              `  <ask-user>\n` +
-              `    "No existing ${systemName} connections in your Prismatic org. I'd recommend creating a\n` +
-              `    reusable customer-activated connection — it keeps credentials out of your integration code\n` +
-              `    and can be shared across integrations. Want me to set one up, or would you prefer an\n` +
-              `    integration-specific connection instead?"\n` +
-              `  </ask-user>\n` +
-              `</action-required>`
+              `<connection-creation-required blocking="true" system="${systemName}" strategy="${value}">\n` +
+              `  No existing reusable ${connType} connections found for ${systemName}.\n` +
+              `  Use AskUserQuestion to present these two options:\n` +
+              `    Option 1: "Create reusable connection" (Recommended) — creates a ${connType} connection in the org that can be shared across integrations.\n` +
+              `    Option 2: "Use integration-specific connection" — connection defined on this integration's config page only. Credentials configured post-deploy.\n` +
+              `  <on-choice value="create">\n` +
+              `    Output an Orby request to create the connection:\n` +
+              `    <orby-request>Create a ${connType} connection for ${systemName} in the org</orby-request>\n` +
+              `    WAIT for Orby's response. Orby will create the connection and return its details.\n` +
+              `    Then record: ${key}=${value}\n` +
+              `  </on-choice>\n` +
+              `  <on-choice value="integration-specific">\n` +
+              `    Record: ${key}=manifest_based\n` +
+              `    The user will configure OAuth credentials in Prismatic admin post-deploy.\n` +
+              `  </on-choice>\n` +
+              `  Do NOT ask for credentials. Do NOT paste credentials in chat.\n` +
+              `  Do NOT retry this command until the user has chosen and the action is complete.\n` +
+              `</connection-creation-required>`
             );
             process.exit(0);
           }
