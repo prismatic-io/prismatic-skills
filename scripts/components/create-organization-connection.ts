@@ -335,7 +335,7 @@ function main(): number {
     return 1;
   }
 
-  const stableKey = parsed.stableKey || `${parsed.componentKey}-api-key`;
+  const stableKey = parsed.stableKey || `${parsed.componentKey}-${parsed.connectionKey}`;
 
   console.log("=".repeat(60));
   console.log("  Create Organization Connection (Scoped)");

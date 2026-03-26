@@ -307,26 +307,58 @@ function main(): number {
           }
 
           if (existingValue === "none" && !value.includes("manifest_based") && value !== "no_connection") {
-            // No connections found — present options via AskUserQuestion, then act on the choice
+            // No connections found — present options, then create via script or fall back
             const connType = value === "customer_activated" ? "customer-activated" : value === "org_activated" ? "org-activated" : value;
+
+            // Try to get the connection key from the stored connection type answer
+            const connTypeKey = `${system}_connection_type`;
+            const connTypeValue = batch[connTypeKey] || answers[connTypeKey];
+            let componentKey = "";
+            let connectionKey = "";
+            if (connTypeValue && typeof connTypeValue === "object") {
+              const obj = connTypeValue as Record<string, unknown>;
+              connectionKey = (obj.key as string) ?? "";
+              // Extract component key from parent
+              const compKey = `${system}_component`;
+              const compValue = batch[compKey] || answers[compKey];
+              if (compValue && typeof compValue === "object") {
+                componentKey = ((compValue as Record<string, unknown>).key as string) ?? "";
+              }
+            }
+
+            const stableKey = componentKey && connectionKey
+              ? `${componentKey}-${connectionKey}`
+              : `${systemName.toLowerCase()}-oauth2`;
+
+            const createCmd = componentKey && connectionKey
+              ? `prismatic-tools create-organization-connection ` +
+                `--component-key ${componentKey} --connection-key ${connectionKey} ` +
+                `--name "${systemName} ${connType}" --stable-key ${stableKey} --skip-test-connection`
+              : "";
+
             console.log(
               `0 answers written. ${key} was NOT recorded.\n\n` +
               `<connection-creation-required blocking="true" system="${systemName}" strategy="${value}">\n` +
               `  No existing reusable ${connType} connections found for ${systemName}.\n` +
               `  Use AskUserQuestion to present these two options:\n` +
-              `    Option 1: "Create reusable connection" (Recommended) — creates a ${connType} connection in the org that can be shared across integrations.\n` +
-              `    Option 2: "Use integration-specific connection" — connection defined on this integration's config page only. Credentials configured post-deploy.\n` +
+              `    Option 1: "Create reusable connection" (Recommended) — creates a ${connType} connection in the org.\n` +
+              `    Option 2: "Use integration-specific connection" — credentials configured post-deploy.\n` +
               `  <on-choice value="create">\n` +
-              `    Output an Orby request to create the connection:\n` +
-              `    <orby-request>Create a ${connType} connection for ${systemName} in the org</orby-request>\n` +
-              `    WAIT for Orby's response. Orby will create the connection and return its details.\n` +
+              (createCmd
+                ? `    Run this command to create the connection:\n` +
+                  `    ${createCmd}\n`
+                : `    Request Orby to create the connection:\n` +
+                  `    <orby-request>Create a ${connType} connection for ${systemName} using component ${componentKey || systemName.toLowerCase()} connection ${connectionKey || "oauth2"}</orby-request>\n`) +
+              `    WAIT for the connection to be created.\n` +
               `    Then record: ${key}=${value}\n` +
+              `    Also record: ${system}_connection_existing with the stableKey "${stableKey}" from the created connection.\n` +
               `  </on-choice>\n` +
               `  <on-choice value="integration-specific">\n` +
               `    Record: ${key}=manifest_based\n` +
               `    The user will configure OAuth credentials in Prismatic admin post-deploy.\n` +
               `  </on-choice>\n` +
               `  Do NOT ask for credentials. Do NOT paste credentials in chat.\n` +
+              `  Do NOT fabricate connection_existing objects. They must come from actual creation results.\n` +
               `  Do NOT retry this command until the user has chosen and the action is complete.\n` +
               `</connection-creation-required>`
             );

@@ -88,6 +88,12 @@
       "script": "code-plan",
       "desc": "Generate a code-gen plan mapping answers to cookbook sections and references",
       "usage": "--session <name> --type <component|integration>"
+    },
+    "create-organization-connection": {
+      "script": "create-organization-connection",
+      "desc": "Create a reusable connection in the Prismatic org",
+      "usage": "--component-key <key> --connection-key <key> --name <name> [--stable-key <key>] [--skip-test-connection]",
+      "timeout": 60
     }
   },
   "explicit": {
@@ -101,7 +107,6 @@
     "publish-component": "Publishes component to Prismatic (destructive)",
     "package-for-download": "Creates archive files (disk writes)",
     "prerequisites": "Multi-step setup with progress output (creates session dirs)",
-    "validate-component": "Validates component structure",
-    "create-organization-connection": "Creates org-level connection (platform write)"
+    "validate-component": "Validates component structure"
   }
 }
