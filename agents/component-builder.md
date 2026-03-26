@@ -170,6 +170,7 @@ prismatic-tools update-tasks --session <name> --type component --actionable
 prismatic-tools validate-requirements --session <name> --type component
 prismatic-tools record-choices --session <name> --type component key=value [key2=value2]
 prismatic-tools write-answer --session <name> --type component <question_id> <value>
+prismatic-tools code-plan --session <name> --type component
 ```
 
 ### Explicit scripts (require confirmation or visibility)
@@ -373,11 +374,14 @@ Validate: `prismatic-tools validate-phase <dir> --phase scaffold --type componen
 
 <step name="generate-code">
 Narrate: give the user the full architectural picture before writing any code — explain each file's role and how they connect. After each file is written, explain key patterns and why they're structured that way.
-Before writing any code, read these in order:
-1. `references/answer-to-code-cookbook.md` from component-patterns skill — **LOAD FIRST**
-2. Templates from `${CLAUDE_PLUGIN_ROOT}/templates/component/`
-3. requirements.json to get all answers
-4. For each answer with `cookbook_section`, Grep for that heading in answer-to-code-cookbook.md to get the exact code pattern
+Before writing any code:
+1. Run `prismatic-tools code-plan --session <name> --type component` — produces a manifest of which cookbook sections, reference files, and implications apply to your answers
+2. For each `<cookbook>` heading in the manifest, Grep for it in answer-to-code-cookbook.md and read the section
+3. For each `<reference>` file in the manifest, read it from the component-patterns skill references/
+4. If `<api-research>` is listed, read the api-research.json file
+5. Read templates from `${CLAUDE_PLUGIN_ROOT}/templates/component/`
+6. Check `<verify-coverage>` — for any uncovered item that affects code structure, escalate to Orby before proceeding
+7. Write code following the patterns from steps 2-5
 
 Generate files based on component type:
 
@@ -486,13 +490,13 @@ prismatic-tools update-tasks --session <name> --type component --actionable
 - `src/dataSources/` — folder with data source definitions
 - `src/triggers/` — folder with trigger definitions
 - `src/types.ts` — API resource type definitions
-- `src/index.ts` — component definition with `hooks: { error: handleErrors }`
+- `src/index.ts` — component definition with `hooks: { error: (error) => { ... } }`
 - Barrel exports (`index.ts`) at every folder level using spread pattern
 
 ### Connector Components — Required Patterns
 - `createClient(connection, context.debug.enabled)` in every action perform — function-based, returns HttpClient
 - `ConnectionError` thrown in client.ts for connection type mismatches (NOT in actions)
-- `handleErrors` hook on component: `hooks: { error: handleErrors }` (from `@prismatic-io/spectral/dist/clients/http`)
+- Custom error hook on component: `hooks: { error: (error) => { ... } }` — re-throw ConnectionError as-is, wrap others
 - `examplePayload` on every action — imported from `src/examplePayloads/`, verified against API
 - `clean` function on every non-connection input: `util.types.toString`, `util.types.toBool`, `util.types.toNumber`
 - `placeholder` and `example` on every string/text input
@@ -509,10 +513,10 @@ prismatic-tools update-tasks --session <name> --type component --actionable
 - Same `examplePayload` on every action
 - Same `{ data }` return wrapper
 - Same folder structure for actions and inputs
-- `hooks: { error: handleErrors }` on component definition
+- `hooks: { error: (error) => { ... } }` on component definition
 
 ### Common Patterns
-- Import from `@prismatic-io/spectral` (exception: `@prismatic-io/spectral/dist/clients/http` for createClient and handleErrors)
+- Import from `@prismatic-io/spectral` (exception: `@prismatic-io/spectral/dist/clients/http` for `createClient` and `HttpClient` only)
 - Use `util.types` for clean functions
 - Inputs destructured in perform: `async (context, { connection, fieldName }) => { ... }`
 - Debug wiring: `context.debug.enabled` → `createClient(connection, debug)`

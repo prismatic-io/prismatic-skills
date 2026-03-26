@@ -83,6 +83,11 @@
       "script": "write-answer",
       "desc": "Record a single answer",
       "usage": "--session <name> [--type component|integration] <question_id> <value>"
+    },
+    "code-plan": {
+      "script": "code-plan",
+      "desc": "Generate a code-gen plan mapping answers to cookbook sections and references",
+      "usage": "--session <name> --type <component|integration>"
     }
   },
   "explicit": {

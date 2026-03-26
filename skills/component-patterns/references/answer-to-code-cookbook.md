@@ -414,7 +414,7 @@ Every connector component must include:
 - `src/actions/misc/rawRequest.ts` — REQUIRED raw HTTP request action
 - `src/examplePayloads/` — folder with verified payloads for each action
 - `src/connections.ts` — connection definitions
-- `src/index.ts` — component definition with `hooks: { error: handleErrors }`
+- `src/index.ts` — component definition with custom error hook
 
 ---
 
@@ -438,13 +438,20 @@ All inputs need a `comments` field.
 
 ## Error Hooks
 
-Every component definition MUST include error hooks:
+Every component definition MUST include a custom error hook:
 
 ```typescript
-import { handleErrors } from "@prismatic-io/spectral/dist/clients/http";
+import { component, ConnectionError } from "@prismatic-io/spectral";
 
 export default component({
   // ...
-  hooks: { error: handleErrors },
+  hooks: {
+    error: (error) => {
+      // Re-throw ConnectionError as-is so the platform marks the connection as failed
+      if (error instanceof ConnectionError) throw error;
+      // Wrap all other errors
+      throw new Error(`${error.message ?? error}`);
+    },
+  },
 });
 ```

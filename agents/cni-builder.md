@@ -224,6 +224,7 @@ prismatic-tools verify-code <project-dir> --session <name>
 prismatic-tools validate-requirements --session <name>
 prismatic-tools record-choices --session <name> key=value [key2=value2] [--flow <flow-id>]
 prismatic-tools write-answer --session <name> <question_id> <value>
+prismatic-tools code-plan --session <name> --type <component|integration>
 ```
 
 ### Explicit scripts (require confirmation or visibility)
@@ -509,14 +510,14 @@ Validate: `prismatic-tools validate-phase <dir> --phase scaffold --type integrat
 
 <step name="generate-code">
 Narrate: give the user the full architectural picture before writing any code — explain each file's role and how they connect. After each file is written, explain key patterns and why they're structured that way.
-Before writing any code, read these in order:
-1. `references/code-generation-guide.md` from integration-patterns skill — structural patterns and type safety rules
-2. spectral-types.md — source of truth for types. When YAML spec and types disagree, the types win.
-3. requirements.json to get all answers
-4. ALL templates under `${CLAUDE_PLUGIN_ROOT}/templates/integration/`:
+Before writing any code:
+1. Run `prismatic-tools code-plan --session <name> --type integration` — produces a manifest of which cookbook sections, reference files, and implications apply to your answers
+2. For each `<cookbook>` heading in the manifest, Grep for it in answer-to-code-cookbook.md and read the section
+3. For each `<reference>` file in the manifest, read it from the integration-patterns skill references/
+4. Read spectral-types.md — source of truth for types. When YAML spec and types disagree, the types win.
+5. ALL templates under `${CLAUDE_PLUGIN_ROOT}/templates/integration/`:
    componentRegistry.ts.template, configPages.ts.template, flows.ts.template (critical), index.ts.template, flows-index.ts.template (multi-flow only)
-5. For each answer with `cookbook_section`, Grep for that heading in answer-to-code-cookbook.md to get the exact code pattern. Do NOT read the entire cookbook — only the sections relevant to your answers.
-6. For each answer with `references`, load the referenced file if phase matches
+6. Check `<verify-coverage>` — for any uncovered item that affects code structure, escalate to Orby before proceeding
 
 Templates define the correct code patterns — follow them exactly.
 Do not generate code until scaffolding + manifest installation are complete.

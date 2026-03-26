@@ -110,14 +110,16 @@ Voice and narration style are defined in the agent instructions. Follow them.
   <step name="generate-code">
     TaskCreate(subject: "Generate integration code") and mark in_progress.
 
-    BEFORE writing ANY code, read these files in this order:
-    1. Cookbook: skill `integration-patterns/references/answer-to-code-cookbook.md`
-    2. Templates (read ALL that apply):
+    BEFORE writing ANY code:
+    1. Run `prismatic-tools code-plan --session <name> --type integration` to get the code-gen manifest
+    2. Read each cookbook section and reference file listed in the manifest
+    3. Templates (read ALL that apply):
        - `${CLAUDE_PLUGIN_ROOT}/templates/integration/componentRegistry.ts.template`
        - `${CLAUDE_PLUGIN_ROOT}/templates/integration/configPages.ts.template`
        - `${CLAUDE_PLUGIN_ROOT}/templates/integration/flows.ts.template`
        - `${CLAUDE_PLUGIN_ROOT}/templates/integration/index.ts.template`
        - Multi-flow only: `${CLAUDE_PLUGIN_ROOT}/templates/integration/flows-index.ts.template`
+    4. Check `<verify-coverage>` — escalate uncovered architectural items to Orby
 
     <rules>
       <always>Use connectionConfigVar() wrapper for connections on config pages — as shown in configPages.ts.template</always>

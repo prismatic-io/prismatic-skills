@@ -51,16 +51,19 @@ const webhook = trigger({
       {{/if}}
     });
 
-    // Store webhook ID for cleanup
-    await context.instanceState.set("webhookId", result.data.id);
+    // Store webhook ID for cleanup — return instanceState, do NOT use .set()
+    return {
+      instanceState: { webhookId: result.data.id },
+    };
   },
 
   // Called when an instance using this trigger is deleted
   onInstanceDelete: async (context, { connection }) => {
     const client = createClient(connection, false);
 
-    // Retrieve stored webhook ID
-    const webhookId = await context.instanceState.get("webhookId");
+    // Read stored state — instanceState is a plain object, NOT .get()
+    const webhookId = (context.instanceState as Record<string, unknown>)
+      ?.webhookId as string | undefined;
 
     // Deregister webhook from external API
     if (webhookId) {

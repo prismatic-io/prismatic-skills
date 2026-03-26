@@ -45,11 +45,9 @@ Session directory: /path/to/components/canny/.prismatic
 
 **Purpose:** Capture user requirements through structured questions.
 
-**Script:** `scripts/gather-requirements.ts references/requirements-questions.json <SESSION_DIR>/requirements.json`
-
-**Key behavior:**
-- Exit code `0` = Proceed (inference allowed or complete)
-- Exit code `42` = **STOP AND WAIT FOR USER**
+**Tools:**
+- `prismatic-tools update-tasks --session <name> --type component --actionable` — discover what needs answering
+- `prismatic-tools record-choices --session <name> --type component key=value` — write answers
 
 **Question flow:**
 

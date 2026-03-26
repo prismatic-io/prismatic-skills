@@ -258,21 +258,30 @@ export const createClient = (connection: Connection, debug = false): HttpClient 
 
 ## Error Hooks
 
-<anti-pattern name="missing-handle-errors-hook">
+<anti-pattern name="missing-error-hook">
 <wrong>
 ```typescript
 export default component({ key, actions, connections })
 ```
 </wrong>
-<why>Without the `handleErrors` hook, HTTP errors from the spectral client are not normalized. Auth failures (401/403) won't surface as connection errors in the Prismatic UI.</why>
+<why>Without an error hook, HTTP errors are not normalized. Auth failures (401/403) won't surface as connection errors in the Prismatic UI.</why>
 <right>
 ```typescript
-import { handleErrors } from "@prismatic-io/spectral/dist/clients/http";
+import { component, ConnectionError } from "@prismatic-io/spectral";
 
-export default component({ key, actions, connections, hooks: { error: handleErrors } })
+export default component({
+  key, actions, connections,
+  hooks: {
+    error: (error) => {
+      if (error instanceof ConnectionError) throw error;
+      throw new Error(`${error.message ?? error}`);
+    },
+  },
+})
 ```
 </right>
 </anti-pattern>
+
 
 ---
 

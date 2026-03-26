@@ -32,10 +32,6 @@ This directory contains reference documentation for building Prismatic component
 
 ## Requirements
 
-| File | Description |
-|------|-------------|
-| [requirements-questions.json](requirements-questions.json) | DAG-based questionnaire for requirements gathering |
-
 ## Example Components
 
 | Directory | Description |

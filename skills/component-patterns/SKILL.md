@@ -106,7 +106,7 @@ Full reference list for manual lookup:
 ## Component Key Patterns
 
 1. **Function-based client**: `createClient(connection, debug)` returning `HttpClient` from spectral — NOT class-based
-2. **handleErrors hook**: Every component MUST include `hooks: { error: handleErrors }` from `@prismatic-io/spectral/dist/clients/http`
+2. **Error hook**: Every component MUST include `hooks: { error: (error) => { ... } }` — re-throw `ConnectionError` as-is, wrap others in `new Error()`
 3. **rawRequest action**: REQUIRED in every component at `actions/misc/rawRequest.ts`
 4. **Folder-based structure**: `actions/<resource>/`, `inputs/`, `examplePayloads/`, `dataSources/`, `triggers/`
 5. **examplePayload**: Every action must have one, imported from `src/examplePayloads/`, verified against API
