@@ -306,9 +306,14 @@ function main(): number {
             process.exit(0);
           }
 
-          if (existingValue === "none" && !value.includes("manifest_based") && value !== "no_connection") {
-            // No connections found — present options, then create via script or fall back
+          // Check if existing value is "none" or "solo_build_only" (only build-only connections found)
+          const existingStr = typeof existingValue === "string" ? existingValue : JSON.stringify(existingValue ?? "");
+          const noneOrBuildOnly = existingStr === "none" || existingStr === "solo_build_only";
+
+          if (noneOrBuildOnly && !value.includes("manifest_based") && value !== "no_connection") {
+            // No usable connections found — present options, then create via script or fall back
             const connType = value === "customer_activated" ? "customer-activated" : value === "org_activated" ? "org-activated" : value;
+            const hasBuildOnly = existingStr === "solo_build_only";
 
             // Try to get the connection key from the stored connection type answer
             const connTypeKey = `${system}_connection_type`;
@@ -330,19 +335,34 @@ function main(): number {
               ? `${componentKey}-${connectionKey}`
               : `${systemName.toLowerCase()}-oauth2`;
 
+            // Determine strategy from the connection answer + org scope follow-up
+            let strategy = "customer-activated";
+            if (value === "org_activated") {
+              const scopeKey = `${system}_org_connection_scope`;
+              const scopeValue = batch[scopeKey] || answers[scopeKey];
+              strategy = scopeValue === "global" ? "org-activated-global" : "org-activated-customer";
+            }
+
             const createCmd = componentKey && connectionKey
               ? `prismatic-tools create-organization-connection ` +
                 `--component-key ${componentKey} --connection-key ${connectionKey} ` +
-                `--name "${systemName} ${connType}" --stable-key ${stableKey} --skip-test-connection`
+                `--name "${systemName} ${connType}" --stable-key ${stableKey} --strategy ${strategy} --skip-test-connection`
               : "";
 
             console.log(
               `0 answers written. ${key} was NOT recorded.\n\n` +
-              `<connection-creation-required blocking="true" system="${systemName}" strategy="${value}">\n` +
+              `<connection-creation-required blocking="true" system="${systemName}" strategy="${value}"` +
+              (hasBuildOnly ? ` build-only-available="true"` : ``) + `>\n` +
               `  No existing reusable ${connType} connections found for ${systemName}.\n` +
-              `  Use AskUserQuestion to present these two options:\n` +
+              (hasBuildOnly
+                ? `  Build-only connections were found — these work for testing but not production.\n`
+                : ``) +
+              `  Present these options:\n` +
               `    Option 1: "Create reusable connection" (Recommended) — creates a ${connType} connection in the org.\n` +
               `    Option 2: "Use integration-specific connection" — credentials configured post-deploy.\n` +
+              (hasBuildOnly
+                ? `    Option 3: "Use build-only for testing" — use the existing build-only connection for the test instance now. You'll still need to create a real connection before deploying to customers.\n`
+                : ``) +
               `  <on-choice value="create">\n` +
               (createCmd
                 ? `    Run this command to create the connection:\n` +
@@ -351,12 +371,20 @@ function main(): number {
                   `    <orby-request>Create a ${connType} connection for ${systemName} using component ${componentKey || systemName.toLowerCase()} connection ${connectionKey || "oauth2"}</orby-request>\n`) +
               `    WAIT for the connection to be created.\n` +
               `    Then record: ${key}=${value}\n` +
-              `    Also record: ${system}_connection_existing with the stableKey "${stableKey}" from the created connection.\n` +
+              `    Also record: ${system}_connection_existing with the stableKey from the created connection.\n` +
               `  </on-choice>\n` +
               `  <on-choice value="integration-specific">\n` +
               `    Record: ${key}=manifest_based\n` +
               `    The user will configure OAuth credentials in Prismatic admin post-deploy.\n` +
               `  </on-choice>\n` +
+              (hasBuildOnly
+                ? `  <on-choice value="build-only-testing">\n` +
+                  `    Record: ${key}=manifest_based\n` +
+                  `    The integration will use a manifest-based connection on the config page.\n` +
+                  `    The build-only connection in the org can be used for the test instance in the designer.\n` +
+                  `    Before deploying to customers, a real ${connType} connection must be created.\n` +
+                  `  </on-choice>\n`
+                : ``) +
               `  Do NOT ask for credentials. Do NOT paste credentials in chat.\n` +
               `  Do NOT fabricate connection_existing objects. They must come from actual creation results.\n` +
               `  Do NOT retry this command until the user has chosen and the action is complete.\n` +

@@ -143,6 +143,28 @@ source_connection_existing:
     "cannot reference build-only connection container". If only build-only connections
     exist, tell the user and switch to "Create new connection in integration" instead.
 
+source_org_connection_scope:
+  question: "Should the org provide unique credentials per customer, or use one shared connection for all customers?"
+  type: choice
+  choices: [per_customer, global]
+  inference: prohibited
+  scope: integration
+  depends_on: [source_connection]
+  condition:
+    source_connection: org_activated
+  agent_context: |
+    <present-as>
+      <option value="per_customer">Per-customer credentials — your team provides separate credentials for each customer. Each customer gets their own connection instance managed by your org.</option>
+      <option value="global">One shared connection — a single set of credentials shared across all customer instances.</option>
+    </present-as>
+  implications:
+    per_customer: >
+      Creates an org-activated customer-scoped connection (SCV). Your team creates credentials
+      for each customer before deploying to them. Customers never see this connection.
+    global: >
+      Creates an org-activated org-scoped connection (SCV) with credentials stored directly
+      on the connection definition. No per-customer credentials needed. All instances share.
+
 source_provide_credentials:
   question: "Provide OAuth/API credentials for the source system now? If yes, they'll be written to .env for immediate use after deploy."
   type: choice

@@ -22,6 +22,7 @@ query availableConnections($managedBy: String) {
             stableKey
             description
             managedBy
+            variableScope
             customer {
                 externalId
                 name
@@ -57,6 +58,7 @@ interface ConnectionNode {
   stableKey: string;
   description: string;
   managedBy: string;
+  variableScope?: string;
   connection?: { component?: { key: string } };
 }
 
@@ -66,6 +68,8 @@ interface EnrichedConnection {
   componentLabel: string;
   component: string;
   managedBy: string;
+  variableScope: string;
+  connectionType: string;
   connectionDescription: string;
   componentDescription: string;
   category: string;
@@ -116,14 +120,26 @@ function enrichConnections(
     const componentKey = conn.connection?.component?.key ?? "";
     const componentInfo = componentLabels[componentKey] ?? {};
     const managedBy = conn.managedBy ?? "UNKNOWN";
+    const variableScope = conn.variableScope ?? "UNKNOWN";
     const connDescription = conn.description ?? "";
     const stableKey = conn.stableKey ?? "";
     const baseLabel = componentInfo.label || componentKey.charAt(0).toUpperCase() + componentKey.slice(1);
-    const managedLabel = managedBy === "CUSTOMER" ? "Customer-Activated" : "Org-Activated";
+
+    let connectionType: string;
+    if (managedBy === "SYSTEM") {
+      connectionType = "Build-Only";
+    } else if (managedBy === "CUSTOMER") {
+      connectionType = "Customer-Activated";
+    } else if (managedBy === "ORG" && variableScope === "ORG") {
+      connectionType = "Org-Activated (global)";
+    } else {
+      connectionType = "Org-Activated (per-customer)";
+    }
+
     const shortKey = stableKey.slice(0, 8) || "unknown";
     const displayLabel = connDescription
-      ? `${baseLabel} - ${connDescription} (${managedLabel}, ${shortKey})`
-      : `${baseLabel} (${managedLabel}, ${shortKey})`;
+      ? `${baseLabel} - ${connDescription} (${connectionType}, ${shortKey})`
+      : `${baseLabel} (${connectionType}, ${shortKey})`;
 
     return {
       stableKey,
@@ -131,6 +147,8 @@ function enrichConnections(
       componentLabel: baseLabel,
       component: componentKey,
       managedBy,
+      variableScope,
+      connectionType,
       connectionDescription: connDescription,
       componentDescription: componentInfo.description ?? "",
       category: componentInfo.category ?? "",

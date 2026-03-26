@@ -191,25 +191,48 @@ function checkExistingScopedConfigVariable(stableKey: string): ScopedConfigVar |
   return null;
 }
 
+// Inputs that the org provides for OAuth connections (not customer-provided)
+const ORG_MANAGED_INPUTS = [
+  "authorizeUrl", "tokenUrl", "clientId", "clientSecret",
+  "scopes", "refreshUrl", "revokeUrl", "audience",
+];
+
 function createScopedConfigVariable(
   connectionDef: ConnectionDef,
   name: string,
   stableKey: string,
+  strategy: ConnectionStrategy,
   description?: string
 ): { result: Record<string, unknown> | null; error: string | null } {
-  const inputs = (connectionDef.inputs?.nodes ?? []).map((inp) => ({
-    name: inp.key,
-    type: "value",
-    value: "",
-    meta: JSON.stringify({ managedBy: "org", inputScope: "customer" }),
-  }));
+  const variableScope = strategy === "org-activated-global" ? "org" : "customer";
+  const managedBy = strategy === "customer-activated" ? "customer" : "org";
+
+  const inputs = (connectionDef.inputs?.nodes ?? []).map((inp) => {
+    let meta: Record<string, string> = {};
+    if (strategy === "customer-activated") {
+      // Org provides OAuth app config, customer provides authorization
+      meta = ORG_MANAGED_INPUTS.includes(inp.key)
+        ? { managedBy: "org", inputScope: "org" }
+        : { managedBy: "customer", inputScope: "customer" };
+    } else if (strategy === "org-activated-customer") {
+      meta = { managedBy: "org", inputScope: "customer" };
+    }
+    // org-activated-global: no special meta needed
+
+    return {
+      name: inp.key,
+      type: "value",
+      value: "",
+      ...(Object.keys(meta).length > 0 ? { meta: JSON.stringify(meta) } : {}),
+    };
+  });
 
   const variables = {
     key: name,
-    description: description || `Organization connection for ${name}`,
+    description: description || `${strategy} connection for ${name}`,
     stableKey,
-    variableScope: "customer",
-    managedBy: "org",
+    variableScope,
+    managedBy,
     connection: connectionDef.id,
     inputs,
   };
@@ -278,12 +301,15 @@ function createCustomerConfigVariable(
   }
 }
 
+type ConnectionStrategy = "customer-activated" | "org-activated-customer" | "org-activated-global";
+
 function parseArgs(args: string[]): {
   componentKey: string;
   connectionKey: string;
   name: string;
   credentials?: Record<string, string>;
   stableKey?: string;
+  strategy: ConnectionStrategy;
   skipTestConnection: boolean;
 } {
   let componentKey = "";
@@ -291,6 +317,7 @@ function parseArgs(args: string[]): {
   let name = "";
   let credentials: Record<string, string> | undefined;
   let stableKey: string | undefined;
+  let strategy: ConnectionStrategy = "customer-activated";
   let skipTestConnection = false;
 
   let i = 0;
@@ -315,6 +342,9 @@ function parseArgs(args: string[]): {
       case "--stable-key":
         stableKey = args[++i];
         break;
+      case "--strategy":
+        strategy = (args[++i] ?? "customer-activated") as ConnectionStrategy;
+        break;
       case "--skip-test-connection":
         skipTestConnection = true;
         break;
@@ -322,7 +352,7 @@ function parseArgs(args: string[]): {
     i++;
   }
 
-  return { componentKey, connectionKey, name, credentials, stableKey, skipTestConnection };
+  return { componentKey, connectionKey, name, credentials, stableKey, strategy, skipTestConnection };
 }
 
 function main(): number {
@@ -330,7 +360,7 @@ function main(): number {
 
   if (!parsed.componentKey || !parsed.connectionKey || !parsed.name) {
     console.error(
-      "Usage: npx tsx create-organization-connection.ts --component-key <key> --connection-key <key> --name <name> [--credentials '<json>']"
+      "Usage: npx tsx create-organization-connection.ts --component-key <key> --connection-key <key> --name <name> [--strategy <customer-activated|org-activated-customer|org-activated-global>] [--credentials '<json>']"
     );
     return 1;
   }
@@ -344,6 +374,7 @@ function main(): number {
   console.log(`Component: ${parsed.componentKey}`);
   console.log(`Connection: ${parsed.connectionKey}`);
   console.log(`Name: ${parsed.name}`);
+  console.log(`Strategy: ${parsed.strategy}`);
   console.log(`Stable Key: ${stableKey}`);
   console.log("");
 
@@ -402,7 +433,8 @@ function main(): number {
     const createResult = createScopedConfigVariable(
       connection,
       parsed.name,
-      stableKey
+      stableKey,
+      parsed.strategy
     );
 
     if (createResult.error || !createResult.result) {
@@ -460,8 +492,11 @@ function main(): number {
   console.log(JSON.stringify(output, null, 2));
   console.log("");
   console.log("Use this stable_key in your CNI integration:");
-  console.log(`  For customer-activated: customerActivatedConnection({ stableKey: "${stableKey}" })`);
-  console.log(`  For org-activated:      organizationActivatedConnection({ stableKey: "${stableKey}" })`);
+  if (parsed.strategy === "customer-activated") {
+    console.log(`  customerActivatedConnection({ stableKey: "${stableKey}" })  // in configPages`);
+  } else {
+    console.log(`  organizationActivatedConnection({ stableKey: "${stableKey}" })  // in scopedConfigVars`);
+  }
 
   if (!customerConfigVar) {
     console.log(

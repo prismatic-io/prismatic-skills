@@ -135,6 +135,7 @@ groups:
       - source_component
       - source_connection_type
       - source_connection
+      - source_org_connection_scope
       - source_connection_existing
       - source_provide_credentials
       - source_api_docs_url
@@ -151,6 +152,7 @@ groups:
       - destination_component
       - destination_connection_type
       - destination_connection
+      - destination_org_connection_scope
       - destination_connection_existing
       - destination_provide_credentials
       - destination_api_docs_url

@@ -296,6 +296,46 @@ Use `customerActivatedConnection` when `managedBy` is `"CUSTOMER"`, or `organiza
 
 ---
 
+## Connection Creation: SCV and CCV Model
+
+Reusable connections are backed by two platform objects:
+
+**SCV (Scoped Config Variable)** — the org-level connection definition. Defines which connector, auth type, and which inputs are org-managed vs customer-managed. Created once, referenced by `stableKey`.
+
+**CCV (Customer Config Variable)** — a child of an SCV. Holds actual credentials for a specific customer or for testing.
+
+| Strategy | SCV `managedBy` | SCV `variableScope` | CCVs needed? |
+|---|---|---|---|
+| `customer-activated` | `customer` | `customer` | Customer creates during config (OAuth flow) |
+| `org-activated-customer` | `org` | `customer` | Org creates per customer before deploying |
+| `org-activated-global` | `org` | `org` | Only test CCV (all customers share SCV credentials) |
+
+**Creating connections:**
+
+```bash
+# Customer-activated (default)
+prismatic-tools create-organization-connection \
+  --component-key salesforce --connection-key oauth2 \
+  --name "Salesforce OAuth" --stable-key salesforce-oauth2 \
+  --strategy customer-activated
+
+# Org-activated per-customer
+prismatic-tools create-organization-connection \
+  --component-key salesforce --connection-key oauth2 \
+  --name "Salesforce OAuth" --stable-key salesforce-oauth2 \
+  --strategy org-activated-customer
+
+# Org-activated global
+prismatic-tools create-organization-connection \
+  --component-key datadog --connection-key apiKey \
+  --name "Datadog API" --stable-key datadog-api \
+  --strategy org-activated-global
+```
+
+**Build-only connections** (`managedBy: "SYSTEM"`) are Prismatic-managed OAuth apps for development. They work for test instances but cannot be used in production deployments. If only build-only connections exist for a system, create a real connection instead.
+
+---
+
 ## Best Practices
 
 ### 1. Choose the Right Type
