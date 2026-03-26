@@ -114,6 +114,29 @@ function main(): number {
     answer = answerRaw;
   }
 
+  // Gate: block direct writes to connection_existing keys (integrations only).
+  // These must come from actual search-connections results, not fabricated objects.
+  // The agent must use the connection workflow in record-choices, not bypass it via write-answer.
+  if (sessionType !== "component") {
+    const connectionExistingKeys = [
+      "source_connection_existing",
+      "destination_connection_existing",
+    ];
+    if (connectionExistingKeys.includes(questionId)) {
+      console.log(
+        `Answer REJECTED: ${questionId} cannot be written via write-answer.\n\n` +
+        `<connection-gate>\n` +
+        `  Connection existing values must come from actual search results, not fabricated objects.\n` +
+        `  Use the connection workflow in record-choices instead:\n` +
+        `  1. Run prismatic-tools search-connections <system>\n` +
+        `  2. Record the search result via record-choices\n` +
+        `  3. The connection gate in record-choices handles the creation workflow\n` +
+        `</connection-gate>`
+      );
+      return 1;
+    }
+  }
+
   // Validate against spec choices (same validation as record-choices)
   if (typeof answer === "string") {
     const specName = sessionType === "component" ? "component.yaml" : "integration.yaml";

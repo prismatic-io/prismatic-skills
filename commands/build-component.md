@@ -1,7 +1,6 @@
 ---
 name: build-component
 description: Build and deploy a Prismatic custom component
-context: fork
 agent: component-builder
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, TaskCreate, TaskUpdate, TaskList, TaskGet, AskUserQuestion
 ---

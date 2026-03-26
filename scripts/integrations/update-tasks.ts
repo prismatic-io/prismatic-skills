@@ -837,14 +837,44 @@ function main(): number {
           });
         }
       }
+      // Also emit text-type prohibited items that don't have choices (numeric inputs, etc.)
+      const askTextItems: Array<{ spec_key: string; subject: string; suggestions: string[] }> = [];
+      for (const task of prohibitedPending) {
+        const specItem = spec.items[task.spec_key];
+        if (!specItem?.choices || !Array.isArray(specItem.choices)) {
+          askTextItems.push({
+            spec_key: task.spec_key,
+            subject: task.subject,
+            suggestions: (specItem?.suggestions as string[]) ?? [],
+          });
+        }
+      }
+      if (askTextItems.length > 0) {
+        console.log(
+          `<ask-user-text-inputs>\n` +
+          `  The following items are inference: prohibited but accept free-text values.\n` +
+          `  You MUST ask the user for EACH ONE individually. Present the question and STOP.\n` +
+          `  Do NOT recommend a value and write it yourself. Wait for the user's answer.\n` +
+          `  Present ONE question per message.\n` +
+          askTextItems.map(item =>
+            `  <ask-text spec_key="${item.spec_key}" subject="${item.subject}"` +
+            (item.suggestions.length > 0 ? ` suggestions="${item.suggestions.join(", ")}"` : "") +
+            ` />`
+          ).join("\n") + `\n` +
+          `</ask-user-text-inputs>`
+        );
+      }
+
       if (askItems.length > 0) {
         console.log(
           `<use-ask-user-question>\n` +
-          `  The following items are inference: prohibited and have ≤4 choices.\n` +
-          `  You MUST use the AskUserQuestion tool to present these — NOT conversational text.\n` +
-          `  AskUserQuestion enforces valid choices and prevents hallucinated options.\n` +
-          `  For each item, use the choices below as AskUserQuestion options.\n` +
-          `  Use the implications as option descriptions.\n` +
+          `  The following ${askItems.length} items are inference: prohibited.\n` +
+          `  You MUST use AskUserQuestion for EACH ONE — not conversational text.\n` +
+          `  Present ONE AskUserQuestion per message. Wait for the user's response.\n` +
+          `  Write that answer. Then present the NEXT AskUserQuestion in the next message.\n` +
+          `  Do NOT bundle multiple prohibited items into one message.\n` +
+          `  Do NOT narrate a "recommended" value and write it without asking.\n` +
+          `  Do NOT batch-write prohibited answers — each must come from a user's AskUserQuestion selection.\n` +
           askItems.map(item =>
             `  <ask spec_key="${item.spec_key}" subject="${item.subject}">\n` +
             item.choices.map(c =>
