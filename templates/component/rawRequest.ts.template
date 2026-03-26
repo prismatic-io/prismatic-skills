@@ -42,4 +42,12 @@ export const rawRequest = action({
     );
     return { data };
   },
+  examplePayload: {
+    data: {
+      statusCode: 200,
+      contentType: "application/json",
+      headers: {},
+      body: {},
+    },
+  },
 });
