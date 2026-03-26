@@ -139,11 +139,19 @@ When the sync script surfaces a `type: lookup` item with `lookup.script`, run th
 
 ## API Research
 
-When `api_docs_url` is answered, spawn the `external-api-researcher` agent with that URL.
-The researcher fetches and analyzes the API docs, producing a structured JSON spec at
-`{session_dir}/api-research.json`. Wait for the researcher to complete before proceeding —
-its findings inform `auth_type`, `confirm_resources`, `webhook_support`, `base_url`, and
-other downstream answers. Do NOT answer those items from training data — use the research.
+When `api_docs_url` is answered, spawn the `external-api-researcher` agent. Include BOTH
+the URL AND the output path in the spawn prompt:
+
+"Research the API at <url>. Save the structured JSON output to <session_dir>/api-research.json.
+The file MUST be named api-research.json and MUST be in the session directory, not the project root."
+
+The session directory path is in the prerequisites output (e.g., `.prismatic/sessions/components/backblaze/`).
+The researcher MUST write to that exact path. If it writes anywhere else (project root, wrong filename),
+the `code-plan` script won't find it during code generation.
+
+Wait for the researcher to complete before proceeding — its findings inform `auth_type`,
+`confirm_resources`, `webhook_support`, `base_url`, and other downstream answers.
+Do NOT answer those items from training data — use the research.
 
 Do not use project-specific MCP tools during requirements — the project does not exist yet.
 
