@@ -5,9 +5,8 @@
  * Helper script for agents to write answers to the requirements file.
  *
  * USAGE:
- *   npx tsx write-answer.ts <answers-file> <question-id> <answer>
- *   npx tsx write-answer.ts <answers-file> --flow <flow-id> <question-id> <answer>
- *   echo '<answer>' | npx tsx write-answer.ts <answers-file> [--flow <flow-id>] <question-id>
+ *   prismatic-tools write-answer --session <name> --type <component|integration> <question-id> <answer>
+ *   prismatic-tools write-answer --session <name> --type <component|integration> --flow <flow-id> <question-id> <answer>
  *
  * When --flow is provided, the answer is written under answers.flows[flowId].
  * When omitted, the answer is written at the root level (backward compatible).

@@ -1,23 +1,21 @@
 #!/usr/bin/env npx tsx
 /**
- * sync-task-list.ts
+ * update-tasks.ts
  *
- * Bridges the integration spec's condition/dependency structure with Claude Code's Task system.
+ * Bridges the spec's condition/dependency structure with Claude Code's Task system.
  * Reads the spec + current answers, evaluates conditions, and outputs a task
  * manifest describing what the task list SHOULD look like.
  *
- * The agent runs this after each answer batch, diffs the manifest against
- * the current TaskList, and applies TaskCreate/TaskUpdate calls.
- *
  * USAGE:
- *   npx tsx sync-task-list.ts <spec.yaml> <answers.json>
- *   npx tsx sync-task-list.ts <spec.yaml> <answers.json> --mode modify --extracted-state <state.json>
+ *   prismatic-tools update-tasks --session <name> --type <component|integration> --actionable
+ *   prismatic-tools update-tasks --session <name> --type <component|integration> --actionable --mode modify --extracted-state <state.json>
  *
  * OPTIONS:
+ *   --session <name>        Session name (required)
+ *   --type component|integration  Spec type (default: integration)
  *   --mode build|modify     Workflow mode (default: build)
  *   --extracted-state <file> Path to extracted state JSON (modify mode only)
  *   --scope <scope-list>     Comma-separated modification scopes to filter items
- *                            (e.g., "error_handling,execution_retry")
  *
  * OUTPUT (JSON):
  *   {

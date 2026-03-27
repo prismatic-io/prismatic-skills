@@ -6,25 +6,13 @@
  * Accepts a JSON object where keys are question IDs and values are answers.
  *
  * USAGE:
- *   npx tsx record-choices.ts <answers-file> key=value [key2=value2 ...] [--flow <flow-id>]
- *   npx tsx record-choices.ts <answers-file> --input-file <json-file> [--flow <flow-id>]
- *   npx tsx record-choices.ts <answers-file> '<json-object>' [--flow <flow-id>]
- *   echo '<json-object>' | npx tsx record-choices.ts <answers-file> [--flow <flow-id>]
+ *   prismatic-tools record-choices --session <name> --type <component|integration> key=value [key2=value2 ...]
+ *   prismatic-tools record-choices --session <name> --type <component|integration> --flow <flow-id> key=value
  *
  * EXAMPLES:
- *   # PREFERRED: key=value pairs (no quoting, no permissions prompts)
- *   npx tsx record-choices.ts reqs.json source_connection_type=oauth2
- *   npx tsx record-choices.ts reqs.json trigger_type=webhook error_handler_type=retry
- *   npx tsx record-choices.ts reqs.json --flow order-sync trigger_type=webhook
- *
- *   # With --sync: write answers AND run sync-task-list in one call
- *   npx tsx record-choices.ts reqs.json --sync spec.yaml source_connection_type=oauth2
- *
- *   # For complex objects (component search results, nested JSON): use --input-file
- *   npx tsx record-choices.ts reqs.json --input-file /tmp/batch-answers.json
- *
- *   # Inline JSON (simple values only — complex JSON triggers shell security warnings)
- *   npx tsx record-choices.ts reqs.json '{"systems":"CRM to Slack"}'
+ *   prismatic-tools record-choices --session my-project --type integration trigger_type=webhook error_handler_type=retry
+ *   prismatic-tools record-choices --session my-project --type integration --flow order-sync trigger_type=webhook
+ *   prismatic-tools record-choices --session my-component --type component component_type=connector
  *
  * key=value pairs are parsed as: key becomes the question ID, value becomes the answer string.
  * If the value looks like JSON (starts with { or [), it's parsed as JSON automatically.

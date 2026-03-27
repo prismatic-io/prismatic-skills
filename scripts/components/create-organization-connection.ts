@@ -2,14 +2,16 @@
 /**
  * create-organization-connection.ts
  *
- * PURPOSE: Create organization-managed connections via Prismatic GraphQL API
+ * PURPOSE: Create reusable connections (SCV) via Prismatic GraphQL API.
+ * Supports customer-activated, org-activated-customer, and org-activated-global strategies.
  *
- * USAGE: npx tsx create-organization-connection.ts \
+ * USAGE: prismatic-tools create-organization-connection \
  *   --component-key <key> \
  *   --connection-key <key> \
  *   --name <name> \
- *   [--credentials '{"host":"...","username":"...","password":"..."}'] \
+ *   [--strategy <customer-activated|org-activated-customer|org-activated-global>] \
  *   [--stable-key <key>] \
+ *   [--credentials '<json>'] \
  *   [--skip-test-connection]
  *
  * EXIT CODES:

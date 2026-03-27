@@ -6,7 +6,7 @@
  * reports what's complete, what's missing, and whether we're ready to proceed.
  *
  * Usage:
- *   npx tsx validate-requirements.ts <spec.yaml> <answers.json> [--session-dir <dir>]
+ *   prismatic-tools validate-requirements --session <name> --type <component|integration>
  *
  * Exit codes:
  *   0 — validation ran successfully (check output for completeness)
