@@ -367,3 +367,24 @@ const listUsers = action({
 ```
 </right>
 </anti-pattern>
+
+<anti-pattern name="modifying-action-for-payload">
+<wrong>
+```typescript
+// Removing generic to avoid type conflict with examplePayload
+const { data } = await client.get("/users"); // was client.get<User>("/users")
+```
+</wrong>
+<why>The action's perform function is the source of truth. The examplePayload must match what the action returns — including nullable fields. Never modify the action to match the payload. If a type has `field: string | null`, the payload must include `null` too.</why>
+<right>
+```typescript
+// Keep the generic — it's the action's type contract
+const { data } = await client.get<User>("/users");
+
+// And make the examplePayload match, including nullable fields
+export const getUserExamplePayload = {
+  data: { id: "usr_123", name: "Jane", deletedAt: null as string | null },
+};
+```
+</right>
+</anti-pattern>

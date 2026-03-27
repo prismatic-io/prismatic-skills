@@ -22,9 +22,10 @@ export default component({
     iconPath: "{{COMPONENT_ICON_PATH:icon.png}}",
   },
   hooks: {
-    error: (error) => {
+    error: (error: unknown) => {
       if (error instanceof ConnectionError) throw error;
-      throw new Error(`${error.message ?? error}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(msg);
     },
   },
   actions,

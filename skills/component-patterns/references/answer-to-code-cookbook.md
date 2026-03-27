@@ -436,6 +436,41 @@ All inputs need a `comments` field.
 
 ---
 
+## Example Payloads
+
+Every action must have an `examplePayload` imported from `src/examplePayloads/`.
+
+Rules from the components repo standardization:
+- The payload MUST match what the action's `perform` actually returns — including nullable fields
+- NEVER modify an action's `perform` function to match a payload
+- NEVER remove generics from HTTP calls to avoid type conflicts with payloads
+- If a type has `field: string | null`, the example payload must also have `null` (not just `string`)
+- Use realistic vendor-specific ID formats (e.g., `usr_`, `org_`, `4a48fe8875c6214145260818`)
+- Import from `src/examplePayloads/`, never define inline
+
+```typescript
+// src/examplePayloads/users.ts
+export const getUserExamplePayload = {
+  data: {
+    id: "usr_abc123",
+    name: "Jane Smith",
+    email: "jane@example.com",
+    status: "active",
+    deletedAt: null, // nullable field — must be null, not omitted
+  },
+};
+
+export const listUsersExamplePayload = {
+  data: [getUserExamplePayload.data], // reuse single-item payload
+};
+
+export const deleteUserExamplePayload = {
+  data: null,
+};
+```
+
+---
+
 ## Error Hooks
 
 Every component definition MUST include a custom error hook:
@@ -446,11 +481,10 @@ import { component, ConnectionError } from "@prismatic-io/spectral";
 export default component({
   // ...
   hooks: {
-    error: (error) => {
-      // Re-throw ConnectionError as-is so the platform marks the connection as failed
+    error: (error: unknown) => {
       if (error instanceof ConnectionError) throw error;
-      // Wrap all other errors
-      throw new Error(`${error.message ?? error}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(msg);
     },
   },
 });
