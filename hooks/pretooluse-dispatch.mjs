@@ -116,7 +116,8 @@ if (command.startsWith(PREFIX)) {
   const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
 
   // Write result to temp file with gradient header, rewrite command to cat it
-  const version = "0.1.0";
+  const pluginManifest = JSON.parse(readFileSync(join(PLUGIN_ROOT, ".claude-plugin", "plugin.json"), "utf8"));
+  const version = pluginManifest.version || "N/A";
   const desc = entry.desc || "";
 
   // Brand gradient: Electric Teal 300 (#65D5DA) → Ocean Blue 500 (#4573AE)
