@@ -63,6 +63,8 @@ endpoint_type:
   maps_to: "integration.endpointType"
   ts_type: 'EndpointType = "flow_specific" | "instance_specific" | "shared_instance"'
   skippable: true
+  condition:
+    flow_count: { not: "1" }
   note: >
     flow_specific = each flow gets its own URL (default, simplest).
     instance_specific = all flows share one URL per instance (requires routing).

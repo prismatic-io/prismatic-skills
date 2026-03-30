@@ -72,9 +72,10 @@ destination_connection_type:
   lookup:
     note: "Extract connection types from the destination_component search results. Present each connection option (e.g., OAuth2, API Key, Basic Auth) to the user."
     source: destination_component.connections
-  depends_on: [destination_component]
+  depends_on: [destination_component, destination_connection_existing]
   condition:
     destination_component: { not_empty: true }
+    destination_connection_existing: { in: ["none", "solo_build_only"] }
   note: >
     Store the FULL connection object from the lookup result (e.g.,
     {"key":"oauth2","label":"Slack OAuth 2.0","auth_type":"OAuth2"}),
@@ -146,21 +147,26 @@ destination_connection:
   cookbook_section: "Connection Strategy Code Paths"
 
 destination_connection_existing:
-  question: "Select an existing connection for the destination system."
+  question: "Search for existing connections for the destination system."
   type: lookup
   inference: prohibited
   scope: integration
   lookup:
     script: scripts/integrations/search-connections.ts
     args: ["${destination_system}"]
-  depends_on: [destination_connection]
+  depends_on: [destination_component]
   condition:
-    destination_connection: { in: ["org_activated", "customer_activated"] }
+    destination_component: { not_empty: true }
+  agent_context: |
+    Search runs automatically after the component is found. Present results to the user:
+    - If usable connections found: "Found an existing [type] connection for [system]. Use it, or create a new one?"
+      If user picks one, infer destination_connection_type from the component's connections array
+      and destination_connection from the connectionType field. Skip type and strategy questions.
+    - If only build-only connections found: record "solo_build_only" and proceed to destination_connection_type.
+    - If no connections found: record "none" and proceed to destination_connection_type.
   note: >
-    WARNING: Build-only or demo connections (description contains "build only" or "demo")
-    CANNOT be used with organizationActivatedConnection(). They will fail at deploy with
-    "cannot reference build-only connection container". If only build-only connections
-    exist, tell the user and switch to "Create new connection in integration" instead.
+    This search fires BEFORE the strategy choice. If the user picks an existing connection,
+    the strategy and type are inferred from the result. Build-only connections cannot be used for production.
 
 destination_org_connection_scope:
   question: "Should the org provide unique credentials per customer, or use one shared connection for all customers?"

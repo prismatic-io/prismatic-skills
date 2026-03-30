@@ -128,7 +128,7 @@ Voice and narration style are defined in the agent instructions. Follow them.
       <never>Use raw connection constructors directly in configPages</never>
     </rules>
 
-    Required files: componentRegistry.ts, configPages.ts, flows (single file or flows/ directory), index.ts, documentation.md, test-data/
+    Required files: componentRegistry.ts, configPages.ts, flows (single file or flows/ directory), index.ts, documentation.md, .spectral/flows/
 
     Validate: `prismatic-tools validate-phase <project-dir> --phase code-gen --type integration`
     Mark completed.

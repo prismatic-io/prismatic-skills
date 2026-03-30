@@ -144,12 +144,14 @@ function scaffoldProject(name: string): string | null {
   });
 }
 
-function installManifest(component: string, projectPath: string): boolean {
+function installManifest(component: string, projectPath: string, isPrivate = false): boolean {
   return timedStep("Install Component Manifest", () => {
-    console.log(`Installing manifest for: ${component}`);
+    console.log(`Installing manifest for: ${component}${isPrivate ? " (private)" : ""}`);
 
     try {
-      const result = spawnSync("npx", ["cni-component-manifest", component], {
+      const args = ["cni-component-manifest", component];
+      if (isPrivate) args.push("--private");
+      const result = spawnSync("npx", args, {
         cwd: projectPath,
         encoding: "utf-8",
         timeout: 120000,
@@ -175,7 +177,7 @@ function installManifest(component: string, projectPath: string): boolean {
   });
 }
 
-function installAllManifests(components: string[], projectPath: string): boolean {
+function installAllManifests(components: string[], projectPath: string, privateComponents: Set<string> = new Set()): boolean {
   if (components.length === 0) return true;
 
   console.log(`Installing ${components.length} component manifest(s)...`);
@@ -183,7 +185,7 @@ function installAllManifests(components: string[], projectPath: string): boolean
 
   let allSuccess = true;
   for (const component of components) {
-    if (!installManifest(component, projectPath)) allSuccess = false;
+    if (!installManifest(component, projectPath, privateComponents.has(component))) allSuccess = false;
   }
   return allSuccess;
 }
@@ -260,16 +262,21 @@ function installNpmDependencies(projectPath: string): boolean {
 function parseArgs(args: string[]): {
   name: string | null;
   components: string[];
+  privateComponents: Set<string>;
   credentials: Record<string, string>;
 } {
   let name: string | null = null;
   let components: string[] = [];
+  let privateComponents: Set<string> = new Set();
   let credentials: Record<string, string> = {};
 
   let i = 0;
   while (i < args.length) {
     if (args[i] === "--components" && i + 1 < args.length) {
       components = args[i + 1].split(",").map((c) => c.trim()).filter(Boolean);
+      i += 2;
+    } else if (args[i] === "--private-components" && i + 1 < args.length) {
+      privateComponents = new Set(args[i + 1].split(",").map((c) => c.trim()).filter(Boolean));
       i += 2;
     } else if (args[i] === "--credentials" && i + 1 < args.length) {
       try {
@@ -291,7 +298,7 @@ function parseArgs(args: string[]): {
     }
   }
 
-  return { name, components, credentials };
+  return { name, components, privateComponents, credentials };
 }
 
 function main(): number {
@@ -307,7 +314,7 @@ function main(): number {
     return 1;
   }
 
-  const { name, components, credentials } = parseArgs(process.argv.slice(2));
+  const { name, components, privateComponents, credentials } = parseArgs(process.argv.slice(2));
 
   if (!name) {
     console.log("Missing integration name");
@@ -332,7 +339,7 @@ function main(): number {
 
   if (components.length > 0) {
     printSection("Installing Component Manifests");
-    if (!installAllManifests(components, projectPath)) {
+    if (!installAllManifests(components, projectPath, privateComponents)) {
       printTimingSummary();
       return 4;
     }

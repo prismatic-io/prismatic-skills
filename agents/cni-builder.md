@@ -637,8 +637,7 @@ prismatic-tools update-tasks --session <name> --actionable \
 | `src/flows.ts` or `src/flows/index.ts` | `onExecution` with config access via `context.configVars`. Multi-flow uses directory with barrel export. |
 | `src/index.ts` | Export `integration()` with display, flows, configPages, componentRegistry |
 | `src/documentation.md` | Document all config variables, connections, flow logic |
-| `test-data/trigger-config.json` | Payload shape matching trigger type |
-| `test-data/sample-payload.json` | Realistic sample data for testing |
+| `.spectral/flows/<flow-key>/payloads/sample-payload.json` | Test payload in VS Code extension format: `{ headers, data, contentType }` |
 
 ### Flow Patterns
 - **Webhook with component trigger:** Check `src/manifests/<component>/triggers/` for a built-in trigger. If one exists, use it as `onTrigger` — it handles HMAC validation and webhook lifecycle automatically. Import: `import { triggerName } from "./manifests/<component>/triggers/<key>"`.

@@ -54,6 +54,7 @@ interface ComponentNode {
   key: string;
   label: string;
   description: string;
+  public: boolean;
   connections: {
     nodes: Array<{
       key: string;
@@ -135,6 +136,7 @@ function formatForRequirements(components: ComponentNode[]): unknown[] {
       key: comp.key,
       label: comp.label,
       description: comp.description ?? "",
+      public: comp.public ?? true,
       connections,
     };
   });

@@ -14,9 +14,10 @@
  *   3 - Error: No flows found or flow listing failed
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { ensureAuthenticated, GraphQLError } from "../shared/graphql.js";
 import { runPrismQuery } from "../shared/prism-retry.js";
 
@@ -80,12 +81,15 @@ function loadTriggerMetadata(
 
     const flowIdentifier = foundKey || flowStableKey;
     if (flowIdentifier) {
-      const payloadPath = findExistingPayloadFile(integrationDir, flowIdentifier);
-      if (payloadPath) {
-        result.sample_payload = payloadPath;
+      const payloadResult = findExistingPayloadFile(integrationDir, flowIdentifier);
+      if (payloadResult) {
+        result.sample_payload = payloadResult.path;
+        if (payloadResult.contentType) {
+          result.content_type = payloadResult.contentType;
+        }
       } else {
         console.log(
-          `Warning: No test payload found at test-data/${flowIdentifier}/sample-payload.*`
+          `Warning: No test payload found in .spectral/flows/${flowIdentifier}/payloads/ or test-data/${flowIdentifier}/`
         );
       }
     }
@@ -96,12 +100,45 @@ function loadTriggerMetadata(
   return result;
 }
 
+/**
+ * Find a payload file for a flow. Checks .spectral/ first (VS Code extension format),
+ * then falls back to test-data/ (legacy format).
+ *
+ * .spectral format: { headers, data, contentType } — we extract .data and .contentType
+ * test-data format: raw payload body
+ */
 function findExistingPayloadFile(
   integrationDir: string,
   flowKey: string
-): string | null {
-  const testDataDir = join(integrationDir, "test-data", flowKey);
+): { path: string; contentType?: string } | null {
+  // Check .spectral/flows/<flowKey>/payloads/ first (VS Code extension location)
+  const spectralDir = join(integrationDir, ".spectral", "flows", flowKey, "payloads");
+  try {
+    if (existsSync(spectralDir)) {
+      const files = readdirSync(spectralDir).filter((f) => f.endsWith(".json"));
+      if (files.length > 0) {
+        const filePath = join(spectralDir, files[0]);
+        // Parse to extract .data and .contentType from extension format
+        try {
+          const raw = JSON.parse(readFileSync(filePath, "utf-8"));
+          if (raw.data !== undefined) {
+            // Write just the .data portion to a temp file for prism CLI
+            const tmpPath = join(tmpdir(), `payload-${process.pid}.json`);
+            writeFileSync(tmpPath, JSON.stringify(raw.data, null, 2));
+            return { path: tmpPath, contentType: raw.contentType };
+          }
+        } catch {
+          // If parse fails, use file as-is
+          return { path: filePath };
+        }
+      }
+    }
+  } catch {
+    // .spectral dir doesn't exist — fall through
+  }
 
+  // Fallback: check test-data/<flowKey>/ (legacy location)
+  const testDataDir = join(integrationDir, "test-data", flowKey);
   try {
     if (!existsSync(testDataDir)) return null;
   } catch {
@@ -110,7 +147,7 @@ function findExistingPayloadFile(
 
   for (const ext of [".json", ".xml", ".txt"]) {
     const payloadFile = join(testDataDir, `sample-payload${ext}`);
-    if (existsSync(payloadFile)) return payloadFile;
+    if (existsSync(payloadFile)) return { path: payloadFile };
   }
 
   return null;

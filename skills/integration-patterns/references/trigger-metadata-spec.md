@@ -179,12 +179,16 @@ When the agent generates integration code, create test artifacts in a single org
 
 1. **Create `test-data/` directory** in integration root
 2. **Generate `test-data/trigger-config.json`** with metadata for each flow
-3. **For each webhook flow, create `test-data/<flow-stable-key>/` subdirectory**
-4. **Generate `test-data/<flow-stable-key>/sample-payload.<ext>`** with actual test data
-   - Use `.json` extension for `application/json`
-   - Use `.xml` extension for `application/xml`
-   - Use `.txt` extension for `text/plain` or other types
-5. **Match sample payload to actual code** - ensure payload structure aligns with what `onTrigger` expects
+3. **For each flow that needs a test payload, create `.spectral/flows/<flow-stable-key>/payloads/` directory**
+4. **Generate `.spectral/flows/<flow-stable-key>/payloads/sample-payload.json`** in VS Code extension format:
+   ```json
+   {
+     "headers": { "content-type": "application/json" },
+     "data": { ... actual payload ... },
+     "contentType": "application/json"
+   }
+   ```
+5. **Match sample payload to actual code** — the `.data` field must match what the flow's trigger receives
 
 ### Sample Payload Guidelines
 

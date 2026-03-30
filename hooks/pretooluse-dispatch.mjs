@@ -115,26 +115,10 @@ if (command.startsWith(PREFIX)) {
   }
   const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
 
-  // Write result to temp file with gradient header, rewrite command to cat it
+  // Write result to temp file with plain header, rewrite command to cat it
   const pluginManifest = JSON.parse(readFileSync(join(PLUGIN_ROOT, ".claude-plugin", "plugin.json"), "utf8"));
   const version = pluginManifest.version || "N/A";
   const desc = entry.desc || "";
-
-  // Brand gradient: Electric Teal 300 (#65D5DA) → Ocean Blue 500 (#4573AE)
-  function gradient(text, r1, g1, b1, r2, g2, b2) {
-    const chars = [...text];
-    const len = chars.filter(c => c !== " ").length;
-    let ci = 0;
-    return chars.map(c => {
-      if (c === " ") return c;
-      const t = len > 1 ? ci / (len - 1) : 0;
-      const r = Math.round(r1 + (r2 - r1) * t);
-      const g = Math.round(g1 + (g2 - g1) * t);
-      const b = Math.round(b1 + (b2 - b1) * t);
-      ci++;
-      return `\x1b[38;2;${r};${g};${b}m${c}`;
-    }).join("") + "\x1b[0m";
-  }
 
   // Title Case the tool name: "update-tasks" → "Update Tasks"
   const titleCase = toolName
@@ -142,10 +126,9 @@ if (command.startsWith(PREFIX)) {
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 
-  const brandName = `\x1b[1m${gradient("Prismatic", 101, 213, 218, 69, 115, 174)}\x1b[0m`;
   const header =
-    `${brandName} \x1b[2mv${version}\x1b[0m · \x1b[1m${titleCase}\x1b[0m · \x1b[2m${elapsed}s\x1b[0m\n` +
-    (desc ? `\x1b[2m${desc}\x1b[0m\n` : "") +
+    `Prismatic Skills v${version} · ${titleCase} · ${elapsed}s\n` +
+    (desc ? `${desc}\n` : "") +
     `${"─".repeat(40)}\n`;
   const tmpFile = join(tmpdir(), `tool-result-${process.pid}.txt`);
   writeFileSync(tmpFile, header + stdout);
