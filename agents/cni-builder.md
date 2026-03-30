@@ -562,11 +562,27 @@ Wait for confirmation.
 </step>
 
 <step name="test">
-Narrate what the test will do before running it. After: report results, what needs real credentials, any errors.
-Use MCP `prism_integrations_flows_test` with integration ID and optional `flowName`, `filepathToTestPayload`, `payloadContentType`.
-After context compaction, use `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts test-integration <integration-id> --integration-dir <project-dir>` instead.
-Do not call `prism integrations:flows:test` via Bash directly.
-Verify: analyze the execution result. Report what succeeded, what failed, and what requires real credentials to test end-to-end.
+After deploy, guide the user through getting to a working test — don't just say "deployed!" and stop.
+
+1. **Check what needs configuring.** Request Orby to check the test instance status:
+   ```
+   I need platform help.
+   <orby-request>Check the test instance for [integration-name]. What connections need configuring? What config variables are missing? Surface the designer URL.</orby-request>
+   ```
+   Wait for Orby's response.
+
+2. **Surface the designer URL.** Tell the user: "Your integration is deployed. Open the test instance in the designer to configure connections: [URL]". If Orby returned the URL, include it.
+
+3. **Walk through unconfigured items.** If connections need OAuth credentials or config variables need values, tell the user exactly what to fill in and where. For customer-activated connections: "Open the test instance, click the Salesforce connection, and complete the OAuth flow." For config variables: list what needs a value.
+
+4. **Confirm readiness.** Ask: "Have you configured the connections and config variables? Ready to run a test?"
+
+5. **Run the test.** Use `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts test-integration <integration-id> --integration-dir <project-dir>`.
+   The test script checks `.spectral/flows/<flow-key>/payloads/` for test payloads.
+
+6. **Report results.** Analyze the execution result. Report what succeeded, what failed, and what requires real credentials. If the test failed with connection errors, explain that the connections need to be configured in the designer first.
+
+Do not call `prism integrations:flows:test` via Bash directly — use the test script or MCP tool.
 </step>
 
 <step name="iterate">
