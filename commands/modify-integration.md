@@ -128,5 +128,5 @@ When `ready_for_next_phase` is true, proceed.
 
 1. **Build:** `npm run build --prefix <project-dir>`
 2. If build fails: `prismatic-tools diagnose-build <project-dir> --type integration`
-3. **Deploy:** `prismatic-tools deploy-integration <project-dir>`
+3. **Deploy:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>`
 4. **Test:** Guide the user through configuring the test instance, then run tests via `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts test-integration <integration-id> --integration-dir <project-dir>`

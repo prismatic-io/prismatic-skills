@@ -155,7 +155,7 @@ Voice and narration style are defined in the agent instructions. Follow them.
   <step name="import">
     TaskCreate(subject: "Import to Prismatic") and mark in_progress.
     Pre-import validation: `prismatic-tools validate-phase <project-dir> --phase deploy --type integration`
-    Import: `prismatic-tools deploy-integration <project-dir>`
+    Import: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>`
     This opens the designer in the browser so the user can configure the test instance.
     Mark completed.
   </step>

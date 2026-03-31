@@ -91,11 +91,6 @@ if (command.startsWith(PREFIX)) {
     );
   }
 
-  // If the tool requires confirmation, ask before executing
-  if (entry.confirm) {
-    ask(entry.confirm);
-  }
-
   const scriptName = entry.script;
   const timeout = (entry.timeout ?? 30) * 1000;
 

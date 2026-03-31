@@ -105,13 +105,6 @@
       "usage": "<component-key> [--project-dir <dir>]",
       "timeout": 120
     },
-    "deploy-integration": {
-      "script": "deploy-integration",
-      "desc": "Deploy integration to the Prismatic platform",
-      "usage": "<project-dir>",
-      "timeout": 120,
-      "confirm": "Deploying pushes code to the Prismatic platform."
-    },
     "test-integration": {
       "script": "test-integration",
       "desc": "Run a test execution of a deployed integration",
@@ -121,6 +114,7 @@
   },
   "explicit": {
     "scaffold-project": "Creates project files (disk writes)",
+    "deploy-integration": "Imports integration to the Prismatic platform (opens designer)",
     "build-integration": "Compiles TypeScript (disk writes)",
     "install-dependencies": "Runs npm install (network + disk)",
     "scaffold-component": "Creates component files (disk writes)",
