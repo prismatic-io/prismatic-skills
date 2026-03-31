@@ -41,7 +41,8 @@
     "diagnose-build": {
       "script": "diagnose-build",
       "desc": "Figure out why the build failed and suggest fixes",
-      "usage": "<project-dir> --type <component|integration>"
+      "usage": "<project-dir> --type <component|integration>",
+      "allowNonZeroExit": true
     },
     "locate-project": {
       "script": "locate-project",
@@ -51,7 +52,8 @@
     "validate-phase": {
       "script": "validate-phase",
       "desc": "Verify the project is ready for the next step",
-      "usage": "<project-dir> --phase <scaffold|code-gen|build|deploy> --type <component|integration>"
+      "usage": "<project-dir> --phase <scaffold|code-gen|build|deploy> --type <component|integration>",
+      "allowNonZeroExit": true
     },
     "extract-state": {
       "script": "extract-state",
@@ -67,12 +69,14 @@
     "verify-code": {
       "script": "verify-code",
       "desc": "Check that the code matches what was decided during requirements",
-      "usage": "<project-dir> --session <name>"
+      "usage": "<project-dir> --session <name>",
+      "allowNonZeroExit": true
     },
     "validate-requirements": {
       "script": "validate-requirements",
       "desc": "Make sure all required questions have been answered",
-      "usage": "--session <name> [--type component|integration]"
+      "usage": "--session <name> [--type component|integration]",
+      "allowNonZeroExit": true
     },
     "record-choices": {
       "script": "record-choices",

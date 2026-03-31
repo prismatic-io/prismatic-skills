@@ -127,7 +127,9 @@ Read the spec item before presenting any choice — the `choices` array is the o
 
 For items marked `inference: allowed`, you may infer from the user's description — but present all inferences to the user for confirmation before writing them. Show what you inferred, why (quote the user's words), and the architectural impact. Wait for the user to confirm before persisting. Do not silently batch-write inferences.
 
-For items marked `inference: prohibited` with 4 or fewer choices, use AskUserQuestion to present the options. This hard-enforces the valid choices — the user can only pick from what the spec defines, preventing hallucinated options. The only prohibited item that exceeds 4 choices is `auth_type` (5 choices) — present that one conversationally using the spec's `<present-as>` block. Do not infer, guess, or skip prohibited items.
+When presenting ANY choice question to the user — whether prohibited or allowed — prefer AskUserQuestion over conversational text. AskUserQuestion renders as a clear UI element that signals you're waiting for input. Use it for any spec item with a `choices` array that has 4 or fewer options. For items with 5+ choices (e.g., `auth_type`), present conversationally using the spec's `<present-as>` block. For text inputs, present conversationally and wait. Do not infer, guess, or skip prohibited items.
+
+Never chain multiple prismatic-tools calls with `&&` or `;` in a single Bash command. Each prismatic-tools call must be a separate Bash command.
 
 Optional items are the user's decision. Present them with your recommendation. Do not silently fill them in — these are real architectural choices that affect the component's behavior.
 
@@ -543,6 +545,17 @@ prismatic-tools validate-phase <dir> --phase build --type component
 ```
 
 If validation reports missing files, fix them before proceeding to the next phase.
+
+<credential-safety critical="true">
+  <forbidden>Asking the user to paste API tokens, secrets, passwords, or webhook URLs into the conversation</forbidden>
+  <forbidden>Displaying or echoing credential values in tool output or narration</forbidden>
+  <forbidden>Storing credentials in generated source code</forbidden>
+  <required>Credentials go into .env files or are configured in the Prismatic admin UI</required>
+  <required>Connection definitions in components define the input FIELDS — not the values</required>
+  <why>Credentials in conversation history persist in logs, memory, and context. A leaked API token
+  in a conversation transcript is a security incident. The Prismatic admin UI is the secure path
+  for credential entry — it encrypts at rest and never surfaces values after initial entry.</why>
+</credential-safety>
 
 <error-recovery>
 

@@ -54,11 +54,12 @@ destination_component:
   condition:
     same_system_check: { not: "reuse" }
   agent_context: >
-    ALWAYS search for a destination component — the destination is where data is sent, so
-    you almost always need typed actions for creating/updating records. Components provide
-    typed actions (e.g., slackActions.postMessage, netsuiteActions.createRecord), connection
-    helpers, and data sources for config page dropdowns. If no component exists, you'll need
-    the API docs URL to generate direct HTTP calls.
+    Run the lookup script to search for components. If a component is found, record the
+    full component object. If NO component is found, record the value "none".
+    "none" tells downstream items that no component exists and triggers the API docs URL question.
+    Do NOT record an empty string — it will not be recognized as answered.
+    ALWAYS search for a destination component — the destination is where data is sent.
+    If no component exists, the flow will use direct HTTP calls (axios from Spectral SDK).
   docs:
     - https://prismatic.io/docs/integrations/code-native/existing-components.md
 

@@ -129,6 +129,13 @@ function isEmpty(value: unknown): boolean {
   );
 }
 
+/** Check if a value is "semantically empty" — used for condition evaluation.
+ * "none" is treated as empty for conditions (so downstream items like api_docs_url activate)
+ * but NOT for isEmpty (so the item is still marked as "answered" by update-tasks). */
+function isSemanticEmpty(value: unknown): boolean {
+  return isEmpty(value) || value === "none";
+}
+
 /** Normalize common truthy/falsy representations to match spec string values */
 function normalizeForComparison(value: unknown): unknown {
   if (value === true || value === "true") return "Yes";
@@ -167,10 +174,10 @@ function evaluateCondition(
         }
       }
       if ("empty" in cond && cond.empty === true) {
-        if (!isEmpty(actual)) return false;
+        if (!isSemanticEmpty(actual)) return false;
       }
       if ("not_empty" in cond && cond.not_empty === true) {
-        if (isEmpty(actual)) return false;
+        if (isSemanticEmpty(actual)) return false;
       }
       if ("equals_answer" in cond) {
         const otherKey = cond.equals_answer as string;
@@ -816,73 +823,64 @@ function main(): number {
       }
     }
 
-    // Emit AskUserQuestion directive for prohibited items with ≤4 choices.
-    // The agent MUST use AskUserQuestion (not conversational presentation) for these
-    // to prevent hallucinated options that don't exist in the spec.
-    const prohibitedPending = [...toCreate, ...toCreateOptional].filter(
-      t => t.inference === "prohibited"
-    );
-    if (prohibitedPending.length > 0) {
-      const askItems: Array<{ spec_key: string; subject: string; choices: string[]; implications: Record<string, string> }> = [];
-      for (const task of prohibitedPending) {
-        const specItem = spec.items[task.spec_key];
-        if (specItem?.choices && Array.isArray(specItem.choices) && specItem.choices.length <= 4) {
-          askItems.push({
-            spec_key: task.spec_key,
-            subject: task.subject,
-            choices: specItem.choices as string[],
-            implications: (specItem.implications as Record<string, string>) ?? {},
-          });
-        }
-      }
-      // Also emit text-type prohibited items that don't have choices (numeric inputs, etc.)
-      const askTextItems: Array<{ spec_key: string; subject: string; suggestions: string[] }> = [];
-      for (const task of prohibitedPending) {
-        const specItem = spec.items[task.spec_key];
-        if (!specItem?.choices || !Array.isArray(specItem.choices)) {
-          askTextItems.push({
-            spec_key: task.spec_key,
-            subject: task.subject,
-            suggestions: (specItem?.suggestions as string[]) ?? [],
-          });
-        }
-      }
-      if (askTextItems.length > 0) {
-        console.log(
-          `<ask-user-text-inputs>\n` +
-          `  The following items are inference: prohibited but accept free-text values.\n` +
-          `  You MUST ask the user for EACH ONE individually. Present the question and STOP.\n` +
-          `  Do NOT recommend a value and write it yourself. Wait for the user's answer.\n` +
-          `  Present ONE question per message.\n` +
-          askTextItems.map(item =>
-            `  <ask-text spec_key="${item.spec_key}" subject="${item.subject}"` +
-            (item.suggestions.length > 0 ? ` suggestions="${item.suggestions.join(", ")}"` : "") +
-            ` />`
-          ).join("\n") + `\n` +
-          `</ask-user-text-inputs>`
-        );
-      }
+    // Emit AskUserQuestion directive for ALL pending choice items with ≤4 choices.
+    // This gives the agent the exact valid choices for every question, preventing hallucinated options.
+    const allPendingItems = [...toCreate, ...toCreateOptional];
+    const askItems: Array<{ spec_key: string; subject: string; choices: string[]; implications: Record<string, string>; inference: string }> = [];
+    const askTextItems: Array<{ spec_key: string; subject: string; suggestions: string[]; inference: string }> = [];
 
-      if (askItems.length > 0) {
-        console.log(
-          `<use-ask-user-question>\n` +
-          `  The following ${askItems.length} items are inference: prohibited.\n` +
-          `  You MUST use AskUserQuestion for EACH ONE — not conversational text.\n` +
-          `  Present ONE AskUserQuestion per message. Wait for the user's response.\n` +
-          `  Write that answer. Then present the NEXT AskUserQuestion in the next message.\n` +
-          `  Do NOT bundle multiple prohibited items into one message.\n` +
-          `  Do NOT narrate a "recommended" value and write it without asking.\n` +
-          `  Do NOT batch-write prohibited answers — each must come from a user's AskUserQuestion selection.\n` +
-          askItems.map(item =>
-            `  <ask spec_key="${item.spec_key}" subject="${item.subject}">\n` +
-            item.choices.map(c =>
-              `    <option value="${c}">${item.implications[c]?.split("\n")[0]?.trim() || c}</option>`
-            ).join("\n") + `\n` +
-            `  </ask>`
-          ).join("\n") + `\n` +
-          `</use-ask-user-question>`
-        );
+    for (const task of allPendingItems) {
+      const specItem = spec.items[task.spec_key];
+      if (specItem?.choices && Array.isArray(specItem.choices) && specItem.choices.length <= 4) {
+        askItems.push({
+          spec_key: task.spec_key,
+          subject: task.subject,
+          choices: specItem.choices as string[],
+          implications: (specItem.implications as Record<string, string>) ?? {},
+          inference: task.inference,
+        });
+      } else if (task.inference === "prohibited" && (!specItem?.choices || !Array.isArray(specItem.choices))) {
+        askTextItems.push({
+          spec_key: task.spec_key,
+          subject: task.subject,
+          suggestions: (specItem?.suggestions as string[]) ?? [],
+          inference: task.inference,
+        });
       }
+    }
+
+    if (askTextItems.length > 0) {
+      console.log(
+        `<ask-user-text-inputs>\n` +
+        `  The following items accept free-text values.\n` +
+        `  Ask the user for EACH ONE individually. Present the question and STOP.\n` +
+        `  Present ONE question per message.\n` +
+        askTextItems.map(item =>
+          `  <ask-text spec_key="${item.spec_key}" subject="${item.subject}"` +
+          (item.suggestions.length > 0 ? ` suggestions="${item.suggestions.join(", ")}"` : "") +
+          ` />`
+        ).join("\n") + `\n` +
+        `</ask-user-text-inputs>`
+      );
+    }
+
+    if (askItems.length > 0) {
+      console.log(
+        `<use-ask-user-question>\n` +
+        `  The following ${askItems.length} items have ≤4 choices.\n` +
+        `  Use AskUserQuestion for EACH ONE — not conversational text.\n` +
+        `  AskUserQuestion prevents hallucinated options and makes it clear you're waiting for input.\n` +
+        `  Present ONE AskUserQuestion per message. Wait for the user's response.\n` +
+        `  For inference:allowed items, you may infer if confident — but if you need to ask, use AskUserQuestion.\n` +
+        askItems.map(item =>
+          `  <ask spec_key="${item.spec_key}" subject="${item.subject}" inference="${item.inference}">\n` +
+          item.choices.map(c =>
+            `    <option value="${c}">${item.implications[c]?.split("\n")[0]?.trim() || c}</option>`
+          ).join("\n") + `\n` +
+          `  </ask>`
+        ).join("\n") + `\n` +
+        `</use-ask-user-question>`
+      );
     }
 
     // Emit task creation instruction

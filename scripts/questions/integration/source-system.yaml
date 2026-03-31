@@ -28,12 +28,13 @@ source_component:
     (auto-register/deregister webhooks on deploy/delete) or specialized trigger
     functions (e.g., hashHmacWebhookTrigger for signature verification).
   agent_context: >
+    Run the lookup script to search for components. If a component is found, record the
+    full component object. If NO component is found, record the value "none" (not empty string).
+    "none" tells downstream items that no component exists and triggers the API docs URL question.
+    Do NOT record an empty string — it will not be recognized as answered.
     For webhook triggers: SKIP this if the integration only receives webhooks from the
     source (no API callbacks needed). SEARCH if the integration needs to make API calls
-    TO the source system (e.g., auto-registering webhooks on deploy, fetching supplementary
-    data, managed webhook lifecycle). If unsure, ask the user: "Do you need to make API
-    calls back to [source system], or will it just send webhooks?" Components provide typed
-    actions, connection helpers (OAuth, API key), data sources, and webhook lifecycle handlers.
+    TO the source system. If no component exists, the flow will use direct HTTP calls.
   docs:
     - https://prismatic.io/docs/integrations/code-native/existing-components.md
 

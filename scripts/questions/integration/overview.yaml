@@ -88,7 +88,7 @@ schedule_timezone:
   type: text
   inference: allowed
   scope: flow
-  default: "America/Chicago"
+  default: "UTC"
   skippable: true
   condition:
     trigger_type: { in: [scheduled, polling] }

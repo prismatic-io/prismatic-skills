@@ -98,6 +98,10 @@ function isEmpty(value: unknown): boolean {
   );
 }
 
+function isSemanticEmpty(value: unknown): boolean {
+  return isEmpty(value) || value === "none";
+}
+
 function resolveVariable(answers: Answers, varPath: string): unknown {
   const parts = varPath.split(".");
   let current: unknown = answers;
@@ -143,11 +147,11 @@ function evaluateCondition(condition: Record<string, unknown>, answers: Answers)
       }
 
       if ("empty" in cond && cond.empty === true) {
-        if (!isEmpty(actual)) return false;
+        if (!isSemanticEmpty(actual)) return false;
       }
 
       if ("not_empty" in cond && cond.not_empty === true) {
-        if (isEmpty(actual)) return false;
+        if (isSemanticEmpty(actual)) return false;
       }
 
       if ("equals_answer" in cond) {

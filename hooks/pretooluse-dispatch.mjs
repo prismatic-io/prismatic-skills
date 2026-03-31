@@ -63,6 +63,11 @@ if (command.startsWith(PREFIX)) {
   const toolName = spaceIdx === -1 ? remainder : remainder.slice(0, spaceIdx);
   const toolArgs = spaceIdx === -1 ? "" : remainder.slice(spaceIdx + 1);
 
+  // Reject chained commands — each prismatic-tools call must be a separate Bash command
+  if (toolArgs.includes("&&") || toolArgs.includes("; prismatic")) {
+    deny("Cannot chain multiple prismatic-tools calls in one command. Run each as a separate Bash command.");
+  }
+
   // Load manifest
   let manifest;
   try {
@@ -109,9 +114,15 @@ if (command.startsWith(PREFIX)) {
     if (err.killed) {
       deny(`Tool '${toolName}' timed out after ${entry.timeout ?? 30}s`);
     }
-    const output = (err.stdout || "") + (err.stderr || "");
-    const preview = output.split("\n").slice(0, 5).join(" ").slice(0, 500);
-    deny(`Tool '${toolName}' failed (exit ${err.status ?? 1}) after ${elapsed}s: ${preview}`);
+    // Tools with allowNonZeroExit return their output even on non-zero exit
+    // (e.g., validate-phase exits 1 with structured JSON about gaps — that's informational)
+    if (entry.allowNonZeroExit && !err.killed) {
+      stdout = (err.stdout || "") + (err.stderr || "");
+    } else {
+      const output = (err.stdout || "") + (err.stderr || "");
+      const preview = output.split("\n").slice(0, 5).join(" ").slice(0, 500);
+      deny(`Tool '${toolName}' failed (exit ${err.status ?? 1}) after ${elapsed}s: ${preview}`);
+    }
   }
   const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
 

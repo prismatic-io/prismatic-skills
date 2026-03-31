@@ -319,9 +319,10 @@ function main(): number {
               }
             }
 
+            const sessionPrefix = sessionName ? `${sessionName}-` : "";
             const stableKey = componentKey && connectionKey
-              ? `${componentKey}-${connectionKey}`
-              : `${systemName.toLowerCase()}-oauth2`;
+              ? `${sessionPrefix}${componentKey}-${connectionKey}`
+              : `${sessionPrefix}${systemName.toLowerCase()}-oauth2`;
 
             // Determine strategy from the connection answer + org scope follow-up
             let strategy = "customer-activated";

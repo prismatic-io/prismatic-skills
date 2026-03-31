@@ -334,6 +334,22 @@ function main(): number {
     return 3;
   }
 
+  // Create .gitignore if missing
+  const gitignorePath = join(projectPath, ".gitignore");
+  if (!existsSync(gitignorePath)) {
+    writeFileSync(gitignorePath, [
+      "node_modules/",
+      "dist/",
+      ".env",
+      ".env.*",
+      "!.env.testing",
+      ".DS_Store",
+      ".spectral/prism.json",
+      "",
+    ].join("\n"));
+    console.log("Created .gitignore");
+  }
+
   printSection("Installing Dependencies");
   installNpmDependencies(projectPath);
 

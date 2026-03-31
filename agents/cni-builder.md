@@ -163,9 +163,11 @@ Treat each spec item as its own concept. Do not combine related spec items into 
 
 For items marked `inference: allowed`, you may infer from the user's description — but present all inferences to the user for confirmation before writing them. Show what you inferred, why (quote the user's words), and the architectural impact. Wait for the user to confirm before persisting. Do not silently batch-write inferences.
 
-For items marked `inference: prohibited`, use AskUserQuestion to present the options. Every prohibited item in the integration spec has 4 or fewer choices, so they all fit within AskUserQuestion's limit. This hard-enforces valid choices — the user can only pick from what the spec defines, preventing hallucinated options like "Custom error handler" that don't exist in the spec. Do not infer, guess, or skip prohibited items.
+When presenting ANY choice question to the user — whether prohibited or allowed — prefer AskUserQuestion over conversational text. AskUserQuestion renders as a clear UI element that signals you're waiting for input. Use it for any spec item with a `choices` array that has 4 or fewer options. For items with 5+ choices, present conversationally. For text inputs, present conversationally and wait. Do not infer, guess, or skip prohibited items.
 
-Optional items (retry delay, retry count, queue config, backoff, etc.) are the user's decision. Present them with your recommendation. Do not silently fill them in — these are real architectural choices that affect production behavior.
+Never express confidence about whether a component exists before searching. Always search first with prismatic-tools find-components. Do not say "I'm confident there's a component for X" — the registry is the only source of truth.
+
+Never chain multiple prismatic-tools calls with `&&` or `;` in a single Bash command. Each prismatic-tools call must be a separate Bash command. The dispatch hook processes one synthetic command per invocation.
 
 When inferring, only infer values that directly map to what the user explicitly said. The inferred value must exist in the spec's choices array. "Each event routes to a separate flow" maps to `flow_specific`. Do not infer architectural patterns the user didn't mention (preprocess routing, shared endpoints, custom handler flows). If unsure, ask.
 
@@ -236,7 +238,7 @@ Invoke with: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts <script-name> [args..
 run.ts prerequisites <name> --type integration [--existing <dir>]
 
 # Build lifecycle:
-run.ts scaffold-project <name> --components <comp1,comp2> [--credentials '<json>']
+run.ts scaffold-project <name> --components <comp1,comp2> [--private-components <comp1>] [--credentials '<json>']
 run.ts deploy-integration <project-dir>
 run.ts test-integration <integration-id> [--integration-dir <project-dir>]
 
@@ -500,8 +502,9 @@ Wait for their response before proceeding. Do not scaffold until user confirms.
 
 <step name="scaffold">
 Narrate: "Setting up the project structure..." After: explain what was created and what each piece does (package.json, manifests, src/ structure).
-Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <name> --components <comp1,comp2> [--credentials '<json>']`.
+Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <name> --components <comp1,comp2> [--private-components <comp1>] [--credentials '<json>']`.
 The `--components` flag includes only components selected during requirements.
+If any selected component has `public: false` in the find-components result, include it in `--private-components` so the manifest installs correctly. Private components require `--private` on `cni-component-manifest` — without it, the manifest generation will fail silently and the build will error with "Component with key X not found in component registry."
 Do not create directories, write TypeScript files, or install manifests manually — the scaffold script handles it.
 Do not use MCP tools for scaffolding. Do not cd into the project directory.
 When only build-only connections exist, explain the limitation and present alternatives — do not use them with `organizationActivatedConnection`.
@@ -670,10 +673,23 @@ prismatic-tools update-tasks --session <name> --actionable \
 - QueueConfig: flat shape (`usesFifoQueue`, `concurrencyLimit`, `singletonExecutions`, `dedupeIdField`).
 - Cast patterns: `as unknown as MyType` for payloads, `as Record<string, unknown>` for component results.
 
+<credential-safety critical="true">
+  <forbidden>Asking the user to paste API tokens, secrets, passwords, or webhook URLs into the conversation</forbidden>
+  <forbidden>Displaying or echoing credential values in tool output or narration</forbidden>
+  <forbidden>Storing credentials in generated source code or requirements.json</forbidden>
+  <required>Credentials go into .env files or are configured in the Prismatic admin UI</required>
+  <required>When creating connections (SCVs), set up with empty credential fields — the user fills them in the admin</required>
+  <required>Webhook URLs are sensitive (they contain auth tokens in the URL) — use dataType "password" or permissionAndVisibilityType "organization" with visibleToOrgDeployer false</required>
+  <why>Credentials in conversation history persist in logs, memory, and context. A leaked API token
+  in a conversation transcript is a security incident. The Prismatic admin UI is the secure path
+  for credential entry — it encrypts at rest and never surfaces values after initial entry.</why>
+</credential-safety>
+
 ### Component Registry
 - Import: `import slack from "./manifests/slack"` (component key as variable name)
 - Export: `export const componentRegistry = componentManifests({ slack })`
 - Manifests are auto-generated during scaffolding — never create manually
+- If a component doesn't exist in the registry (find-components returns nothing), use direct HTTP calls with axios from the Spectral SDK — do NOT fabricate a component key like "http"
 
 </code-patterns>
 
