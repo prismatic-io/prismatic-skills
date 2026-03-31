@@ -98,13 +98,30 @@
       "desc": "Create a reusable connection in the Prismatic org",
       "usage": "--component-key <key> --connection-key <key> --name <name> [--stable-key <key>] [--skip-test-connection]",
       "timeout": 60
+    },
+    "install-manifest": {
+      "script": "install-manifest",
+      "desc": "Install a component manifest into a CNI project (auto-detects public/private)",
+      "usage": "<component-key> [--project-dir <dir>]",
+      "timeout": 120
+    },
+    "deploy-integration": {
+      "script": "deploy-integration",
+      "desc": "Deploy integration to the Prismatic platform",
+      "usage": "<project-dir>",
+      "timeout": 120,
+      "confirm": "Deploying pushes code to the Prismatic platform."
+    },
+    "test-integration": {
+      "script": "test-integration",
+      "desc": "Run a test execution of a deployed integration",
+      "usage": "<integration-id> [--integration-dir <dir>] [--flow <flow-name>]",
+      "timeout": 120
     }
   },
   "explicit": {
     "scaffold-project": "Creates project files (disk writes)",
-    "deploy-integration": "Pushes to Prismatic platform (destructive)",
     "build-integration": "Compiles TypeScript (disk writes)",
-    "test-integration": "Triggers real side effects",
     "install-dependencies": "Runs npm install (network + disk)",
     "scaffold-component": "Creates component files (disk writes)",
     "build-component": "Compiles component TypeScript (disk writes)",

@@ -137,22 +137,69 @@ Voice and narration style are defined in the agent instructions. Follow them.
     Mark completed.
   </step>
 
-  <step name="build-deploy">
+  <step name="build">
     TaskCreate(subject: "Build integration") and mark in_progress.
     Build: `npm run build --prefix <project-dir>`
     Validate: `prismatic-tools validate-phase <project-dir> --phase build --type integration`
     If build fails: run `prismatic-tools diagnose-build <project-dir> --type integration` before attempting manual fixes.
     Mark completed.
+  </step>
 
-    TaskCreate(subject: "Deploy to Prismatic") and mark in_progress.
-    Pre-deploy validation: `prismatic-tools validate-phase <project-dir> --phase deploy --type integration`
-    Deploy: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>`
+  <step name="confirm-import">
+    Present a summary: integration name, components, flows, connections.
+    Use AskUserQuestion: "Build succeeded. I'll import this to your Prismatic environment so we can test it — this creates a test instance you can configure. Ready?"
+    Options: "Yes, import and test" / "No, I want to make changes first"
+    WAIT for the user's response. Do NOT import without explicit confirmation.
+  </step>
+
+  <step name="import">
+    TaskCreate(subject: "Import to Prismatic") and mark in_progress.
+    Pre-import validation: `prismatic-tools validate-phase <project-dir> --phase deploy --type integration`
+    Import: `prismatic-tools deploy-integration <project-dir>`
+    This opens the designer in the browser so the user can configure the test instance.
     Mark completed.
   </step>
 
   <step name="test">
     TaskCreate(subject: "Test integration") and mark in_progress.
-    Test: MCP `prism_integrations_flows_test` with integration ID and test payload.
+
+    <test-workflow>
+      After deploy, do NOT stop. Guide the user through configuring and testing:
+
+      <substep name="check-instance">
+        Request Orby to check the test instance and surface the config wizard URL:
+        <orby-request>
+          For integration [name] (ID: [integration-id]):
+          1. Find the test/system instance
+          2. List unconfigured connections and config variables
+          3. Provide the direct URL to the config wizard for the test instance
+        </orby-request>
+        Wait for Orby's response.
+      </substep>
+
+      <substep name="present-url">
+        Present the config wizard URL to the user:
+        "Your integration is deployed. Configure the test instance here: [URL]"
+        List what needs configuring — connections (with OAuth flows to complete) and config variables.
+      </substep>
+
+      <substep name="confirm-ready">
+        Use AskUserQuestion:
+        "Have you configured the connections and config variables in the test instance?"
+        Options: "Yes, run the test" / "Not yet, I need help"
+        If "not yet": walk through each unconfigured item.
+      </substep>
+
+      <substep name="run-test">
+        Run: `prismatic-tools test-integration <integration-id> --integration-dir <project-dir>`
+      </substep>
+
+      <substep name="report">
+        Report results — what succeeded, what failed, what requires real credentials.
+        If test failed with connection errors, remind the user to configure connections in the admin.
+      </substep>
+    </test-workflow>
+
     Mark completed.
   </step>
 

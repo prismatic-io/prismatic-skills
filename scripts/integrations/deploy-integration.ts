@@ -52,7 +52,7 @@ function deployIntegration(projectDir: string): number {
     throw e;
   }
 
-  const cmd = ["prism", "integrations:import"];
+  const cmd = ["prism", "integrations:import", "--open"];
   console.log(`Running: ${cmd.join(" ")}`);
   console.log("");
 

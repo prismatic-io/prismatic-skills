@@ -227,6 +227,9 @@ prismatic-tools validate-requirements --session <name>
 prismatic-tools record-choices --session <name> key=value [key2=value2] [--flow <flow-id>]
 prismatic-tools write-answer --session <name> <question_id> <value>
 prismatic-tools code-plan --session <name> --type <component|integration>
+prismatic-tools install-manifest <component-key> [--project-dir <dir>]
+prismatic-tools deploy-integration <project-dir>
+prismatic-tools test-integration <integration-id> [--integration-dir <dir>] [--flow <flow-name>]
 ```
 
 ### Explicit scripts (require confirmation or visibility)
@@ -239,7 +242,7 @@ run.ts prerequisites <name> --type integration [--existing <dir>]
 
 # Build lifecycle:
 run.ts scaffold-project <name> --components <comp1,comp2> [--private-components <comp1>] [--credentials '<json>']
-run.ts deploy-integration <project-dir>
+prismatic-tools deploy-integration <project-dir>
 run.ts test-integration <integration-id> [--integration-dir <project-dir>]
 
 # Component development:
@@ -551,7 +554,7 @@ Pre-deploy validate: `prismatic-tools validate-phase <dir> --phase deploy --type
 
 <step name="deploy">
 Narrate: "Deploying to your Prismatic environment..." On success: report integration name, ID, flow count.
-Deploy: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>`
+Deploy: `prismatic-tools deploy-integration <project-dir>`
 Verify: run `prism_integrations_flows_list` to confirm the integration appears in the platform. Report the integration ID back to the user.
 If deployment fails with unexpected errors, spawn Orby to investigate: check the platform state,
 verify connections are configured, and inspect any deployment error details via GraphQL.
