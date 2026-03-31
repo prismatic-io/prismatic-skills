@@ -69,7 +69,7 @@
     "verify-code": {
       "script": "verify-code",
       "desc": "Check that the code matches what was decided during requirements",
-      "usage": "<project-dir> --session <name>",
+      "usage": "<project-dir> --session <name> [--type component|integration]",
       "allowNonZeroExit": true
     },
     "validate-requirements": {

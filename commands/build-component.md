@@ -118,7 +118,9 @@ Voice and narration style are defined in the agent instructions. Follow them.
     </rules>
 
     Required files depend on component type (see agent code-patterns section).
-    Validate: `prismatic-tools validate-phase <project-dir> --phase code-gen --type component`
+    Validate structure: `prismatic-tools validate-phase <project-dir> --phase code-gen --type component`
+    Verify semantics: `prismatic-tools verify-code <project-dir> --session <name>`
+    If verify-code reports gaps (spec answers not reflected in code), fix the generated code BEFORE building.
     Mark completed.
   </step>
 

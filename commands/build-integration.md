@@ -131,7 +131,9 @@ Voice and narration style are defined in the agent instructions. Follow them.
 
     Required files: componentRegistry.ts, configPages.ts, flows (single file or flows/ directory), index.ts, documentation.md, .spectral/flows/
 
-    Validate: `prismatic-tools validate-phase <project-dir> --phase code-gen --type integration`
+    Validate structure: `prismatic-tools validate-phase <project-dir> --phase code-gen --type integration`
+    Verify semantics: `prismatic-tools verify-code <project-dir> --session <name>`
+    If verify-code reports gaps (spec answers not reflected in code), fix the generated code BEFORE building.
     Mark completed.
   </step>
 

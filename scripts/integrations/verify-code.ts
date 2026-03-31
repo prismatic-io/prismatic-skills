@@ -1,13 +1,13 @@
 #!/usr/bin/env npx tsx
 /**
- * verify-codegen.ts
+ * verify-code.ts
  *
  * PURPOSE: Read requirements.json, map each answered spec item to an expected
  * code pattern, grep generated source files, and report gaps as XML that the
  * agent can act on directly.
  *
  * USAGE:
- *   npx tsx verify-codegen.ts <project-dir> <requirements.json>
+ *   prismatic-tools verify-code <project-dir> --session <name> [--type component|integration]
  *
  * EXIT CODES:
  *   0 - All verified (or pass with notes)
@@ -463,10 +463,14 @@ function main(): number {
 
   // Parse flags
   let sessionName: string | null = null;
+  let sessionType: "integration" | "component" = "integration";
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--session" && i + 1 < args.length) {
       sessionName = args[i + 1];
+      i++;
+    } else if (args[i] === "--type" && i + 1 < args.length) {
+      sessionType = args[i + 1] as "integration" | "component";
       i++;
     } else if (!args[i].startsWith("-")) {
       positional.push(args[i]);
@@ -475,15 +479,14 @@ function main(): number {
 
   if (positional.length < 1 || (!sessionName && positional.length < 2)) {
     console.error(
-      "Usage: npx tsx verify-codegen.ts <project-dir> <requirements.json>\n" +
-      "       npx tsx verify-codegen.ts <project-dir> --session <name>"
+      "Usage: prismatic-tools verify-code <project-dir> --session <name> [--type component|integration]"
     );
     return 2;
   }
 
   const projectDir = resolve(positional[0]);
   const requirementsPath = sessionName
-    ? resolve(join(getSessionDirectory(sessionName, "integrations"), "requirements.json"))
+    ? resolve(join(getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"), "requirements.json"))
     : resolve(positional[1]);
 
   try {
