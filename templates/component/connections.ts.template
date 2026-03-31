@@ -1,18 +1,20 @@
 // Template: Component Connections
-// Source: spectral types — DefaultConnectionDefinition requires { key, display: { label, description }, inputs }
+// Source: spectral public API — use oauth2Connection() for OAuth2, connection() for others
 //
 // Usage: Choose one connection type. Fill in the fields for your API.
+// OAuth2 connections MUST use oauth2Connection() (not connection()) for type safety.
+// Non-OAuth connections use connection() with { key, display: { label, description }, inputs }.
 
-import { connection, input } from "@prismatic-io/spectral";
+import { connection, oauth2Connection as defineOAuth2Connection, OAuth2Type, input } from "@prismatic-io/spectral";
 
 {{#if CONNECTION_TYPE_OAUTH2}}
-export const oauth2Connection = connection({
+export const oauth2Connection = defineOAuth2Connection({
   key: "oauth2",
   display: {
     label: "OAuth 2.0",
     description: "Authenticate using OAuth 2.0 authorization code flow.",
   },
-  oauth2Type: "authorization_code",
+  oauth2Type: OAuth2Type.AuthorizationCode,
   inputs: {
     authorizeUrl: input({
       label: "Authorize URL",

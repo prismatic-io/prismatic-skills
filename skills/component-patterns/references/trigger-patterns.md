@@ -149,3 +149,54 @@ export default { orderWebhook, customerWebhook };
 - `onInstanceDelete` reads `context.instanceState` to retrieve stored values
 - `perform` reads `context.instanceState` for verification secrets or metadata
 - Always cast: `context.instanceState?.webhookId as string`
+
+---
+
+## Polling Triggers
+
+Polling triggers use a SEPARATE function from `trigger()`. Import `pollingTrigger` from `@prismatic-io/spectral`.
+
+```typescript
+import { pollingTrigger, input, util } from "@prismatic-io/spectral";
+import { createClient } from "./client";
+
+const pollNewRecords = pollingTrigger({
+  display: {
+    label: "New Records",
+    description: "Poll for new records created since the last check.",
+  },
+  inputs: {
+    connection: input({ label: "Connection", type: "connection", required: true }),
+  },
+  perform: async (context, payload, { connection }) => {
+    const client = createClient(connection, context.debug.enabled);
+
+    // Get cursor from last poll (or default)
+    const state = context.polling.getState();
+    const since = (state.lastChecked as string) || new Date(0).toISOString();
+
+    // Fetch new records
+    const { data } = await client.get("/records", { params: { since } });
+
+    // Update cursor for next poll
+    context.polling.setState({ lastChecked: new Date().toISOString() });
+
+    // Return results — polledNoChanges: true skips execution
+    const hasNew = Array.isArray(data) && data.length > 0;
+    return {
+      payload: { ...payload, body: { data } },
+      polledNoChanges: !hasNew,
+    };
+  },
+});
+
+export default { pollNewRecords };
+```
+
+Key differences from webhook `trigger()`:
+- Import `pollingTrigger` (separate function, NOT `trigger()`)
+- `context.polling.getState()` / `setState()` for cursor management
+- Return `polledNoChanges: true` when no new data (skips onExecution)
+- `scheduleSupport` is implicit (polling triggers always run on a schedule)
+- No `onInstanceDeploy`/`onInstanceDelete` needed (no webhook registration)
+- Optional `pollAction` property to reference an existing component action for the polling logic

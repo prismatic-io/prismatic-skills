@@ -500,13 +500,16 @@ prismatic-tools update-tasks --session <name> --type component --actionable
 - `src/dataSources/` — folder with data source definitions
 - `src/triggers/` — folder with trigger definitions
 - `src/types.ts` — API resource type definitions
-- `src/index.ts` — component definition with `hooks: { error: (error) => { ... } }`
+- `src/index.ts` — component definition with error hook, `category: "Application Connectors"`, dataSources import
 - Barrel exports (`index.ts`) at every folder level using spread pattern
 
 ### Connector Components — Required Patterns
 - `createClient(connection, context.debug.enabled)` in every action perform — function-based, returns HttpClient
 - `ConnectionError` thrown in client.ts for connection type mismatches (NOT in actions)
-- Custom error hook on component: `hooks: { error: (error) => { ... } }` — re-throw ConnectionError as-is, wrap others
+- Error hook: re-throw ConnectionError, extract Axios response data (status, body), wrap others
+- `display.category: "Application Connectors"` on all connector components
+- OAuth2 connections: use `oauth2Connection()` from spectral (NOT `connection()`), use `OAuth2Type.AuthorizationCode` enum, include `scopes` input
+- Connection keys: reference via imported constant (`apiKeyConnection.key`), NOT hardcoded strings (`"apiKey"`)
 - `examplePayload` on every action — imported from `src/examplePayloads/`, verified against API
 - `clean` function on every non-connection input: `util.types.toString`, `util.types.toBool`, `util.types.toNumber`
 - `placeholder` and `example` on every string/text input

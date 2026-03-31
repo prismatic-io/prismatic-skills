@@ -473,16 +473,32 @@ export const deleteUserExamplePayload = {
 
 ## Error Hooks
 
-Every component definition MUST include a custom error hook:
+Every component definition MUST include an error hook that:
+1. Re-throws `ConnectionError` as-is (preserves connection error semantics in the UI)
+2. Extracts Axios response data (status, body) for API errors
+3. Wraps everything else in a plain Error
 
 ```typescript
 import { component, ConnectionError } from "@prismatic-io/spectral";
 
 export default component({
   // ...
+  display: {
+    // ...
+    category: "Application Connectors", // Required for connectors
+  },
   hooks: {
     error: (error: unknown) => {
       if (error instanceof ConnectionError) throw error;
+      // Preserve Axios response data for better error messages
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosErr = error as { message?: string; response?: { data?: unknown; status?: number } };
+        return {
+          message: axiosErr.message ?? "API request failed",
+          data: axiosErr.response?.data,
+          status: axiosErr.response?.status,
+        };
+      }
       const msg = error instanceof Error ? error.message : String(error);
       throw new Error(msg);
     },

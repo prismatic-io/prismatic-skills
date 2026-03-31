@@ -79,12 +79,13 @@ polling_support:
   inference: allowed
   scope: component
   condition:
-    webhook_support: { not: yes }
+    component_type: connector
   agent_context: >
-    If the API does not support webhooks, a polling trigger lets integrations detect changes
-    on a schedule. The trigger uses persistent state (getState/setState) to track a cursor
-    or timestamp between runs, fetching only new/changed records each execution. This is
-    only asked when webhooks are not available.
+    A polling trigger lets integrations detect changes on a schedule. It uses persistent
+    state (getState/setState) to track a cursor or timestamp between runs, fetching only
+    new/changed records each execution. Components can have BOTH webhook and polling triggers —
+    webhooks for real-time events, polling for APIs that don't support webhooks or as a
+    fallback. Uses pollingTrigger() from spectral (separate from trigger()).
   implications:
     yes: >
       The scaffold generates a polling trigger with getState/setState for cursor management.

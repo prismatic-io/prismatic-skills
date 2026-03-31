@@ -8,10 +8,7 @@
         ".",
         "integration",
         "component"
-      ],
-      "env": {
-        "PRISMATIC_URL": "${PRISMATIC_URL}"
-      }
+      ]
     }
   }
 }

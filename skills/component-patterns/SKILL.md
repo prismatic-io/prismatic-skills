@@ -73,7 +73,8 @@ The references below are the full set available — load per the agent's guidanc
 
 **Conditional references for Phase 4 (load based on requirements):**
 - If webhook triggers: `references/trigger-patterns.md` - Webhook trigger lifecycle and implementation
-- If OAuth2 auth: `references/oauth2-connection-guide.md` - Deep dive on OAuth2 connections
+- If polling triggers: `references/trigger-patterns.md` - Polling trigger with `pollingTrigger()`, `context.polling` state management
+- If OAuth2 auth: `references/oauth2-connection-guide.md` - Deep dive on OAuth2 connections (use `oauth2Connection()` from spectral, NOT `connection()`)
 - If data sources: `references/data-source-patterns.md` - Data source implementation patterns
 - Always for connectors: `references/client-patterns.md` - HTTP client helper patterns
 
