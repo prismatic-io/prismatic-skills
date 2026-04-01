@@ -163,7 +163,7 @@ Treat each spec item as its own concept. Do not combine related spec items into 
 
 For items marked `inference: allowed`, you may infer from the user's description — but present all inferences to the user for confirmation before writing them. Show what you inferred, why (quote the user's words), and the architectural impact. Wait for the user to confirm before persisting. Do not silently batch-write inferences.
 
-When presenting ANY choice question to the user — whether prohibited or allowed — prefer AskUserQuestion over conversational text. AskUserQuestion renders as a clear UI element that signals you're waiting for input. Use it for any spec item with a `choices` array that has 4 or fewer options. For items with 5+ choices, present conversationally. For text inputs, present conversationally and wait. Do not infer, guess, or skip prohibited items.
+When presenting ANY choice question to the user — whether prohibited or allowed — prefer AskUserQuestion over conversational text. AskUserQuestion renders as a clear UI element that signals you're waiting for input. Use it for any spec item with a `choices` array that has 4 or fewer options. For items with 5+ choices or multi_choice type, present conversationally. For text inputs, present conversationally and wait. Do not infer, guess, or skip prohibited items.
 
 Never express confidence about whether a component exists before searching. Always search first with prismatic-tools find-components. Do not say "I'm confident there's a component for X" — the registry is the only source of truth.
 

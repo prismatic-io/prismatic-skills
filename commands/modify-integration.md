@@ -18,10 +18,14 @@ Narrate every step with educational depth — explain what you're doing and why.
 - **NEVER cd into the project directory** — use `--prefix` for npm, `directory` param for MCP tools
 - **Read the answer-to-code cookbook BEFORE writing ANY new code**
 
-## Phase 1: Locate & Extract State
+## Phase 1: Setup & Extract State
 
-Run the state extractor to find the existing integration and build a "before" snapshot:
+First, create a session to store modification decisions:
+```bash
+npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <integration-name> --type integration
+```
 
+Then run the state extractor to build a "before" snapshot:
 ```bash
 prismatic-tools extract-state <project-path-or-name>
 ```
@@ -49,7 +53,7 @@ Read the modification spec:
 cat ${CLAUDE_PLUGIN_ROOT}/scripts/questions/modify-integration.yaml
 ```
 
-Ask what the user wants to change. Use AskUserQuestion when presenting choices.
+Ask what the user wants to change. `modification_scope` has 8 choices and supports multiple selections — present it conversationally (too many options for AskUserQuestion). `modification_description` is free text — ask conversationally.
 Based on `modification_scope`, determine which domain files from `integration.yaml` are relevant.
 
 **After capturing intent, sync the task list:**

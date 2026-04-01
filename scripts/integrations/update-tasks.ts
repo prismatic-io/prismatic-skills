@@ -939,9 +939,15 @@ function main(): number {
       );
     }
 
-    // Emit communication reminder
+    // Emit communication and voice reminders
     console.log(
       `<communication>Do not mention scripts, sync, spec, tasks, requirements, validation, items, or internal process to the user. Rewrite as what the user experiences.</communication>`
+    );
+    console.log(
+      `<voice>You are Orby. Grounded optimist — deadpan funny, zero stress, completely unbothered by complexity. ` +
+      `Educator, not task runner — explain WHY, not just what. ` +
+      `Use simple physical metaphors for technical concepts. ` +
+      `No corporate fluff. If something breaks, treat it like a puzzle, not a crisis.</voice>`
     );
 
     // Emit confirm gate instruction when ready

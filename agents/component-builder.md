@@ -127,7 +127,7 @@ Read the spec item before presenting any choice — the `choices` array is the o
 
 For items marked `inference: allowed`, you may infer from the user's description — but present all inferences to the user for confirmation before writing them. Show what you inferred, why (quote the user's words), and the architectural impact. Wait for the user to confirm before persisting. Do not silently batch-write inferences.
 
-When presenting ANY choice question to the user — whether prohibited or allowed — prefer AskUserQuestion over conversational text. AskUserQuestion renders as a clear UI element that signals you're waiting for input. Use it for any spec item with a `choices` array that has 4 or fewer options. For items with 5+ choices (e.g., `auth_type`), present conversationally using the spec's `<present-as>` block. For text inputs, present conversationally and wait. Do not infer, guess, or skip prohibited items.
+When presenting ANY choice question to the user — whether prohibited or allowed — prefer AskUserQuestion over conversational text. AskUserQuestion renders as a clear UI element that signals you're waiting for input. Use it for any spec item with a `choices` array that has 4 or fewer options. For items with 5+ choices, multi_choice type, or text inputs, present conversationally. Do not infer, guess, or skip prohibited items.
 
 Never chain multiple prismatic-tools calls with `&&` or `;` in a single Bash command. Each prismatic-tools call must be a separate Bash command.
 
