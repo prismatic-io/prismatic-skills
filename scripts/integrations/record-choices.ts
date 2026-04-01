@@ -477,6 +477,60 @@ function main(): number {
     target[questionId] = answer;
     written.push(questionId);
 
+    // Auto-inference: when *_connection_existing is written with a rich connection object,
+    // infer *_connection (strategy) and *_connection_type from the search result data.
+    // This eliminates 2-3 follow-up questions the agent would otherwise ask.
+    const existingMatch = questionId.match(/^(source|destination|connector_\d+)_connection_existing$/);
+    if (existingMatch && sessionType !== "component" && answer && typeof answer === "object") {
+      const prefix = existingMatch[1];
+      const conn = answer as Record<string, unknown>;
+      const managedBy = conn.managedBy as string | undefined;
+      const variableScope = conn.variableScope as string | undefined;
+      const connectionType = conn.connectionType as string | undefined;
+
+      // Infer connection strategy from managedBy / connectionType
+      let inferredStrategy: string | null = null;
+      if (connectionType === "CUSTOMER" || managedBy === "CUSTOMER") {
+        inferredStrategy = "customer_activated";
+      } else if (connectionType === "ORG" || managedBy === "ORGANIZATION") {
+        inferredStrategy = "org_activated";
+      }
+
+      if (inferredStrategy && !target[`${prefix}_connection`]) {
+        target[`${prefix}_connection`] = inferredStrategy;
+        written.push(`${prefix}_connection`);
+        console.log(`   Auto-inferred: ${prefix}_connection = ${inferredStrategy} (from existing connection data)`);
+
+        // Infer org_connection_scope if org_activated
+        if (inferredStrategy === "org_activated" && variableScope && !target[`${prefix}_org_connection_scope`]) {
+          const scope = variableScope === "ORG" ? "global" : "per_customer";
+          target[`${prefix}_org_connection_scope`] = scope;
+          written.push(`${prefix}_org_connection_scope`);
+          console.log(`   Auto-inferred: ${prefix}_org_connection_scope = ${scope} (from variableScope: ${variableScope})`);
+        }
+      }
+
+      // Infer connection_type from the existing connection's component data
+      // The connection object from search-connections may have a connectionKey that
+      // matches one of the component's connections array entries
+      const connectionKey = conn.connectionKey as string | undefined;
+      if (connectionKey && !target[`${prefix}_connection_type`]) {
+        const compAnswer = target[`${prefix}_component`] || answers[`${prefix}_component`];
+        if (compAnswer && typeof compAnswer === "object") {
+          const comp = compAnswer as Record<string, unknown>;
+          const connections = comp.connections as Array<Record<string, unknown>> | undefined;
+          if (connections) {
+            const match = connections.find(c => c.key === connectionKey);
+            if (match) {
+              target[`${prefix}_connection_type`] = match;
+              written.push(`${prefix}_connection_type`);
+              console.log(`   Auto-inferred: ${prefix}_connection_type from existing connection (key: ${connectionKey})`);
+            }
+          }
+        }
+      }
+    }
+
     if (connectionTypeQuestions.includes(questionId)) {
       if (typeof answer === "object" && answer !== null) {
         const obj = answer as Record<string, unknown>;

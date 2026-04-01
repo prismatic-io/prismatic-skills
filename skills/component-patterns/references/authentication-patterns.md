@@ -284,6 +284,86 @@ Common input field configurations:
 | `example` | string | Example value |
 | `placeholder` | string | Placeholder text |
 
+## Templated Connection Inputs (Multi-Tenant OAuth)
+
+When OAuth authorize/token URLs vary per customer (e.g., `{subdomain}.acme.com`), use `templateConnectionInputs` to let users provide a value that gets substituted into the URLs.
+
+`templateConnectionInputs` takes **3 parameters**:
+
+```typescript
+import {
+  OAuth2Type,
+  oauth2Connection,
+  templateConnectionInputs,
+} from "@prismatic-io/spectral";
+
+export const acmeOAuth = oauth2Connection({
+  key: "acmeOauth",
+  display: {
+    label: "Acme OAuth 2.0",
+    description: "Connect to Acme with OAuth 2.0 auth code flow",
+  },
+  oauth2Type: OAuth2Type.AuthorizationCode,
+  inputs: templateConnectionInputs(
+    // Parameter 1: User-defined inputs (shown in the config wizard)
+    {
+      domain: {
+        label: "Acme Subdomain",
+        example: "pied-piper",
+        type: "string",
+        required: true,
+        shown: true,
+        comments: "Your subdomain: the **pied-piper** portion of **pied-piper**.acme.com.",
+      },
+      clientId: {
+        label: "Client ID",
+        type: "string",
+        required: true,
+        shown: true,
+        comments: "Obtain by creating an OAuth app at https://partners.acme.com/",
+      },
+      clientSecret: {
+        label: "Client Secret",
+        type: "password",
+        required: true,
+        shown: true,
+        comments: "Obtain by creating an OAuth app at https://partners.acme.com/",
+      },
+      scopes: {
+        label: "Scopes",
+        example: "widgets.read widgets.write offline_access",
+        default: "widgets.read widgets.write offline_access",
+        type: "string",
+        required: false,
+        shown: true,
+        comments: "Space-delimited scopes to request",
+      },
+    },
+    // Parameter 2: Templated inputs (URLs with {{#fieldName}} substitution)
+    {
+      authorizeUrl: {
+        label: "Authorize URL",
+        placeholder: "Authorize URL",
+        type: "template",
+        comments: "The OAuth 2.0 Authorization URL",
+        templateValue: "https://{{#domain}}.acme.com/oauth/authorize/",
+      },
+      tokenUrl: {
+        label: "Token URL",
+        placeholder: "Token URL",
+        type: "template",
+        comments: "The OAuth 2.0 Token URL",
+        templateValue: "https://{{#domain}}.acme.com/oauth/token/",
+      },
+    },
+    // Parameter 3: OAuth2 flow type
+    OAuth2Type.AuthorizationCode,
+  ),
+});
+```
+
+Template syntax uses **`{{#fieldName}}`** (Handlebars-style with `#`) — NOT ES6 template literals.
+
 ## Token Refresh
 
 OAuth2 connections handle token refresh automatically through Prismatic. The `connection.token.access_token` will always be a valid token when accessed in your component code.

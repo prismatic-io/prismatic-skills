@@ -625,7 +625,7 @@ export { componentRegistry };
 export default integration({
   name: "My Integration",
   description: "What it does",
-  iconPath: "icon.png",
+  iconPath: "assets/icon.png",
   documentation,
   flows,
   configPages,
