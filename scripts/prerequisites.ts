@@ -196,16 +196,6 @@ function main(): number {
   let allPassed = true;
   let userInfo: Record<string, string> | null = null;
 
-  // Check PRISMATIC_URL environment variable
-  if (!process.env.PRISMATIC_URL) {
-    console.log("");
-    console.log("WARNING: PRISMATIC_URL environment variable is not set.");
-    console.log("   MCP tools and some scripts require this to connect to your Prismatic environment.");
-    console.log("   Set it in your shell profile: export PRISMATIC_URL=https://app.prismatic.io");
-    console.log("   Or for custom deployments: export PRISMATIC_URL=https://app.your-org.prismatic-dev.io");
-    console.log("");
-  }
-
   // Check Prism CLI
   printSection("Checking Prism CLI");
   const version = checkPrismInstalled();
