@@ -1,0 +1,87 @@
+// Template: HTTP Client
+// Source: components repo standardization (client.ts.md)
+//
+// Pattern: Function-based createClient returning HttpClient from spectral.
+// MUST validate connection type with ConnectionError.
+// MUST accept debug parameter and pass to createHttpClient.
+// MUST use util.types.toString() for field access.
+//
+// Usage: Fill in the BASE_URL and auth header patterns for your API.
+
+import { type Connection, ConnectionError, util } from "@prismatic-io/spectral";
+import {
+  createClient as createHttpClient,
+  type HttpClient,
+} from "@prismatic-io/spectral/dist/clients/http";
+{{#each CONNECTIONS}}
+import { {{importName}} } from "./connections";
+{{/each}}
+
+const getAuthHeaders = (connection: Connection): Record<string, string> => {
+  {{#if CONNECTION_TYPE_OAUTH2}}
+  if (connection.key === "oauth2") {
+    return {
+      Authorization: `Bearer ${util.types.toString(connection.token?.access_token)}`,
+    };
+  }
+  {{/if}}
+
+  {{#if CONNECTION_TYPE_APIKEY}}
+  if (connection.key === "apiKey") {
+    return {
+      "{{AUTH_HEADER:Authorization}}": `{{AUTH_SCHEME:Bearer}} ${util.types.toString(connection.fields.apiKey)}`,
+    };
+  }
+  {{/if}}
+
+  {{#if CONNECTION_TYPE_BEARER}}
+  if (connection.key === "bearer") {
+    return {
+      Authorization: `Bearer ${util.types.toString(connection.fields.token)}`,
+    };
+  }
+  {{/if}}
+
+  {{#if CONNECTION_TYPE_BASIC}}
+  if (connection.key === "basic") {
+    const username = util.types.toString(connection.fields.username);
+    const password = util.types.toString(connection.fields.password);
+    return {
+      Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
+    };
+  }
+  {{/if}}
+
+  throw new ConnectionError(
+    connection,
+    `Unexpected connection type: ${connection.key}`,
+  );
+};
+
+export const createClient = (
+  connection: Connection,
+  debug = false,
+): HttpClient =>
+  createHttpClient({
+    baseUrl: "{{BASE_URL}}",
+    headers: getAuthHeaders(connection),
+    debug,
+  });
+
+{{#if HAS_BINARY_DOWNLOADS}}
+/**
+ * Download client — returns binary data as Buffer instead of parsed JSON.
+ * Use for file download actions where the response is a file, not a JSON object.
+ * If the API uses a separate download URL, replace the baseUrl below.
+ */
+export const createDownloadClient = (
+  connection: Connection,
+  debug = false,
+): HttpClient =>
+  createHttpClient({
+    baseUrl: "{{DOWNLOAD_URL:{{BASE_URL}}}}",
+    headers: getAuthHeaders(connection),
+    debug,
+    responseType: "arraybuffer",
+  });
+{{/if}}

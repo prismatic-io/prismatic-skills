@@ -231,7 +231,7 @@ Use Prismatic component manifests to access pre-built actions:
 
 ```typescript
 // 1. Install manifest during scaffolding or manually
-// Run: python scripts/integrations/scaffold_project.py <name> --components slack
+// Run: npx tsx scripts/integrations/scaffold-project.ts <name> --components slack
 // Or: npx cni-component-manifest slack
 
 // 2. Register manifest in src/componentRegistry.ts:
@@ -249,12 +249,14 @@ import { slackOauth2 } from "./manifests/slack/connections/oauth2";
   scopes: { value: "chat:write channels:read" },
 })
 
-// 4. Access component in flow via context.components:
+// 4. Import manifest actions and call .perform() in flow:
+import slackActions from "../manifests/slack/actions";
+
 onExecution: async (context) => {
   const { configVars, logger } = context;
 
-  // Call component action - returns unknown, cast to expected type
-  const result = await context.components.slack.postMessage({
+  // Call component action via manifest import + .perform() - returns unknown, cast to expected type
+  const result = await slackActions.postMessage.perform({
     connection: configVars["Slack Connection"],
     channelName: configVars["Slack Channel"],
     message: "Hello from CNI!",
@@ -281,10 +283,11 @@ import {
   configVar,
   connectionConfigVar,
   dataSourceConfigVar,
-  FlowContext,
   Connection,
   Element,
 } from "@prismatic-io/spectral";
+// Note: Do NOT import FlowContext — it is not a public export.
+// The flow() function infers context types automatically.
 ```
 
 For the full TypeScript API reference, see the official documentation.

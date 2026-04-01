@@ -1,0 +1,86 @@
+# Lifecycle hooks — deploy/delete handlers and webhook lifecycle
+# These are properties on FlowBase (available on all flow types)
+# Docs: mentioned as flow properties, full code examples on component triggers
+
+needs_deploy_hooks:
+  question: "Does this flow need to run setup logic when an instance is deployed? (e.g., register webhooks, create resources)"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: allowed
+  scope: flow
+  default: "No"
+  skippable: true
+  note: >
+    Maps to flow.onInstanceDeploy / flow.onInstanceDelete.
+    onInstanceDeploy runs every deploy and redeploy (30s limit).
+    onInstanceDelete runs on deletion (30s limit).
+    IMPORTANT: instanceState is NOT available in deploy/delete handlers — use crossFlowState.
+  agent_context: |
+    <present-as>
+      <option value="Yes">Yes — run setup logic on deploy and cleanup on delete. Common uses: registering webhooks, creating resources, initializing state. 30-second time limit.</option>
+      <option value="No">No — no setup or teardown. Flow just starts receiving triggers after deployment.</option>
+    </present-as>
+    Key gotcha: instanceState is NOT available in deploy/delete handlers — use crossFlowState.
+  implications:
+    "Yes": >
+      You'll define onInstanceDeploy and optionally onInstanceDelete handlers. These run
+      with crossFlowState access (NOT instanceState). 30-second execution limit.
+    "No": >
+      No setup logic on deploy. Flow just starts receiving triggers after deployment.
+      Most simple integrations don't need deploy hooks.
+  docs:
+    - https://prismatic.io/docs/integrations/lifecycle.md
+  cookbook_section: "answer: needs_deploy_hooks → lifecycle hooks"
+  references:
+    - path: "references/cni-examples/lifecycle-events.md"
+      phase: "5"
+      condition: "needs_deploy_hooks == Yes"
+
+needs_webhook_lifecycle:
+  question: "Should webhooks be automatically registered/deregistered when instances are deployed/deleted?"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: allowed
+  scope: flow
+  default: "No"
+  condition:
+    trigger_type: webhook
+  skippable: true
+  note: >
+    Maps to flow.webhookLifecycleHandlers.create / .delete.
+    create runs after onInstanceDeploy; delete runs on deletion and when exiting listening mode.
+    The create handler receives context.webhookUrls[context.flow.name] for the flow's endpoint URL.
+    Use crossFlowState to store webhook IDs (instanceState is not available in lifecycle handlers).
+    Example: Register webhook URL with external API, store webhook ID in crossFlowState.
+  agent_context: >
+    Webhook lifecycle handlers automate the registration and deregistration of webhook URLs
+    with the source system's API. The "create" handler runs after deploy — it calls the
+    external API to register the Prismatic-generated webhook URL and stores the registration
+    ID in crossFlowState. The "delete" handler runs on instance deletion — it calls the
+    external API to deregister the webhook. Without this, customers would need to manually
+    copy/paste webhook URLs into the source system.
+  implications:
+    "Yes": >
+      Webhook URLs are automatically registered with the source API on deploy and cleaned
+      up on delete. Requires the source system's API to support programmatic webhook
+      management. The flow's endpoint URL is available via context.webhookUrls[context.flow.name].
+    "No": >
+      Customers manually configure the webhook URL in the source system. Simpler but
+      requires a manual step during instance setup.
+  docs:
+    - https://prismatic.io/docs/integrations/lifecycle.md
+  cookbook_section: "answer: needs_deploy_hooks → lifecycle hooks"
+  references:
+    - path: "references/cni-examples/lifecycle-events.md"
+      phase: "5"
+      condition: "needs_webhook_lifecycle == Yes"
+
+deploy_hook_description:
+  question: "What should the deploy hook do? (e.g., create folders, initialize state, register webhooks)"
+  type: text
+  inference: allowed
+  scope: flow
+  skippable: true
+  depends_on: [needs_deploy_hooks]
+  condition:
+    needs_deploy_hooks: "Yes"

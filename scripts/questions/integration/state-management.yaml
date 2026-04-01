@@ -1,0 +1,118 @@
+# State management — persistent state across executions
+# Available via context in onExecution
+
+needs_state_management:
+  question: "Does this integration need to persist state between executions? (e.g., last sync timestamp, cursor, webhook IDs)"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: allowed
+  scope: flow
+  default: "No"
+  skippable: true
+  note: >
+    Three state scopes available:
+    - instanceState: per-flow, per-instance (NOT available in lifecycle hooks)
+    - crossFlowState: per-instance, shared across all flows (available in lifecycle hooks)
+    - integrationState: shared across ALL instances and customers
+    Combined size limit: 64 MB. State is written in its entirety (race condition risk).
+    Failed executions do NOT save state.
+    Polling flows automatically get getState()/setState() via context.polling.
+  agent_context: |
+    Persistent state lets a flow remember data between executions — a last-processed
+    timestamp, a pagination cursor, a webhook registration ID. Without state, every
+    execution starts fresh with no memory of previous runs. Polling flows get state
+    management automatically (getState/setState via context.polling), but other flow
+    types need explicit state management if they need to track progress.
+    <prefer-stateless>
+      Before choosing state, consider whether a stateless pattern works instead.
+      For mapping records between systems (e.g., GitHub issue → Zendesk ticket), prefer
+      using the destination system's externalId field rather than storing an ID mapping
+      in state. Example: set the Zendesk ticket's externalId to the GitHub issue number,
+      then look up by externalId instead of maintaining a mapping table. This avoids
+      concurrency issues entirely and survives failed executions.
+    </prefer-stateless>
+    <concurrency-warning>
+      ALL state scopes (instanceState, crossFlowState, integrationState) are written
+      in their entirety — not key-by-key. If two concurrent executions read state, modify
+      different keys, and write back, one will overwrite the other's changes. State is NOT
+      safe for concurrent writes. If concurrent execution is possible (webhook-triggered
+      flows, flows with concurrency > 1), either use a stateless pattern or external
+      storage (database, Redis) for data that needs atomic updates.
+    </concurrency-warning>
+  implications:
+    "Yes": >
+      Flow will use one of three state scopes. State persists across executions
+      and survives instance restarts. 64 MB combined limit. Failed executions do NOT
+      save state (important for transactional consistency).
+    "No": >
+      Each execution is stateless — no memory of previous runs. Fine for
+      event-driven flows that process each payload independently.
+  docs:
+    - https://prismatic.io/docs/integrations/persist-data.md
+  cookbook_section: "answer: needs_state_management → state usage"
+  references:
+    - path: "references/cni-examples/state-persistence.md"
+      phase: "5"
+      condition: "needs_state_management == Yes"
+
+state_scope:
+  question: "What scope of state persistence is needed?"
+  type: choice
+  choices:
+    - instance_state
+    - cross_flow_state
+    - integration_state
+  inference: allowed
+  scope: flow
+  skippable: true
+  depends_on: [needs_state_management]
+  condition:
+    needs_state_management: "Yes"
+  note: >
+    instanceState: Most common. Last sync timestamp, pagination cursor.
+    crossFlowState: When flows need to share data (e.g., webhook IDs stored during deploy).
+    integrationState: Rare. Global counters, shared lookup tables across all customers.
+    Note: Polling flows use context.polling.getState/setState for polling-specific state,
+    separate from the general state system.
+  agent_context: |
+    The three scopes differ in who can see the data. All share the same concurrency
+    limitation — state is written in its entirety, not key-by-key.
+    <scope-guide>
+      instanceState: Private to one flow in one instance. Most common — last sync timestamp,
+      cursor. NOT available in lifecycle hooks.
+      crossFlowState: Shared across all flows in an instance. Available in lifecycle hooks.
+      Use when deploy hooks store data that onExecution needs (e.g., webhook IDs).
+      integrationState: Global across ALL instances and customers. Rare — shared counters,
+      webhook routing tables.
+    </scope-guide>
+    <when-to-avoid-state>
+      For record-to-record ID mapping (GitHub issue → Zendesk ticket), use the destination
+      system's externalId field instead of storing a mapping in state. State is not
+      concurrency-safe and the mapping is lost if an execution fails.
+    </when-to-avoid-state>
+  implications:
+    "instance_state": >
+      Private to this flow and this instance. Most common scope. NOT available in
+      lifecycle hooks (deploy/delete handlers) — use crossFlowState there. Not safe
+      for concurrent writes within the same flow.
+    "cross_flow_state": >
+      Shared across all flows in an instance. Available in lifecycle hooks. Use when
+      deploy hooks need to pass data to onExecution (e.g., webhook registration IDs).
+      Not safe for concurrent writes — if two flows write simultaneously, one overwrites
+      the other.
+    "integration_state": >
+      Global across all instances and customers. Rare. Use for shared counters or
+      webhook routing tables. Same concurrency risk as other scopes.
+  docs:
+    - https://prismatic.io/docs/integrations/persist-data.md
+  cookbook_section: "answer: needs_state_management → state usage"
+
+state_description:
+  question: "What state needs to be persisted? (e.g., last processed timestamp, API cursor, webhook registration ID)"
+  type: text
+  inference: allowed
+  scope: flow
+  skippable: true
+  depends_on: [needs_state_management]
+  condition:
+    needs_state_management: "Yes"

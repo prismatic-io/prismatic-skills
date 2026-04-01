@@ -1,0 +1,75 @@
+// Template: Component Triggers (Webhooks)
+// Slots: COMPONENT_KEY, WEBHOOK_EVENTS
+//
+// CRITICAL: Always implement BOTH lifecycle hooks:
+//   - onInstanceDeploy: register the webhook with the external API
+//   - onInstanceDelete: deregister the webhook from the external API
+//
+// Usage: Fill in the webhook registration/deregistration logic.
+
+import { trigger, input, HttpResponse } from "@prismatic-io/spectral";
+import { createClient } from "./client";
+
+const webhook = trigger({
+  display: {
+    label: "{{COMPONENT_LABEL}} Webhook",
+    description: "Receive webhook events from {{COMPONENT_LABEL}}",
+  },
+  inputs: {
+    connection: input({
+      label: "Connection",
+      type: "connection",
+      required: true,
+    }),
+    {{#if WEBHOOK_EVENTS}}
+    events: input({
+      label: "Webhook Events",
+      type: "string",
+      required: false,
+      comments: "Comma-separated list of events to subscribe to",
+      default: "{{WEBHOOK_EVENTS}}",
+    }),
+    {{/if}}
+  },
+
+  // Process incoming webhook payloads — return the full TriggerPayload as-is
+  // TriggerPayload has 13+ required properties; do NOT reconstruct a partial object
+  perform: async (context, payload, params) => {
+    return Promise.resolve({ payload });
+  },
+
+  // Called when an instance using this trigger is deployed
+  onInstanceDeploy: async (context, { connection }) => {
+    const client = createClient(connection, false);
+    const webhookUrl = context.webhookUrls[context.flow.name];
+
+    // Register webhook with external API
+    const result = await client.post("/webhooks", {
+      url: webhookUrl,
+      {{#if WEBHOOK_EVENTS}}
+      events: "{{WEBHOOK_EVENTS}}".split(",").map((e) => e.trim()),
+      {{/if}}
+    });
+
+    // Store webhook ID for cleanup — return instanceState, do NOT use .set()
+    return {
+      instanceState: { webhookId: result.data.id },
+    };
+  },
+
+  // Called when an instance using this trigger is deleted
+  onInstanceDelete: async (context, { connection }) => {
+    const client = createClient(connection, false);
+
+    // Read stored state — instanceState is a plain object, NOT .get()
+    const webhookId = (context.instanceState as Record<string, unknown>)
+      ?.webhookId as string | undefined;
+
+    // Deregister webhook from external API
+    if (webhookId) {
+      await client.delete(`/webhooks/${webhookId}`);
+    }
+  },
+});
+
+export default { webhook };

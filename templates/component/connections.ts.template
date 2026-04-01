@@ -1,0 +1,155 @@
+// Template: Component Connections
+// Source: spectral public API — use oauth2Connection() for OAuth2, connection() for others
+//
+// Usage: Choose one connection type. Fill in the fields for your API.
+// OAuth2 connections MUST use oauth2Connection() (not connection()) for type safety.
+// Non-OAuth connections use connection() with { key, display: { label, description }, inputs }.
+
+import { connection, oauth2Connection as defineOAuth2Connection, OAuth2Type, input } from "@prismatic-io/spectral";
+
+{{#if CONNECTION_TYPE_OAUTH2}}
+export const oauth2Connection = defineOAuth2Connection({
+  key: "oauth2",
+  display: {
+    label: "OAuth 2.0",
+    description: "Authenticate using OAuth 2.0 authorization code flow.",
+  },
+  oauth2Type: OAuth2Type.AuthorizationCode,
+  inputs: {
+    authorizeUrl: input({
+      label: "Authorize URL",
+      type: "string",
+      required: true,
+      shown: false,
+      default: "{{AUTHORIZE_URL}}",
+      comments: "OAuth2 authorization endpoint",
+    }),
+    tokenUrl: input({
+      label: "Token URL",
+      type: "string",
+      required: true,
+      shown: false,
+      default: "{{TOKEN_URL}}",
+      comments: "OAuth2 token endpoint",
+    }),
+    clientId: input({
+      label: "Client ID",
+      type: "string",
+      required: true,
+      shown: true,
+      comments: "OAuth2 client ID from the developer console",
+    }),
+    clientSecret: input({
+      label: "Client Secret",
+      type: "password",
+      required: true,
+      shown: true,
+      comments: "OAuth2 client secret from the developer console",
+    }),
+    scopes: input({
+      label: "Scopes",
+      type: "string",
+      required: false,
+      shown: true,
+      default: "{{SCOPES}}",
+      comments: "Space-separated OAuth2 scopes",
+    }),
+  },
+});
+
+export default [oauth2Connection];
+{{/if}}
+
+{{#if CONNECTION_TYPE_APIKEY}}
+export const apiKeyConnection = connection({
+  key: "apiKey",
+  display: {
+    label: "API Key",
+    description: "Authenticate using an API key.",
+  },
+  inputs: {
+    apiKey: input({
+      label: "API Key",
+      type: "password",
+      required: true,
+      shown: true,
+      comments: "API key from the developer console",
+    }),
+    endpoint: input({
+      label: "API Endpoint",
+      type: "string",
+      required: true,
+      shown: false,
+      default: "{{BASE_URL}}",
+      comments: "Base URL for API requests",
+    }),
+  },
+});
+
+export default [apiKeyConnection];
+{{/if}}
+
+{{#if CONNECTION_TYPE_BEARER}}
+export const bearerConnection = connection({
+  key: "bearer",
+  display: {
+    label: "Bearer Token",
+    description: "Authenticate using a bearer token.",
+  },
+  inputs: {
+    token: input({
+      label: "Bearer Token",
+      type: "password",
+      required: true,
+      shown: true,
+      comments: "Bearer token for authentication",
+    }),
+    endpoint: input({
+      label: "API Endpoint",
+      type: "string",
+      required: true,
+      shown: false,
+      default: "{{BASE_URL}}",
+      comments: "Base URL for API requests",
+    }),
+  },
+});
+
+export default [bearerConnection];
+{{/if}}
+
+{{#if CONNECTION_TYPE_BASIC}}
+export const basicConnection = connection({
+  key: "basic",
+  display: {
+    label: "Basic Auth",
+    description: "Authenticate using username and password.",
+  },
+  inputs: {
+    username: input({
+      label: "Username",
+      type: "string",
+      required: true,
+      shown: true,
+      comments: "Username for authentication",
+    }),
+    password: input({
+      label: "Password",
+      type: "password",
+      required: true,
+      shown: true,
+      comments: "Password for authentication",
+    }),
+    endpoint: input({
+      label: "API Endpoint",
+      type: "string",
+      required: true,
+      shown: false,
+      default: "{{BASE_URL}}",
+      comments: "Base URL for API requests",
+    }),
+  },
+});
+
+export default [basicConnection];
+{{/if}}

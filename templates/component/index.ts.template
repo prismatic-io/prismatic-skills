@@ -1,0 +1,54 @@
+// Template: Custom Component Entry Point
+// Slots: COMPONENT_KEY, COMPONENT_LABEL, COMPONENT_DESCRIPTION, COMPONENT_ICON_PATH
+//
+// Usage: Fill the slots, then import your actions, connections, triggers, and dataSources.
+
+import { component, ConnectionError } from "@prismatic-io/spectral";
+import actions from "./actions";
+{{#if HAS_CONNECTIONS}}
+import connections from "./connections";
+{{/if}}
+{{#if HAS_TRIGGERS}}
+import triggers from "./triggers";
+{{/if}}
+{{#if HAS_DATASOURCES}}
+import dataSources from "./dataSources";
+{{/if}}
+
+export default component({
+  key: "{{COMPONENT_KEY}}",
+  public: false,
+  documentationUrl: "https://prismatic.io/docs/components/{{COMPONENT_KEY}}/",
+  display: {
+    label: "{{COMPONENT_LABEL}}",
+    description: "{{COMPONENT_DESCRIPTION}}",
+    iconPath: "{{COMPONENT_ICON_PATH:icon.png}}",
+    category: "Application Connectors",
+  },
+  hooks: {
+    error: (error: unknown) => {
+      if (error instanceof ConnectionError) throw error;
+      // Preserve Axios response data (status, body) for better error messages
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosErr = error as { message?: string; response?: { data?: unknown; status?: number; headers?: unknown } };
+        return {
+          message: axiosErr.message ?? "API request failed",
+          data: axiosErr.response?.data,
+          status: axiosErr.response?.status,
+        };
+      }
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new Error(msg);
+    },
+  },
+  actions,
+  {{#if HAS_CONNECTIONS}}
+  connections,
+  {{/if}}
+  {{#if HAS_TRIGGERS}}
+  triggers,
+  {{/if}}
+  {{#if HAS_DATASOURCES}}
+  dataSources,
+  {{/if}}
+});

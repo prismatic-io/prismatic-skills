@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "prism": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@prismatic-io/prism-mcp",
+        ".",
+        "integration",
+        "component"
+      ]
+    }
+  }
+}

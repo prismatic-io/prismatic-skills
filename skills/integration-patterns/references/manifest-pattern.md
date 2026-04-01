@@ -8,7 +8,7 @@ Complete guide for using Prismatic component manifests in Code Native Integratio
 
 **Component manifests** provide type-safe access to Prismatic's pre-built components (Slack, Salesforce, AWS, etc.) in your CNI code. Instead of downloading and copying component source code, manifests generate TypeScript wrappers that let you:
 
-- Access component actions via `context.components.<componentKey>.<action>()`
+- Call component actions via manifest import + `.perform()`: `slackActions.postMessage.perform({...})`
 - Use connection helpers for OAuth and API key authentication
 - Use data source helpers for dynamic dropdowns
 - Get TypeScript type hints for parameters
@@ -29,7 +29,7 @@ Complete guide for using Prismatic component manifests in Code Native Integratio
 Pass components to the scaffold script:
 
 ```bash
-scripts/integrations/scaffold_project.py my-integration --components slack,salesforce
+scripts/integrations/scaffold-project.ts my-integration --components slack,salesforce
 ```
 
 This creates:
@@ -54,11 +54,7 @@ npx cni-component-manifest hubspot
 
 ### Finding Component Keys
 
-Use the search script to find available components:
-
-```bash
-python scripts/integrations/search_components.py salesforce
-```
+Use `prismatic-tools find-components` with a keyword to find available components (e.g., "salesforce").
 
 ---
 
@@ -228,13 +224,14 @@ Data sources can reference other config vars:
 
 ## Accessing Components in Flows
 
-Once registered, access components via `context.components.<componentKey>`.
+Once registered, access component actions via manifest imports and the `.perform()` method.
 
 ### Basic Action Call
 
 ```typescript
 // src/flows.ts
 import { flow } from "@prismatic-io/spectral";
+import slackActions from "../manifests/slack/actions";
 
 export const sendMessageFlow = flow({
   name: "Send Slack Message",
@@ -244,7 +241,7 @@ export const sendMessageFlow = flow({
     const { configVars } = context;
 
     // Call component action
-    await context.components.slack.postMessage({
+    await slackActions.postMessage.perform({
       connection: configVars["Slack Connection"],
       channelName: configVars["Slack Channel"],
       message: "Hello from integration!",
@@ -258,25 +255,28 @@ export const sendMessageFlow = flow({
 ### Multiple Component Actions
 
 ```typescript
+import salesforceActions from "../manifests/salesforce/actions";
+import slackActions from "../manifests/slack/actions";
+
 onExecution: async (context, params) => {
   const { configVars, logger } = context;
 
   // Fetch from Salesforce
-  const contacts = await context.components.salesforce.queryRecords({
+  const contacts = await salesforceActions.queryRecords.perform({
     connection: configVars["Salesforce Connection"],
     query: "SELECT Id, Name, Email FROM Contact LIMIT 10",
-  });
+  }) as Record<string, unknown>;
 
   // Send to Slack
-  for (const contact of contacts.data.records) {
-    await context.components.slack.postMessage({
+  for (const contact of (contacts as any).data.records) {
+    await slackActions.postMessage.perform({
       connection: configVars["Slack Connection"],
       channelName: configVars["Slack Channel"],
       message: `Contact: ${contact.Name} (${contact.Email})`,
     });
   }
 
-  return { data: { processed: contacts.data.records.length } };
+  return { data: { processed: (contacts as any).data.records.length } };
 };
 ```
 
@@ -334,21 +334,24 @@ examplePayload: {
 
 ### Casting Results
 
-Always cast to `{ data: YourType }` to account for the wrapper:
+Always cast to `Record<string, unknown>` and then extract the typed `.data` property:
 
 ```typescript
+import slackActions from "../manifests/slack/actions";
+
 onExecution: async (context, params) => {
   // Cast the result, accounting for the { data } wrapper
-  const result = (await context.components.slack.postMessage({
+  const result = (await slackActions.postMessage.perform({
     connection: context.configVars["Slack Connection"],
     channelName: "general",
     message: "Hello!",
-  })) as { data: SlackPostMessageResponse };
+  })) as Record<string, unknown>;
 
   // Access the actual response via .data
-  context.logger.info(`Message sent with timestamp: ${result.data.ts}`);
+  const data = result.data as SlackPostMessageResponse;
+  context.logger.info(`Message sent with timestamp: ${data.ts}`);
 
-  return { data: result.data };
+  return { data };
 };
 ```
 
@@ -356,16 +359,17 @@ onExecution: async (context, params) => {
 
 ```typescript
 // WRONG - result.ts will be undefined
-const result = (await context.components.slack.postMessage({
+const result = (await slackActions.postMessage.perform({
   ...params,
 })) as SlackPostMessageResponse;
 console.log(result.ts); // undefined!
 
-// CORRECT - access via .data
-const result = (await context.components.slack.postMessage({
+// CORRECT - cast to Record<string, unknown> and access via .data
+const result = (await slackActions.postMessage.perform({
   ...params,
-})) as { data: SlackPostMessageResponse };
-console.log(result.data.ts); // "1646951430.367539"
+})) as Record<string, unknown>;
+const data = result.data as SlackPostMessageResponse;
+console.log(data.ts); // "1646951430.367539"
 ```
 
 ### Reading Manifest Types
@@ -396,7 +400,7 @@ my-integration/
 ├── src/
 │   ├── componentRegistry.ts    # Register manifests
 │   ├── configPages.ts          # Use connection/datasource helpers
-│   ├── flows.ts                # Access via context.components
+│   ├── flows.ts                # Access via manifest imports + .perform()
 │   ├── index.ts                # Include componentRegistry
 │   ├── documentation.md
 │   └── manifests/
@@ -493,6 +497,8 @@ export const configPages = {
 
 ```typescript
 import { flow, util } from "@prismatic-io/spectral";
+import salesforceActions from "../manifests/salesforce/actions";
+import slackActions from "../manifests/slack/actions";
 
 interface SalesforceRecord {
   Id: string;
@@ -515,11 +521,12 @@ export const syncFlow = flow({
 
     // Get Salesforce records - cast result to expected type
     const query = util.types.toString(configVars["Salesforce Query"]);
-    const result = await context.components.salesforce.soqlQuery({
+    const queryResult = await salesforceActions.soqlQuery.perform({
       connection: configVars["Salesforce Connection"],
       query,
-    }) as SalesforceQueryResult;
+    }) as Record<string, unknown>;
 
+    const result = queryResult.data as SalesforceQueryResult;
     logger.info(`Found ${result.totalSize} records`);
 
     // Post summary to Slack
@@ -527,7 +534,7 @@ export const syncFlow = flow({
       .map(r => `- ${r.Name}`)
       .join("\n");
 
-    await context.components.slack.postMessage({
+    await slackActions.postMessage.perform({
       connection: configVars["Slack Connection"],
       channelName: configVars["Slack Channel"],
       message: `Salesforce Sync Complete:\n${summary}`,
@@ -571,14 +578,17 @@ export default integration({
 ### 1. Always Define Types for Results
 
 ```typescript
+import apiActions from "../manifests/api/actions";
+
 // Define interfaces for expected response structures
 interface ApiResponse {
   success: boolean;
   data: SomeData[];
 }
 
-// Cast results to these types
-const result = await context.components.api.getData({...}) as ApiResponse;
+// Cast results to Record<string, unknown> and then extract typed data
+const result = await apiActions.getData.perform({...}) as Record<string, unknown>;
+const data = result.data as ApiResponse;
 ```
 
 ### 2. Use Meaningful Variable Names
@@ -595,8 +605,10 @@ const conn = configVars["conn"];
 ### 3. Handle Errors
 
 ```typescript
+import slackActions from "../manifests/slack/actions";
+
 try {
-  await context.components.slack.postMessage({
+  await slackActions.postMessage.perform({
     connection: configVars["Slack Connection"],
     channelName: configVars["Slack Channel"],
     message: "Hello!",
@@ -611,7 +623,7 @@ try {
 
 ```typescript
 logger.info("Posting message to Slack");
-await context.components.slack.postMessage({...});
+await slackActions.postMessage.perform({...});
 logger.info("Message posted successfully");
 ```
 
@@ -628,7 +640,7 @@ logger.info("Message posted successfully");
 npx cni-component-manifest slack
 ```
 
-### Component Not in Context
+### Component Not Registered
 
 **Error:** `Property 'slack' does not exist on type...`
 
@@ -652,13 +664,16 @@ export default integration({
 
 **Issue:** TypeScript complains about `unknown` type
 
-**Fix:** Define and cast to expected types:
+**Fix:** Cast to `Record<string, unknown>` and then extract typed data:
 ```typescript
+import apiActions from "../manifests/api/actions";
+
 interface ExpectedResponse {
   data: any[];
 }
 
-const result = await context.components.api.action({...}) as ExpectedResponse;
+const result = await apiActions.action.perform({...}) as Record<string, unknown>;
+const data = result.data as ExpectedResponse;
 ```
 
 ### Connection Helpers Not Found

@@ -1,0 +1,119 @@
+# Error handling — immediate retry (seconds apart, same invocation)
+# Maps to flow.errorConfig (StepErrorConfig from @prismatic-io/spectral)
+# In CNI, a flow has a single onExecution — that IS the "step."
+#
+# NOTE: The code-native flows docs page does NOT document errorConfig.
+# It's documented only in the low-code designer docs and SDK types.
+# The type and behavior are fully supported — just a docs gap.
+
+error_handler_type:
+  question: "What should happen when the flow's onExecution throws an error? (immediate retry — seconds apart, same invocation)"
+  type: choice
+  inference: allowed
+  default: retry
+  scope: flow
+  choices:
+    - fail
+    - ignore
+    - retry
+  maps_to: "flow.errorConfig.errorHandlerType"
+  ts_type: 'StepErrorHandlerType = "fail" | "ignore" | "retry"'
+  note: >
+    This is IMMEDIATE retry within a single execution (seconds apart).
+    A separate "execution retry" option (asked later) can re-invoke the
+    entire flow minutes/hours later for extended outages.
+    fail = stop execution, mark as failed.
+    ignore = continue execution. Result contains error property for inspection.
+    retry = retry onExecution up to maxAttempts times with delay (seconds).
+    These are the ONLY valid values — they come from the Spectral SDK type StepErrorHandlerType.
+  agent_context: |
+    <present-as>
+      <option value="fail">Fail immediately — execution stops and shows as failed in the dashboard. Pairs with alert monitors for notification. No automatic recovery.</option>
+      <option value="ignore">Ignore and continue — execution proceeds as if nothing happened. The error is captured in the result but processing moves on. Risky for critical data.</option>
+      <option value="retry">Retry automatically — retries up to N times with a configurable delay between attempts. Catches transient failures like rate limits and brief outages. Most common for production.</option>
+      <do-not-present>raise, rethrow, log, log-and-ignore, custom-handler, error-flow, DLQ, circuit-breaker</do-not-present>
+    </present-as>
+    This is immediate error handling — seconds apart, same invocation. A separate "delayed retry" option is asked later for extended outages.
+  implications:
+    fail: >
+      Execution stops and shows as failed in the dashboard. Simplest option — works well
+      with external monitoring (PagerDuty, Datadog). No automatic recovery.
+    ignore: >
+      Execution continues as if nothing happened. The error is captured in the result
+      object but the flow keeps going. Risky for critical operations — a failed Slack
+      post just disappears silently.
+    retry: >
+      Retries the onExecution function up to N times with configurable delay. Great for
+      transient failures (rate limits, brief outages). Most common choice for production.
+  docs:
+    - https://prismatic.io/docs/monitor-instances/retry-and-replay/automatic-retry.md
+  cookbook_section: "answer: error_handler_type → `flow.errorConfig`"
+
+error_retry_max_attempts:
+  question: "How many times should the step retry?"
+  type: text
+  inference: allowed
+  default: "3"
+  scope: flow
+  maps_to: "flow.errorConfig.maxAttempts"
+  ts_type: "number (0-5)"
+  depends_on: [error_handler_type]
+  condition:
+    error_handler_type: retry
+  note: "Any integer 0-5. Common values: 3 for production, 1 for quick-fail."
+  suggestions: ["1", "2", "3", "4", "5"]
+
+error_retry_delay_seconds:
+  question: "Seconds between retry attempts?"
+  type: text
+  inference: allowed
+  default: "30"
+  scope: flow
+  maps_to: "flow.errorConfig.delaySeconds"
+  ts_type: "number (0-60)"
+  depends_on: [error_handler_type]
+  condition:
+    error_handler_type: retry
+  note: "Any integer 0-60. Common values: 5s for rate limits, 30s for outages."
+  suggestions: ["5", "10", "15", "30", "60"]
+
+error_retry_backoff:
+  question: "Use exponential backoff? (doubles delay each attempt)"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: allowed
+  scope: flow
+  default: "No"
+  maps_to: "flow.errorConfig.usesExponentialBackoff"
+  depends_on: [error_handler_type]
+  condition:
+    error_handler_type: retry
+
+error_retry_ignore_final:
+  question: "If all retries are exhausted, ignore the error and continue?"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: allowed
+  default: "No"
+  scope: flow
+  maps_to: "flow.errorConfig.ignoreFinalError"
+  depends_on: [error_handler_type]
+  condition:
+    error_handler_type: retry
+  note: "Yes = execution continues after retries exhausted. No = execution fails."
+  agent_context: |
+    <present-as>
+      <option value="No">Mark as failed — execution shows as failed in the dashboard, triggers alert monitors. Standard choice for data operations.</option>
+      <option value="Yes">Ignore silently — error is swallowed, execution appears successful. Only for non-critical side effects where partial success is acceptable.</option>
+    </present-as>
+    After all retry attempts are exhausted and the error persists — should the flow fail loudly or continue quietly?
+  implications:
+    "Yes": >
+      Flow continues after retries exhausted — the error is swallowed. Use for non-critical
+      side effects (logging, notifications) where partial success is acceptable.
+    "No": >
+      Flow fails after retries exhausted — shows in dashboard, triggers alert monitors.
+      Standard choice for data integrity operations.
+  docs:
+    - https://prismatic.io/docs/monitor-instances/retry-and-replay/automatic-retry.md
+  cookbook_section: "answer: error_handler_type → `flow.errorConfig`"

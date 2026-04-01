@@ -1,0 +1,45 @@
+// Template: Component Actions
+// Source: components repo standardization (actions.md, inputs.md)
+//
+// STRUCTURE: Actions use folder-based organization:
+//   src/actions/
+//   ├── index.ts                    # Barrel export with spread
+//   ├── <resource>/
+//   │   ├── index.ts
+//   │   └── <verb><Resource>.ts    # One action per file
+//   └── misc/
+//       ├── index.ts
+//       └── rawRequest.ts           # REQUIRED in every component
+//
+// INPUTS: All inputs defined in src/inputs/ (never inline in actions).
+// Each non-connection input MUST have: label, type, required, comments, clean.
+// String inputs also need: placeholder, example.
+//
+// EXAMPLE PAYLOADS: All in src/examplePayloads/ with verification headers.
+//
+// This template shows the pattern for a SINGLE action file.
+// Repeat this pattern for each action in its own file.
+
+import { action } from "@prismatic-io/spectral";
+import { createClient } from "../../client";
+import { connection } from "../../inputs";
+import { {{actionName}}ExamplePayload } from "../../examplePayloads";
+
+export const {{actionName}} = action({
+  display: {
+    label: "{{ActionLabel}}",
+    description: "{{ActionDescription}}.",
+  },
+  inputs: {
+    connection,
+    {{#each inputs}}
+    {{key}},
+    {{/each}}
+  },
+  perform: async (context, { connection, {{destructuredInputs}} }) => {
+    const client = createClient(connection, context.debug.enabled);
+    const { data } = await client.get("{{endpoint}}");
+    return { data };
+  },
+  examplePayload: {{actionName}}ExamplePayload,
+});

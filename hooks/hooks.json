@@ -1,0 +1,49 @@
+{
+  "description": "Enforce tool usage policies, synthetic tool dispatch, and destructive action confirmation for Prismatic integration building",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-discovery.mjs\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "mcp__prism__prism_components_list",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Use the search script instead: prismatic-tools find-components <keyword>\"}}' >&2 && exit 2",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/pretooluse-dispatch.mjs\"",
+            "timeout": 120
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__prism__prism_integrations_flows_test",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"Testing executes a flow which may trigger real side effects (sending messages, creating records).\"}}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -273,7 +273,7 @@ dataSourceConfigVar({
 
 **How to decide:**
 
-1. Search for available connections: `python scripts/shared/search_connections.py <platform>`
+1. Search for available connections: `prismatic-tools search-connections <platform>`
 2. If found → Use appropriate integration-agnostic connection type
 3. If not found → Use `connectionConfigVar`
 
@@ -319,9 +319,23 @@ The `src/flows.ts` file contains the actual integration logic - what happens whe
   - `onTrigger`: Parse webhook payload, return `{ payload }` with optional HTTP response
   - `onExecution`: Process the data asynchronously
   - See webhook patterns in [error-handling.md](cni-examples/error-handling.md)
+- **Component trigger flows** → `onTrigger` with component reference
+  - Use when the source component has a trigger that manages webhook lifecycle (e.g., HMAC verification, auto-registration)
+  - The component's trigger lifecycle functions (register/deregister webhooks) run automatically on deploy/delete
+  - Import the trigger from the manifest: e.g., `import { shopifyEventTopicWebhookGql } from "./manifests/shopify/triggers/eventTopicWebhookGql"`
+  - Pattern: `onTrigger: shopifyEventTopicWebhookGql({ input: { configVar: "..." } })`
 - **Manual flows** → Simple `onExecution` handler (no schedule, no onTrigger)
 
 > **⚠️ IMPORTANT:** `pollingTrigger` (the Spectral helper) is NOT supported in CNI. If a component uses `pollingTrigger`, use a webhook trigger if the API supports it (preferred), or a scheduled trigger with polling logic in `onExecution`.
+
+### Trigger Decision Tree
+
+Use this to determine the correct trigger pattern for each flow:
+
+1. **Webhook** (external source sends HTTP to Prismatic) → Omit `onTrigger` entirely. The platform handles HTTP receipt.
+2. **Scheduled** (runs on cron) → Add `schedule: { value: "cron expression" }` or `schedule: { configVar: "Schedule Config Var" }`. No `onTrigger`.
+3. **Component trigger** (e.g., Shopify managed webhooks, HMAC verification) → Add `onTrigger` with component trigger reference imported from manifest. No custom webhook parsing needed.
+4. **Component trigger + schedule** (polling via component) → Add BOTH `onTrigger` with component reference AND `schedule` property.
 
 ### Flow Definition Structure
 
@@ -682,11 +696,11 @@ Component manifests are auto-generated TypeScript wrappers that provide type-saf
 
 **For integrations with external systems (Salesforce, Slack, databases, AWS, etc.):**
 
-1. ✅ **Search:** `scripts/integrations/search_components.py <system>`
-2. ✅ **Scaffold with manifests:** `scripts/integrations/scaffold_project.py <name> --components slack,salesforce`
+1. ✅ **Search:** `prismatic-tools find-components <system>`
+2. ✅ **Scaffold with manifests:** `scaffold-project.ts <name> --components slack,salesforce`
 3. ✅ **Register:** Create `componentRegistry.ts`
 4. ✅ **Configure:** Use connection helpers in `configPages.ts`
-5. ✅ **Use:** Access via `context.components.<key>.<action>()`
+5. ✅ **Use:** Import manifest actions and call `<component>Actions.<action>.perform()`
 
 **Only build completely custom when:**
 
@@ -699,7 +713,7 @@ Component manifests are auto-generated TypeScript wrappers that provide type-saf
 **During scaffolding (recommended):**
 
 ```bash
-scripts/integrations/scaffold_project.py my-integration --components slack,salesforce,hubspot
+scripts/integrations/scaffold-project.ts my-integration --components slack,salesforce,hubspot
 ```
 
 **Or manually:**
@@ -822,9 +836,11 @@ import { slackSelectChannels } from "./manifests/slack/dataSources/selectChannel
 ### Accessing Components in Flows
 
 ```typescript
+import slackActions from "../manifests/slack/actions";
+
 onExecution: async (context, params) => {
-  // Call component action
-  const result = await context.components.slack.postMessage({
+  // Call component action via manifest import + .perform()
+  const result = await slackActions.postMessage.perform({
     connection: context.configVars["Slack Connection"],
     channelName: context.configVars["Slack Channel"],
     message: "Hello from integration!",
@@ -839,25 +855,22 @@ onExecution: async (context, params) => {
 Component actions return `unknown`. Define and cast to expected types:
 
 ```typescript
+import slackActions from "../manifests/slack/actions";
+
 interface SlackPostMessageResponse {
   ok: boolean;
   ts: string;
   channel: string;
 }
 
-const result = await context.components.slack.postMessage({
+const result = await slackActions.postMessage.perform({
   // ...params
 }) as SlackPostMessageResponse;
 ```
 
 ### Finding Component Information
 
-Use the search script to discover available components:
-
-```bash
-python scripts/integrations/search_components.py <keyword>
-```
-
+Use `prismatic-tools find-components` to discover available components by keyword.
 This returns component keys for use with `--components` flag.
 
 **Complete guide:** See [manifest-pattern.md](manifest-pattern.md) for detailed patterns and examples.
@@ -934,17 +947,17 @@ export default integration({
 
 ### Purpose
 
-Catch TypeScript errors before full build, saving time in the development cycle.
+Catch TypeScript errors before the full webpack bundle, saving time in the development cycle.
 
-### Quick TypeScript Check
+### Build Check
 
-Before running the full build, optionally validate TypeScript syntax:
+Run the build to validate TypeScript and catch errors:
 
 ```bash
-python scripts/integrations/validate_typescript.py <project-dir>
+npm run build --prefix <project-dir>
 ```
 
-**This quick check (~5-10 seconds) catches:**
+**The build catches:**
 
 - Syntax errors
 - Type mismatches
@@ -953,29 +966,16 @@ python scripts/integrations/validate_typescript.py <project-dir>
 - Incorrect function signatures
 - Undefined variables
 
-### Benefits
-
-- **Faster iteration** - Find errors in seconds vs minutes
-- **Better error messages** - TypeScript compiler is more detailed
-- **Early detection** - Catch issues before deployment
-- **Type safety** - Ensure type correctness
-
 ### Workflow
 
 1. Generate/modify code
-2. Run `python scripts/integrations/validate_typescript.py <project-dir>`
+2. Run `npm run build --prefix <project-dir>`
 3. If errors found:
    - Fix immediately
-   - Re-run validation
+   - Rebuild
    - Repeat until clean
 4. If no errors:
-   - Proceed to full build (Phase 4-5)
-
-### If TypeScript Compiler Not Available
-
-- Skip this step
-- Errors will be caught in Phase 4-5 build
-- Build process includes TypeScript compilation
+   - Proceed to deploy
 
 ### Common TypeScript Errors
 

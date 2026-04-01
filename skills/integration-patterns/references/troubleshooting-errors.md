@@ -18,25 +18,27 @@ npm install
 
 ### Error: Property 'configVars' does not exist on type 'Context'
 
-**Cause:** Incorrect context type
+**Cause:** Incorrect context type or missing type inference
 
 **Solution:**
 
-Import the correct context type:
+Do NOT manually annotate the context type — the `flow()` function infers types automatically. `FlowContext` is not a public export from `@prismatic-io/spectral`.
 
 ```typescript
-import { flow, FlowContext } from "@prismatic-io/spectral";
+import { flow } from "@prismatic-io/spectral";
 
 export const myFlow = flow({
   name: "My Flow",
   stableKey: "my-flow",
-  onExecution: async (context: FlowContext) => {
-    // Now context.configVars is properly typed
+  onExecution: async (context, params) => {
+    // context.configVars is automatically typed by flow()
     const apiKey = context.configVars["API Key"];
     return { data: null };
   },
 });
 ```
+
+If you still get this error, ensure you're using `flow()` from `@prismatic-io/spectral` and that your `@prismatic-io/spectral` dependency is installed.
 
 ### Error: Type 'string | undefined' is not assignable to type 'string'
 
@@ -192,8 +194,8 @@ npm install --save-dev @types/node
 # Verify build output
 ls dist/
 
-# Check for syntax errors
-python scripts/integrations/validate_typescript.py <integration-dir>
+# Build to check for errors
+npm run build --prefix <integration-dir>
 
 # Validate integration structure
 cat dist/index.js | grep "export default"
@@ -409,7 +411,7 @@ cd <project-dir>
 npx cni-component-manifest slack
 
 # Or scaffold with manifests from the start
-python scripts/integrations/scaffold_project.py <name> --components slack
+npx tsx scripts/integrations/scaffold-project.ts <name> --components slack
 ```
 
 Example package.json update:
@@ -528,7 +530,7 @@ If errors persist:
 
 - **"Component not found"**: Component key incorrect when downloading source
 - **"Missing dependency"**: Review component's package.json and add needed deps to your CNI
-- **"Cannot find module"**: Install dependencies with `python scripts/integrations/install_dependencies.py`
+- **"Cannot find module"**: Install dependencies with `npm install --prefix <project-dir>`
 - **"Type errors in extracted code"**: Add proper TypeScript types to wrapper functions
 
 For detailed explanations and additional errors, see the official Prismatic documentation.

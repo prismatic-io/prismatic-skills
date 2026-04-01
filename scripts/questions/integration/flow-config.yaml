@@ -1,0 +1,231 @@
+# Flow configuration — sync mode, endpoint type, routing, security
+#
+# CROSS-SCOPE NOTE: endpoint_type and preprocess routing are integration-scoped,
+# but some conditions reference flow-scoped items (trigger_type). For multi-flow,
+# the agent should evaluate these based on whether ANY flow is a webhook.
+
+is_synchronous:
+  question: "Should this flow be synchronous? (caller waits for completion)"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: allowed
+  scope: flow
+  default: "No"
+  maps_to: "flow.isSynchronous"
+  condition:
+    trigger_type: webhook
+  note: >
+    Sync flows have 29-second timeout (AWS API Gateway limit). Only relevant for webhooks.
+    Platform rejects synchronous flows with cron schedules.
+    Platform rejects retryConfig on synchronous flows.
+  agent_context: >
+    A synchronous webhook flow means the caller waits for the flow to finish and gets the
+    result back as the HTTP response. The source system sends a request and blocks until
+    Prismatic returns the result. This is essential when the caller needs a response (e.g.,
+    a validation check or data lookup), but comes with a hard 29-second timeout from AWS
+    API Gateway. If processing takes longer, use async.
+  implications:
+    "Yes": >
+      Caller waits for response. 29-second hard timeout. No delayed retry available
+      (platform rejects retryConfig on sync flows). Return value shapes the HTTP response:
+      { data, statusCode, contentType }.
+    "No": >
+      Caller gets immediate 200 acknowledgment. Flow runs asynchronously — can take minutes.
+      Full retry support (both immediate and delayed). Most common for data sync flows.
+  docs:
+    - https://prismatic.io/docs/integrations/triggers/webhook/synchronous-and-asynchronous.md
+  cookbook_section: "answer: is_synchronous → `flow.isSynchronous`"
+
+sync_response_shape:
+  question: "What should the synchronous response look like? (HTTP status, content type, body structure)"
+  type: text
+  inference: allowed
+  scope: flow
+  skippable: true
+  depends_on: [is_synchronous]
+  condition:
+    is_synchronous: "Yes"
+  note: >
+    When isSynchronous: true, onExecution return value shapes the HTTP response:
+    { data: {...}, statusCode: 200, contentType: "application/json" }
+    29-second timeout. 500MB max response. Responses >5MB return HTTP 303 redirect to S3 URL.
+
+endpoint_type:
+  question: "How should webhook endpoints be assigned?"
+  type: choice
+  inference: allowed
+  scope: integration
+  default: "flow_specific"
+  choices:
+    - flow_specific
+    - instance_specific
+    - shared_instance
+  maps_to: "integration.endpointType"
+  ts_type: 'EndpointType = "flow_specific" | "instance_specific" | "shared_instance"'
+  skippable: true
+  condition:
+    flow_count: { not: "1" }
+  note: >
+    flow_specific = each flow gets its own URL (default, simplest).
+    instance_specific = all flows share one URL per instance (requires routing).
+      For multi-flow: MUST specify flowNameField.
+    shared_instance = one global URL for all instances (requires customer + flow routing).
+      MUST specify externalCustomerIdField. For multi-flow: MUST specify flowNameField.
+    Only applicable when at least one flow uses webhook triggers.
+  agent_context: >
+    Endpoint type controls how Prismatic generates webhook URLs. Default to flow_specific
+    unless there's a specific reason not to — most source APIs (Shopify, Stripe, HubSpot,
+    Salesforce) support multiple webhook registrations, so each flow gets its own URL and
+    no routing logic is needed. Only choose instance_specific when the source system limits
+    you to a single webhook URL. shared_instance is rare — one global URL for ALL customers.
+    When inferring, use flow_specific unless the user explicitly describes a single-URL
+    constraint.
+  implications:
+    flow_specific: >
+      Each flow gets its own unique URL per instance. Simplest — no routing logic needed.
+      The source system sends to the specific flow's URL. Default choice.
+    instance_specific: >
+      All flows share one URL per instance. Requires a preprocess routing field (header or
+      body field) to identify which flow should handle the request. Good when the source
+      system sends different event types to one URL.
+    shared_instance: >
+      One global URL for ALL instances across all customers. Requires BOTH a customer ID
+      field and a flow name field for routing. Most complex but useful for SaaS platforms
+      that configure one webhook URL globally.
+  docs:
+    - https://prismatic.io/docs/integrations/code-native/endpoint-config.md
+    - https://prismatic.io/docs/integrations/triggers/endpoint-configuration.md
+  cookbook_section: "answer: endpoint_type → `integration.endpointType`"
+
+preprocess_flow_routing:
+  question: "How should incoming requests be routed to the correct flow?"
+  type: choice
+  inference: prohibited
+  scope: integration
+  choices:
+    - header_field
+    - body_field
+    - preprocess_flow
+  depends_on: [endpoint_type]
+  condition:
+    endpoint_type: { in: [instance_specific, shared_instance] }
+  maps_to: "integration.triggerPreprocessFlowConfig"
+  note: >
+    header_field / body_field = set triggerPreprocessFlowConfig on the integration.
+    preprocess_flow = dedicate one flow with preprocessFlowConfig to handle routing
+    logic in code (more flexible but more complex).
+    IMPORTANT: Two different config objects exist:
+    - triggerPreprocessFlowConfig (on integration) — for header/body routing
+    - preprocessFlowConfig (on a flow) — for preprocess flow routing
+  agent_context: >
+    When multiple flows share an endpoint, Prismatic needs to know which flow should handle
+    each incoming request. Header or body field routing is declarative — you tell Prismatic
+    "look at this field and match its value to the flow name." Preprocess flow routing is
+    programmatic — you write a dedicated flow that inspects the payload and returns the
+    target flow name. More flexible (you can do regex, lookups, transformations) but adds
+    a whole extra flow to maintain.
+  implications:
+    header_field: >
+      Route based on an HTTP header value. Set triggerPreprocessFlowConfig.flowNameField
+      to e.g., "headers.x-event-type". Simplest when the source system sets a header.
+    body_field: >
+      Route based on a JSON body field value. Set triggerPreprocessFlowConfig.flowNameField
+      to e.g., "body.data.event". Good when the payload contains an event type field.
+    preprocess_flow: >
+      Dedicate one flow to inspect the raw request and return the target flow name.
+      Most flexible but most complex — adds an extra flow with preprocessFlowConfig.
+  docs:
+    - https://prismatic.io/docs/integrations/code-native/endpoint-config.md
+  cookbook_section: "answer: preprocess_flow_routing → routing configuration"
+
+routing_flow_name_field:
+  question: "What field in the request identifies which flow to run? (e.g., 'headers.x-acme-flow' or 'body.data.event')"
+  type: text
+  inference: prohibited
+  scope: integration
+  depends_on: [preprocess_flow_routing]
+  condition:
+    preprocess_flow_routing: { in: [header_field, body_field] }
+  maps_to: "integration.triggerPreprocessFlowConfig.flowNameField"
+  note: >
+    REQUIRED. This field is used to route requests to the correct flow.
+    For header_field: use 'headers.x-acme-flow' format.
+    For body_field: use 'body.data.event' format.
+    For multi-flow instance_specific: platform REQUIRES this field.
+
+routing_external_customer_id_field:
+  question: "What field in the request identifies the customer? (e.g., 'body.data.accountId' or 'headers.x-customer-id')"
+  type: text
+  inference: prohibited
+  scope: integration
+  depends_on: [endpoint_type]
+  condition:
+    endpoint_type: shared_instance
+  maps_to: "integration.triggerPreprocessFlowConfig.externalCustomerIdField"
+  note: >
+    REQUIRED for shared_instance. Platform rejects shared_instance deployments
+    without externalCustomerIdField. This field identifies which customer's
+    instance should receive the request.
+
+endpoint_security:
+  question: "What security should the webhook endpoint use?"
+  type: choice
+  inference: allowed
+  scope: flow
+  default: "customer_optional"
+  choices:
+    - unsecured
+    - customer_optional
+    - customer_required
+    - organization
+  maps_to: "flow.endpointSecurityType"
+  skippable: true
+  note: >
+    unsecured = no API keys (secure via HMAC or other means).
+    customer_optional = customers can choose to secure with API keys.
+    customer_required = customers must supply API keys.
+    organization = you define the API keys in the flow config.
+  agent_context: >
+    Endpoint security controls whether API keys are required to call the webhook URL.
+    This is separate from payload verification (like HMAC signing) — it's about who can
+    call the URL at all. The "customer_optional" default lets customers decide whether to
+    add a key, which is the most flexible starting point.
+  implications:
+    unsecured: >
+      No API key protection. The URL is callable by anyone who has it. Rely on other
+      mechanisms (HMAC signature verification, IP allowlisting) for security.
+    customer_optional: >
+      Customers can optionally add API keys to their instance. Good default —
+      doesn't force security overhead but allows it.
+    customer_required: >
+      Customers MUST add API keys before the endpoint accepts requests. Good for
+      sensitive data flows where you want to ensure the caller is authenticated.
+    organization: >
+      You define the API keys in the integration code. All instances share the
+      same keys. Good for internal integrations or when you control both ends.
+  docs:
+    - https://prismatic.io/docs/integrations/code-native/endpoint-config.md
+  cookbook_section: "answer: endpoint_security → `flow.endpointSecurityType`"
+
+organization_api_keys:
+  question: "What API key(s) should secure this endpoint? (comma-separated)"
+  type: text
+  inference: prohibited
+  scope: flow
+  depends_on: [endpoint_security]
+  condition:
+    endpoint_security: organization
+  maps_to: "flow.organizationApiKeys"
+  note: >
+    REQUIRED when endpointSecurityType is "organization".
+    Platform REJECTS flows with organization security and empty API keys at publish time.
+    Keys are stored encrypted. Provide as comma-separated values.
+    Example: "my-api-key-1,my-api-key-2"
+  agent_context: >
+    When using organization-level endpoint security, you hardcode the API keys in the
+    integration definition. Every deployed instance uses these same keys. The caller must
+    include the key as a query parameter or header. Keys are stored encrypted in Prismatic.
+    If you need per-customer keys, use "customer_required" instead.
+  docs:
+    - https://prismatic.io/docs/integrations/code-native/endpoint-config.md
+  cookbook_section: "answer: organization_api_keys → `flow.organizationApiKeys`"

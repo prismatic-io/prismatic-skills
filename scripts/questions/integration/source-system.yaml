@@ -1,0 +1,206 @@
+# Source system — component, connection, credentials, API docs
+
+source_system:
+  question: "What is the SOURCE system name?"
+  type: text
+  inference: allowed
+  scope: integration
+  agent_context: >
+    This identifies where data comes from. For webhook triggers, the source system sends
+    data TO Prismatic via HTTP. A source component is only needed when Prismatic must call
+    the source system's API (e.g., auto-registering webhooks, fetching additional data,
+    polling). If the user only described receiving webhooks with no API callbacks, a source
+    component is NOT needed. Name the specific product (e.g., "Salesforce", "Shopify"),
+    not a generic category.
+
+source_component:
+  question: "Search for existing Prismatic components for the source system."
+  type: lookup
+  inference: prohibited
+  scope: integration
+  skippable: true
+  lookup:
+    script: scripts/integrations/find-components.ts
+    args: ["${source_system}"]
+  depends_on: [source_system]
+  note: >
+    Even for webhook triggers, components may provide webhookLifecycleHandlers
+    (auto-register/deregister webhooks on deploy/delete) or specialized trigger
+    functions (e.g., hashHmacWebhookTrigger for signature verification).
+  agent_context: >
+    Run the lookup script to search for components. If a component is found, record the
+    full component object. If NO component is found, record the value "none" (not empty string).
+    "none" tells downstream items that no component exists and triggers the API docs URL question.
+    Do NOT record an empty string — it will not be recognized as answered.
+    For webhook triggers: SKIP this if the integration only receives webhooks from the
+    source (no API callbacks needed). SEARCH if the integration needs to make API calls
+    TO the source system. If no component exists, the flow will use direct HTTP calls.
+  docs:
+    - https://prismatic.io/docs/integrations/code-native/existing-components.md
+
+source_connection_type:
+  question: "Which connection/auth type for the source component?"
+  type: lookup
+  inference: prohibited
+  scope: integration
+  skippable: true
+  skip_if_empty: true
+  lookup:
+    note: "Extract connection types from the source_component search results. Present each connection option (e.g., OAuth2, API Key, Basic Auth) to the user."
+    source: source_component.connections
+  depends_on: [source_component, source_connection_existing]
+  condition:
+    source_component: { not_empty: true }
+    source_connection_existing: { in: ["none", "solo_build_only"] }
+  note: >
+    Store the FULL connection object from the lookup result, not just the key string.
+    The key is needed for manifest helper imports during code generation.
+  agent_context: |
+    <lookup-contract>
+      This question is ONLY about which auth method (OAuth 2.0, API Key, Token-Based Auth, etc.).
+      The NEXT question asks who manages the connection (org, customer, manifest). Do not combine them.
+      Extract connection options from the source_component answer's `connections` array.
+      Present each one to the user with its label and auth_type.
+      Write the FULL connection JSON object from the array — not a string label, not a slug.
+      Example: '{"key":"oauth2-dynamic-inputs","label":"OAuth 2.0","auth_type":"OAuth2","required_inputs":[...]}'
+    </lookup-contract>
+
+source_connection:
+  question: "How should the source connection be managed?"
+  type: choice
+  inference: prohibited
+  scope: integration
+  choices:
+    - org_activated
+    - customer_activated
+    - manifest_based
+    - no_connection
+  depends_on: [source_connection_type]
+  condition:
+    source_connection_type: { not_empty: true }
+  note: >
+    Each choice produces different code:
+    - Organization-activated → organizationActivatedConnection() in scopedConfigVars
+    - Customer-activated → customerActivatedConnection() in configPages
+    - Create new → manifest connection helper (e.g., slackOauth2()) on configPage
+    - No connection → no connection config needed
+    WARNING: Build-only/demo connections cannot be used with organizationActivatedConnection().
+    If only build-only connections exist for org-activated, switch to manifest-based.
+  agent_context: |
+    <present-as>
+      <option value="customer_activated" recommended="true">Customer-activated (reusable) — each customer provides and authorizes their own credentials (OAuth flow or API keys). The connection is defined once in Prismatic and reusable across integrations. Code: customerActivatedConnection() in configPages.</option>
+      <option value="org_activated">Org-activated (reusable) — your team provides credentials on behalf of customers. Can be per-customer (unique creds per customer) or global (one shared connection for all). Code: organizationActivatedConnection() in scopedConfigVars.</option>
+      <option value="manifest_based">Integration-specific — connection defined on this integration's config page only. Not reusable across integrations. Org provides OAuth app creds, customer authorizes during setup. Code: connectionConfigVar() or manifest helper in configPages.</option>
+      <option value="no_connection">No auth needed.</option>
+    </present-as>
+    Recommend customer_activated for most cases. The record-choices script will guide next steps.
+  implications:
+    "customer_activated": >
+      Each customer provides and authorizes their own credentials during instance setup.
+      Connection defined once in Prismatic, reusable across integrations. Uses
+      customerActivatedConnection({ stableKey }) in configPages.ts.
+    "org_activated": >
+      Your team provides credentials — either unique per customer or one shared connection
+      for all customers. Not visible to customers in the config wizard. Uses
+      organizationActivatedConnection({ stableKey }) in index.ts scopedConfigVars.
+    "manifest_based": >
+      Integration-specific connection on the config page. Org provides the OAuth app
+      registration (client ID/secret set post-deploy in Prismatic admin). Customer
+      completes the OAuth flow during setup. Not reusable across integrations. Uses
+      connectionConfigVar() or manifest helpers (e.g., slackOauth2()) in configPages.ts.
+    "no_connection": >
+      No authentication required. Suitable for public endpoints or when auth is handled
+      differently (e.g., API key passed as a config variable).
+  on_answer:
+    org_activated: >
+      IMMEDIATELY run `prismatic-tools search-connections ${source_system}` to find existing org connections.
+      Present results to the user and let them select one. Do not proceed to the next question
+      until a connection is selected. Build-only/demo connections cannot be used with
+      organizationActivatedConnection() — warn if only those exist.
+    customer_activated: >
+      IMMEDIATELY run `prismatic-tools search-connections ${source_system}` to find existing connections.
+      Present results to the user and let them select one. If none exist, offer to create one
+      with `create-organization-connection`.
+    manifest_based: >
+      The next question will ask about providing credentials. Prepare to run
+      `prismatic-tools get-credentials` if the user chooses to provide them now.
+  docs:
+    - https://prismatic.io/docs/integrations/connections.md
+  cookbook_section: "Connection Strategy Code Paths"
+
+source_connection_existing:
+  question: "Search for existing connections for the source system."
+  type: lookup
+  inference: prohibited
+  scope: integration
+  lookup:
+    script: scripts/integrations/search-connections.ts
+    args: ["${source_system}"]
+  depends_on: [source_component]
+  condition:
+    source_component: { not_empty: true }
+  agent_context: |
+    Search runs automatically after the component is found. Present results to the user:
+    - If usable connections found: "Found an existing [type] connection for [system]. Use it, or create a new one?"
+      If user picks one, infer source_connection_type from the component's connections array
+      (match by component key) and source_connection from the connectionType field (CUSTOMER → customer_activated,
+      ORG → org_activated). Skip source_connection_type and source_connection questions entirely.
+    - If only build-only connections found: record "solo_build_only" and proceed to source_connection_type.
+    - If no connections found: record "none" and proceed to source_connection_type.
+  note: >
+    This search now fires BEFORE the strategy choice, not after. If the user picks an
+    existing connection, the strategy and type are inferred from the search result.
+    Build-only connections (connectionType: "Build-Only") cannot be used for production.
+
+source_org_connection_scope:
+  question: "Should the org provide unique credentials per customer, or use one shared connection for all customers?"
+  type: choice
+  choices: [per_customer, global]
+  inference: prohibited
+  scope: integration
+  depends_on: [source_connection]
+  condition:
+    source_connection: org_activated
+  agent_context: |
+    <present-as>
+      <option value="per_customer">Per-customer credentials — your team provides separate credentials for each customer. Each customer gets their own connection instance managed by your org.</option>
+      <option value="global">One shared connection — a single set of credentials shared across all customer instances.</option>
+    </present-as>
+  implications:
+    per_customer: >
+      Creates an org-activated customer-scoped connection (SCV). Your team creates credentials
+      for each customer before deploying to them. Customers never see this connection.
+    global: >
+      Creates an org-activated org-scoped connection (SCV) with credentials stored directly
+      on the connection definition. No per-customer credentials needed. All instances share.
+
+source_provide_credentials:
+  question: "Provide OAuth/API credentials for the source system now? If yes, they'll be written to .env for immediate use after deploy."
+  type: choice
+  inference: prohibited
+  scope: integration
+  choices:
+    - "yes"
+    - "skip"
+  depends_on: [source_connection]
+  condition:
+    source_connection: "manifest_based"
+  agent_context: >
+    If you have the OAuth Client ID, Client Secret, and any other required credentials on hand,
+    providing them now means the integration will work immediately after deploy. The credentials
+    are written to a .env file that the scaffold reads at build time. If you skip this step,
+    you'll need to manually edit .env before the connection will authenticate.
+
+source_api_docs_url:
+  question: "API documentation URL for the source system (e.g., https://developers.example.com/api)"
+  type: text
+  inference: allowed
+  scope: integration
+  validate: "^https?://"
+  depends_on: [source_component]
+  condition:
+    source_component: { empty: true }
+  agent_context: >
+    When no Prismatic component exists for the source system, we need API documentation
+    to generate direct HTTP calls. The agent will fetch this URL to discover endpoints,
+    authentication methods, and payload shapes for code generation.

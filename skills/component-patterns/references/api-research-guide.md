@@ -190,16 +190,24 @@ If the API supports webhooks:
 
 ## How API Research is Triggered
 
-The `/build-component` orchestrating command handles API research using the [chain subagents pattern](https://code.claude.com/docs/en/sub-agents#chain-subagents). During requirements gathering, when `gather_requirements.py` outputs `status: "agent_task"`, the orchestrator spawns the `external-api-researcher` sub-agent from the main conversation context.
+During requirements gathering, when `gather-requirements.ts` outputs `status: "inline_task"`, the builder agent performs API research directly using WebFetch/WebSearch (no sub-agent needed).
 
-The researcher uses WebFetch internally to read documentation pages and follows links to:
+Use WebFetch to read documentation pages and follow links to:
 
 - Authentication/Authorization pages
 - Individual endpoint references
 - Webhook documentation
 - SDK examples (can reveal patterns)
 
-After the researcher completes, the orchestrator marks the research step as answered and continues gathering remaining requirements before spawning the `component-builder` for code generation.
+### WebFetch Best Practices
+
+- **Start with a single comprehensive fetch** of the entry-point URL extracting auth, base URL, endpoints, webhooks, and rate limits in one pass
+- **Anchor deduplication**: Many APIs (e.g., Canny, Linear) publish all docs on one page with `#anchor` links. Strip fragments before fetching — same base URL = same page content
+- **Max 10 WebFetch calls** per research session
+- **Official docs only** — stay on the documentation domain, no third-party sources
+- If information is missing after thorough reading, note it in the `"notes"` field
+
+After research completes, mark the step as answered and continue gathering remaining requirements.
 
 ## Output Format
 

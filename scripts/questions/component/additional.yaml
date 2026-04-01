@@ -1,0 +1,44 @@
+# Error handling and additional requirements
+
+error_handling_strategy:
+  question: "How should this component handle errors from API calls or action logic?"
+  type: choice
+  choices: [connection_error, try_catch, none]
+  inference: allowed
+  scope: component
+  agent_context: |
+    <present-as>
+      <option value="connection_error">ConnectionError (Prismatic built-in) — wraps API errors with connection context so the platform can identify auth failures, rate limits, and connectivity issues. Shows clear error messages in the dashboard. Recommended for connectors.</option>
+      <option value="try_catch">Manual try/catch — custom error handling logic in each action. More control over error messages and recovery, but more code to maintain. Useful for utilities with complex validation.</option>
+      <option value="none">No special handling — let errors propagate as-is. The platform catches unhandled errors and marks the execution as failed. Simplest option for straightforward actions.</option>
+      <do-not-present>retry, circuit-breaker, DLQ, error-flow</do-not-present>
+    </present-as>
+    This determines the error handling pattern used across all actions in the component.
+    ConnectionError is the Prismatic-idiomatic approach for connectors — it wraps HTTP errors
+    with connection metadata so the platform can distinguish auth failures from data errors.
+  implications:
+    connection_error: >
+      All actions wrap API calls with ConnectionError. HTTP 401/403 errors are reported as
+      authentication failures. Rate limit (429) and server errors (5xx) include retry guidance.
+      The platform uses this metadata for connection health monitoring and alert triggers.
+      Scaffold includes a shared HTTP client wrapper that maps status codes to ConnectionError types.
+    try_catch: >
+      Each action includes manual try/catch blocks with custom error messages. Gives full
+      control over error formatting and partial recovery. More boilerplate but useful when
+      actions need different error strategies (e.g., some actions should warn, others should fail).
+    none: >
+      Errors propagate directly to the platform. Unhandled exceptions mark the execution as
+      failed with the raw error message. Simplest code but error messages may be unclear
+      to integration builders debugging in the dashboard.
+  cookbook_section: "error_handling_strategy → error pattern"
+
+additional_requirements:
+  question: "Any additional requirements or constraints? (rate limiting, special headers, SDK usage, etc.)"
+  type: text
+  inference: allowed
+  scope: component
+  skippable: true
+  agent_context: >
+    Capture anything else that affects code generation — rate limit handling, required custom
+    headers, use of an official SDK instead of raw HTTP, specific response format requirements,
+    retry logic, caching needs, or compliance constraints. If nothing extra is needed, skip this.

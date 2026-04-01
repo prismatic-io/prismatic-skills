@@ -10,7 +10,7 @@ This example demonstrates how to use **Prismatic component manifests** in your C
 - Registering components in `componentRegistry.ts`
 - Using connection helpers from manifests
 - Using data source helpers from manifests
-- Accessing component actions via `context.components`
+- Accessing component actions via manifest imports and `.perform()`
 
 ---
 
@@ -57,7 +57,7 @@ slack-salesforce-sync/
 
 ```bash
 # Scaffold and install both manifests
-scripts/integrations/scaffold_project.py slack-salesforce-sync --components slack,salesforce
+scripts/integrations/scaffold-project.ts slack-salesforce-sync --components slack,salesforce
 ```
 
 This creates the project structure and installs manifests at `src/manifests/`.
@@ -201,6 +201,8 @@ import { slackSelectChannels } from "./manifests/slack/dataSources/selectChannel
 
 ```typescript
 import { flow, util } from "@prismatic-io/spectral";
+import salesforceActions from "../manifests/salesforce/actions";
+import slackActions from "../manifests/slack/actions";
 
 // Define types for API responses
 interface SalesforceRecord {
@@ -236,7 +238,7 @@ export const syncContactsFlow = flow({
     logger.info(`Executing SOQL query: ${query}`);
 
     // Call Salesforce component action
-    const sfResult = await context.components.salesforce.soqlQuery({
+    const sfResult = await salesforceActions.soqlQuery.perform({
       connection: configVars["Salesforce Connection"],
       query,
     }) as SalesforceQueryResult;
@@ -252,7 +254,7 @@ export const syncContactsFlow = flow({
     const message = `*Salesforce Sync Complete*\n\nFound ${sfResult.totalSize} contacts:\n${contactList}`;
 
     // Call Slack component action
-    const slackResult = await context.components.slack.postMessage({
+    const slackResult = await slackActions.postMessage.perform({
       connection: configVars["Slack Connection"],
       channelName: channel,
       message,
@@ -274,11 +276,13 @@ export default [syncContactsFlow];
 
 ### Key Patterns
 
-**Accessing component actions:**
+**Accessing component actions via manifest imports:**
 
 ```typescript
-// Format: context.components.<componentKey>.<actionKey>({params})
-const result = await context.components.salesforce.soqlQuery({
+// Import actions from the manifest, then call <actions>.<actionKey>.perform({params})
+import salesforceActions from "../manifests/salesforce/actions";
+
+const result = await salesforceActions.soqlQuery.perform({
   connection: configVars["Salesforce Connection"],
   query: "SELECT Id FROM Account",
 });
@@ -289,12 +293,14 @@ const result = await context.components.salesforce.soqlQuery({
 Component actions return `unknown`. Cast to appropriate types:
 
 ```typescript
+import salesforceActions from "../manifests/salesforce/actions";
+
 interface SalesforceQueryResult {
   totalSize: number;
   records: any[];
 }
 
-const result = await context.components.salesforce.soqlQuery({...}) as SalesforceQueryResult;
+const result = await salesforceActions.soqlQuery.perform({...}) as SalesforceQueryResult;
 ```
 
 **Passing connections:**
@@ -338,15 +344,19 @@ export default integration({
 ### Multiple Component Actions
 
 ```typescript
+import hubspotActions from "../manifests/hubspot/actions";
+import salesforceActions from "../manifests/salesforce/actions";
+import slackActions from "../manifests/slack/actions";
+
 onExecution: async (context, params) => {
   // Fetch from HubSpot
-  const deals = await context.components.hubspot.getDeals({
+  const deals = await hubspotActions.getDeals.perform({
     connection: context.configVars["HubSpot Connection"],
   });
 
   // Create in Salesforce
   for (const deal of deals.data) {
-    await context.components.salesforce.createRecord({
+    await salesforceActions.createRecord.perform({
       connection: context.configVars["Salesforce Connection"],
       objectType: "Opportunity",
       record: {
@@ -357,7 +367,7 @@ onExecution: async (context, params) => {
   }
 
   // Notify via Slack
-  await context.components.slack.postMessage({
+  await slackActions.postMessage.perform({
     connection: context.configVars["Slack Connection"],
     channelName: "sales",
     message: `Synced ${deals.data.length} deals from HubSpot`,
@@ -370,8 +380,10 @@ onExecution: async (context, params) => {
 ### Error Handling
 
 ```typescript
+import slackActions from "../manifests/slack/actions";
+
 try {
-  await context.components.slack.postMessage({
+  await slackActions.postMessage.perform({
     connection: context.configVars["Slack Connection"],
     channelName: "general",
     message: "Hello!",
@@ -385,16 +397,19 @@ try {
 ### Conditional Component Usage
 
 ```typescript
+import slackActions from "../manifests/slack/actions";
+import sendgridActions from "../manifests/sendgrid/actions";
+
 const notificationType = util.types.toString(context.configVars["Notification Type"]);
 
 if (notificationType === "slack") {
-  await context.components.slack.postMessage({
+  await slackActions.postMessage.perform({
     connection: context.configVars["Slack Connection"],
     channelName: context.configVars["Slack Channel"],
     message: "Notification!",
   });
 } else if (notificationType === "email") {
-  await context.components.sendgrid.sendEmail({
+  await sendgridActions.sendEmail.perform({
     connection: context.configVars["SendGrid Connection"],
     to: context.configVars["Email Address"],
     subject: "Notification",
@@ -410,12 +425,12 @@ if (notificationType === "slack") {
 Search for components before scaffolding:
 
 ```bash
-python scripts/integrations/search_components.py salesforce
-python scripts/integrations/search_components.py slack
-python scripts/integrations/search_components.py hubspot
+prismatic-tools find-components salesforce
+prismatic-tools find-components slack
+prismatic-tools find-components hubspot
 ```
 
-This shows component keys to use with `--components` flag.
+This returns component keys (with connection details) to use with `--components` flag.
 
 ---
 
@@ -423,11 +438,11 @@ This shows component keys to use with `--components` flag.
 
 ### Required Steps
 
-1. Scaffold with manifests: `scaffold_project.py <name> --components <comp1,comp2>`
+1. Scaffold with manifests: `scaffold-project.ts <name> --components <comp1,comp2>`
 2. Register in `componentRegistry.ts`
 3. Use connection helpers in `configPages.ts`
 4. Use data source helpers for dropdowns
-5. Access actions via `context.components.<key>.<action>()`
+5. Import manifest actions and call `<component>Actions.<action>.perform()`
 6. Include `componentRegistry` in `index.ts`
 
 ### Key Benefits

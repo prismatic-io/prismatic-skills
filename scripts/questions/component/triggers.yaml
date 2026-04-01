@@ -1,0 +1,96 @@
+# Triggers — webhooks, webhook events, security, polling
+# All items conditioned on component_type: connector
+
+webhook_support:
+  question: "Does this API support webhooks (sending events to an endpoint)?"
+  type: choice
+  choices: [yes, no, unsure]
+  inference: allowed
+  scope: component
+  condition:
+    component_type: connector
+  agent_context: >
+    Webhooks let the external API push events to a Prismatic endpoint in real-time. If the API
+    supports webhooks, the component can include trigger definitions that handle incoming webhook
+    payloads, verify signatures, and parse events. If unsure, the agent can check the API docs.
+  implications:
+    yes: >
+      The component will include webhook trigger definitions. The scaffold generates trigger
+      functions that parse incoming payloads, verify signatures (if applicable), and emit
+      typed events. Integration builders can use these triggers to start flows.
+    no: >
+      No webhook triggers. Integrations using this component will rely on polling or scheduled
+      triggers to detect changes. The component focuses on actions only.
+    unsure: >
+      The agent will research the API documentation to determine webhook support. If webhooks
+      are found, the spec continues as if "yes" was selected.
+
+webhook_events:
+  question: "What webhook event types does the API send? (e.g., 'order.created, order.updated, customer.deleted')"
+  type: text
+  inference: allowed
+  scope: component
+  depends_on: [webhook_support]
+  condition:
+    webhook_support: yes
+  agent_context: >
+    List the webhook event types the API can send. These become individual trigger definitions
+    or a single trigger with event type filtering. Common patterns: "resource.action" (e.g.,
+    "order.created"), "EVENT_NAME" (e.g., "ORDER_CREATED"), or topic-based (e.g., "orders/create").
+    The scaffold generates typed payload interfaces for each event type.
+
+webhook_security:
+  question: "How does the API secure webhook deliveries?"
+  type: choice
+  choices: [hmac, basic_auth, api_key_header, none]
+  inference: allowed
+  scope: component
+  depends_on: [webhook_support]
+  condition:
+    webhook_support: yes
+  agent_context: |
+    <present-as>
+      <option value="hmac">HMAC signature — the API signs each webhook payload with a shared secret. The trigger verifies the signature before processing. Most secure and most common (Stripe, GitHub, Shopify).</option>
+      <option value="basic_auth">Basic Auth — the API sends a username/password with each webhook request. The trigger verifies credentials before processing.</option>
+      <option value="api_key_header">API Key Header — the API includes a secret key in a custom header (e.g., X-Webhook-Secret). The trigger checks the header value.</option>
+      <option value="none">No verification — the API does not sign or authenticate webhook deliveries. The trigger accepts all incoming requests. Less secure but some APIs work this way.</option>
+    </present-as>
+    Webhook security determines how the trigger verifies that incoming requests are actually
+    from the expected API and not spoofed. HMAC is the most common and most secure pattern.
+  implications:
+    hmac: >
+      The scaffold generates an HMAC verification trigger that computes the signature from
+      the request body and shared secret, then compares it to the signature header. Includes
+      connection input for the webhook signing secret.
+    basic_auth: >
+      The scaffold generates a trigger that extracts and verifies Basic Auth credentials
+      from the Authorization header. Includes connection inputs for username and password.
+    api_key_header: >
+      The scaffold generates a trigger that checks a custom header value against a stored
+      secret. Includes connection input for the expected header value.
+    none: >
+      The scaffold generates a simple passthrough trigger with no signature verification.
+      All incoming requests are accepted and parsed.
+
+polling_support:
+  question: "Should this component include a polling trigger for change detection?"
+  type: choice
+  choices: [yes, no]
+  inference: allowed
+  scope: component
+  condition:
+    component_type: connector
+  agent_context: >
+    A polling trigger lets integrations detect changes on a schedule. It uses persistent
+    state (getState/setState) to track a cursor or timestamp between runs, fetching only
+    new/changed records each execution. Components can have BOTH webhook and polling triggers —
+    webhooks for real-time events, polling for APIs that don't support webhooks or as a
+    fallback. Uses pollingTrigger() from spectral (separate from trigger()).
+  implications:
+    yes: >
+      The scaffold generates a polling trigger with getState/setState for cursor management.
+      The trigger fetches records since the last known cursor and emits new items. Includes
+      configurable polling interval and state persistence.
+    no: >
+      No polling trigger. Integrations must use external scheduling to invoke actions
+      directly. The component provides only actions and data sources.

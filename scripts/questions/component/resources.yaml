@@ -1,0 +1,60 @@
+# Resources — entities, CRUD operations, pagination
+# All items conditioned on component_type: connector
+
+confirm_resources:
+  question: "Which API resources/entities should this component support? (e.g., users, posts, orders, products)"
+  type: text
+  inference: allowed
+  scope: component
+  condition:
+    component_type: connector
+  depends_on: [api_docs_url]
+  agent_context: >
+    List the API resources (entities) this component should expose as actions. Each resource
+    typically maps to a REST endpoint (e.g., /users, /posts, /orders). The scaffold generates
+    typed actions for each resource. Start with the most important resources — you can always
+    add more later. If the API docs were fetched, suggest resources based on the available endpoints.
+
+resource_actions:
+  question: "What CRUD operations should each resource support? (e.g., 'users: list, get, create, update, delete; posts: list, get')"
+  type: text
+  inference: allowed
+  scope: component
+  depends_on: [confirm_resources]
+  condition:
+    component_type: connector
+  agent_context: >
+    Specify which operations to generate per resource. Common patterns: "list" (GET collection),
+    "get" (GET single by ID), "create" (POST), "update" (PUT/PATCH), "delete" (DELETE).
+    Not every resource needs all operations — match what the API actually supports and what
+    users need. The scaffold generates one action per resource-operation combination.
+
+pagination_strategy:
+  question: "How does the API handle pagination?"
+  type: choice
+  choices: [internal_loop, exposed_inputs, none]
+  inference: allowed
+  scope: component
+  condition:
+    component_type: connector
+  depends_on: [api_docs_url]
+  agent_context: |
+    <present-as>
+      <option value="internal_loop">Internal loop — the action automatically paginates through all pages and returns the complete result set. Simplest for integration builders. The component handles page tokens, cursors, or offsets internally.</option>
+      <option value="exposed_inputs">Exposed inputs — pagination parameters (page, limit, cursor, offset) are exposed as action inputs. Integration builders control pagination manually. Useful when partial fetches are needed or datasets are very large.</option>
+      <option value="none">No pagination — the API returns all results in a single response, or the component only supports single-item operations (get by ID, create, update, delete).</option>
+    </present-as>
+    Choose how list/collection actions handle pagination. This determines whether the
+    generated actions loop internally or expose pagination controls to the integration builder.
+  implications:
+    internal_loop: >
+      List actions automatically fetch all pages and return the complete dataset. The component
+      manages page tokens, cursors, or offset/limit internally. Simpler for integration builders
+      but may be slow for very large collections. Generated code includes a pagination loop helper.
+    exposed_inputs: >
+      List actions expose pagination inputs (page, limit, cursor, next_token) so the integration
+      builder controls fetching. Better for large datasets where partial fetches are needed.
+      Generated actions include optional pagination inputs with sensible defaults.
+    none: >
+      No pagination handling needed. Either the API returns everything in one response or the
+      component only supports single-item operations. Simplest generated code with no pagination logic.

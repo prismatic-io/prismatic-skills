@@ -1,0 +1,49 @@
+# Component overview — type, name, description
+
+component_type:
+  question: "What type of component are you building?"
+  type: choice
+  choices: [connector, utility]
+  inference: prohibited
+  scope: component
+  agent_context: |
+    <present-as>
+      <option value="connector">Application Connector — wraps an external API (e.g., Salesforce, Canny, Stripe). Provides actions, triggers, connections, and data sources for a specific service.</option>
+      <option value="utility">Utility/Logic Component — provides helper logic not tied to a single API (e.g., date transforms, CSV parsing, string formatting, math operations).</option>
+    </present-as>
+    This choice drives the entire spec. Connectors focus on API wrapping (auth, resources, webhooks).
+    Utilities focus on reusable logic actions with typed inputs and outputs.
+  implications:
+    connector: >
+      The component will wrap an external API. You'll define authentication (OAuth2, API key, etc.),
+      API resources (CRUD operations per entity), triggers (webhooks, polling), and data sources
+      (dynamic dropdowns for config pages). The scaffold includes connection definitions, typed
+      actions per resource, and HTTP client setup.
+    utility: >
+      The component provides reusable logic actions not tied to a specific API. No connections
+      or auth configuration. You'll define what actions the utility exposes and what input types
+      they accept. The scaffold includes action definitions with typed inputs/outputs.
+
+component_name:
+  question: "What is the component name? (lowercase with hyphens, e.g., 'salesforce' or 'date-utils')"
+  type: text
+  inference: allowed
+  scope: component
+  note: >
+    Must be lowercase with hyphens. This becomes the npm package name and the component key
+    in the Prismatic registry. Examples: "salesforce", "canny", "csv-parser", "date-utils".
+  agent_context: >
+    The component name is used as the npm package name, the directory name, and the component
+    key in the Prismatic registry. Use lowercase with hyphens only. For connectors, use the
+    API/service name (e.g., "salesforce", "stripe"). For utilities, use a descriptive name
+    (e.g., "date-utils", "csv-parser").
+
+component_description:
+  question: "Describe what this component does in one or two sentences."
+  type: text
+  inference: allowed
+  scope: component
+  agent_context: >
+    A brief description shown in the Prismatic component marketplace and the integration designer.
+    Keep it concise and specific. For connectors: "Interact with the [Service] API to manage
+    [resources]." For utilities: "Provides [actions] for [use case]."

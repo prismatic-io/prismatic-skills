@@ -1,0 +1,85 @@
+# Connector configuration — API name, docs, auth type, base URL
+# All items conditioned on component_type: connector
+
+api_name:
+  question: "What is the name of the API this component wraps? (e.g., 'Salesforce REST API', 'Canny API')"
+  type: text
+  inference: allowed
+  scope: component
+  condition:
+    component_type: connector
+  agent_context: >
+    The specific API this component wraps. Use the official name from the provider's docs
+    (e.g., "Salesforce REST API", "Stripe API v2", "Canny API"). This is used in generated
+    code comments, error messages, and documentation.
+
+api_docs_url:
+  question: "URL to the API documentation (e.g., https://developers.example.com/api)"
+  type: text
+  inference: allowed
+  scope: component
+  condition:
+    component_type: connector
+  agent_context: >
+    The primary API documentation URL. This will be passed to the external-api-researcher
+    agent to discover endpoints, authentication methods, resource schemas, and payload shapes.
+    Provide the root docs page or the API reference index — the researcher navigates from there.
+
+auth_type:
+  question: "What authentication method does this API use?"
+  type: choice
+  choices: [oauth2, apikey, api_key_secret, bearer, basic, multiple]
+  inference: prohibited
+  scope: component
+  condition:
+    component_type: connector
+  depends_on: [api_docs_url]
+  agent_context: |
+    <present-as>
+      <option value="oauth2">OAuth 2.0 — full OAuth flow with authorization code grant. User redirects to the provider to authorize. Requires client ID, client secret, authorize URL, token URL. Most common for user-facing SaaS APIs (Salesforce, Slack, HubSpot).</option>
+      <option value="apikey">API Key — single key passed as a header or query parameter. Simple setup, no OAuth flow. Common for internal/developer APIs (Canny, SendGrid, Datadog).</option>
+      <option value="bearer">Bearer Token — static token passed in the Authorization header. Similar to API key but uses the standard Bearer scheme. Common for personal access tokens.</option>
+      <option value="api_key_secret">API Key + Secret — two credential fields (key ID + key/secret) exchanged for a short-lived session token via an authorize endpoint. The client handles token exchange internally. Common for cloud storage APIs (Backblaze B2, AWS-style).</option>
+      <option value="basic">Basic Auth — username and password sent as Base64-encoded Authorization header. Common for legacy APIs and some REST services (Jira, Confluence).</option>
+      <option value="multiple">Multiple auth methods — the component supports more than one connection type. Users choose which to use during instance setup. Common for APIs that offer both OAuth and API key access.</option>
+      <do-not-present>hmac, digest, certificate, saml, custom</do-not-present>
+    </present-as>
+    Choose the primary authentication method the API requires. If the API supports multiple
+    methods (e.g., both OAuth2 and API key), select "multiple" and the scaffold will generate
+    connection definitions for each.
+  implications:
+    oauth2: >
+      Generates a full OAuth 2.0 connection definition with authorization URL, token URL,
+      client ID, client secret, scopes, and refresh token handling. The scaffold includes
+      the connection type, token refresh logic, and typed inputs for all OAuth parameters.
+    apikey: >
+      Generates a simple connection with a single API key input. The scaffold includes
+      the connection type and a helper to inject the key into request headers or query params.
+    bearer: >
+      Generates a connection with a bearer token input. The scaffold includes the connection
+      type and a helper to set the Authorization: Bearer header on all requests.
+    basic: >
+      Generates a connection with username and password inputs. The scaffold includes the
+      connection type and a helper to set the Base64-encoded Authorization header.
+    api_key_secret: >
+      Generates a connection with two credential fields (Key ID + Key/Secret). The client
+      calls an authorize endpoint on first use to exchange credentials for a session token
+      and API URL. Subsequent calls use the token. Common for cloud storage APIs.
+    multiple: >
+      Generates multiple connection definitions — one per auth method. The scaffold includes
+      all connection types and a utility to detect which connection type is in use at runtime.
+  cookbook_section: "auth_type → connection definition patterns"
+
+base_url:
+  question: "What is the API base URL? (e.g., https://api.example.com/v2)"
+  type: text
+  inference: allowed
+  scope: component
+  condition:
+    component_type: connector
+  depends_on: [api_docs_url]
+  agent_context: >
+    The base URL for all API requests. This becomes the default in the HTTP client setup.
+    Include the version prefix if the API uses one (e.g., "https://api.stripe.com/v1",
+    "https://canny.io/api/v1"). Some APIs use dynamic base URLs per customer — note if
+    the base URL needs to be a connection input.

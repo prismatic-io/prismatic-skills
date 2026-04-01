@@ -179,12 +179,16 @@ When the agent generates integration code, create test artifacts in a single org
 
 1. **Create `test-data/` directory** in integration root
 2. **Generate `test-data/trigger-config.json`** with metadata for each flow
-3. **For each webhook flow, create `test-data/<flow-stable-key>/` subdirectory**
-4. **Generate `test-data/<flow-stable-key>/sample-payload.<ext>`** with actual test data
-   - Use `.json` extension for `application/json`
-   - Use `.xml` extension for `application/xml`
-   - Use `.txt` extension for `text/plain` or other types
-5. **Match sample payload to actual code** - ensure payload structure aligns with what `onTrigger` expects
+3. **For each flow that needs a test payload, create `.spectral/flows/<flow-stable-key>/payloads/` directory**
+4. **Generate `.spectral/flows/<flow-stable-key>/payloads/sample-payload.json`** in VS Code extension format:
+   ```json
+   {
+     "headers": { "content-type": "application/json" },
+     "data": { ... actual payload ... },
+     "contentType": "application/json"
+   }
+   ```
+5. **Match sample payload to actual code** — the `.data` field must match what the flow's trigger receives
 
 ### Sample Payload Guidelines
 
@@ -221,16 +225,16 @@ my-integration/
 
 ---
 
-## Usage by test_integration.py
+## Usage During Testing
 
-The test script will:
+When testing via MCP `prism_integrations_flows_test`:
 
-1. Check for `test-data/trigger-config.json` in integration directory (if `--integration-dir` provided)
+1. Read `test-data/trigger-config.json` in the integration directory
 2. Read flow metadata for the flow being tested
 3. If `triggerType === "webhook"` and `expectsPayload === true`:
-   - Look for existing `test-data/<flow-stable-key>/sample-payload.<ext>` file
-   - Pass file to `prism integrations:flows:test --payload <file> --payload-content-type <contentType>`
-   - Warn if file doesn't exist (should have been created in Phase 3)
+   - Read `test-data/<flow-stable-key>/sample-payload.<ext>` file
+   - Pass payload content to the MCP test tool
+   - Warn if file doesn't exist (should have been created during code generation)
 4. If no metadata file exists, proceed with default behavior (no payload)
 
 ### Test Artifacts Directory Structure

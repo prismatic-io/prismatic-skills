@@ -1,0 +1,100 @@
+# Queue configuration — concurrency control
+# Maps to flow.queueConfig (flat shape — matches docs and platform backend)
+#
+# Platform constraints:
+#   - usesFifoQueue: only async, non-scheduled webhook flows
+#   - singletonExecutions: only scheduled/polling flows
+#   - concurrencyLimit > 1: requires configurable-flow-concurrency feature flag
+#   - FIFO queue: requires enable-fifo-queue feature flag
+#   - If feature flags are off, queueConfig is silently ignored on import
+
+queue_fifo_enabled:
+  question: "Should executions be processed in FIFO (first-in-first-out) order?"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: allowed
+  scope: flow
+  default: "No"
+  maps_to: "flow.queueConfig.usesFifoQueue"
+  skippable: true
+  condition:
+    trigger_type: webhook
+    is_synchronous: { not: "Yes" }
+  note: >
+    FIFO ordering ensures executions run in the order received.
+    Only available for async webhook flows (not scheduled/polling).
+    Requires enable-fifo-queue feature flag on the org.
+    When enabled, concurrencyLimit is effectively 1.
+  agent_context: >
+    FIFO queuing guarantees that webhook executions process in the exact order they arrived.
+    Without FIFO, if two webhooks arrive 100ms apart, the second might start before the first
+    finishes (depending on concurrency). FIFO prevents this — critical for order-dependent
+    operations like sequential state updates or financial transactions.
+  implications:
+    "Yes": >
+      Executions process strictly in order. Concurrency is effectively 1 — each execution
+      waits for the previous one. Requires the enable-fifo-queue feature flag on your org.
+    "No": >
+      Default behavior. Executions may process out of order if concurrent. Fine for
+      independent operations where order doesn't matter (e.g., notifications).
+  docs:
+    - https://prismatic.io/docs/integrations/triggers/fifo-queue.md
+  cookbook_section: "answer: queue config → `flow.queueConfig`"
+
+queue_concurrency_limit:
+  question: "Maximum concurrent executions?"
+  type: text
+  inference: allowed
+  scope: flow
+  default: "1"
+  maps_to: "flow.queueConfig.concurrencyLimit"
+  skippable: true
+  note: >
+    Any integer 1-15. Default is 1 (sequential). Values > 1 require the
+    configurable-flow-concurrency feature flag on the org.
+  suggestions: ["1", "2", "3", "5", "10", "15"]
+  agent_context: >
+    Controls how many executions of this flow can run simultaneously. Default is 1 (sequential).
+    Higher concurrency improves throughput for independent operations but can cause race conditions
+    if executions share state. Values above 1 require a feature flag on your Prismatic org.
+
+queue_singleton_executions:
+  question: "Prevent overlapping executions of this scheduled flow?"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: allowed
+  scope: flow
+  default: "No"
+  maps_to: "flow.queueConfig.singletonExecutions"
+  skippable: true
+  condition:
+    trigger_type: { in: [scheduled, polling] }
+  note: >
+    Ensures only one execution runs at a time for scheduled/polling flows.
+    Prevents a slow execution from overlapping with the next scheduled run.
+  agent_context: >
+    For scheduled flows, if an execution takes longer than the schedule interval (e.g., a
+    5-minute sync that takes 7 minutes), the next scheduled run would normally start while
+    the first is still running. Singleton mode prevents this overlap — the next run waits
+    until the current one finishes. Essential for flows that modify shared state.
+  implications:
+    "Yes": >
+      If a run is still executing when the next trigger fires, the new run queues until the
+      current one completes. Prevents overlapping state writes and duplicate processing.
+    "No": >
+      Default — runs can overlap. Fine when executions are independent and fast enough
+      to complete within the schedule interval.
+  docs:
+    - https://prismatic.io/docs/integrations/triggers/fifo-queue.md
+  cookbook_section: "answer: queue config → `flow.queueConfig`"
+
+queue_dedupe_field:
+  question: "Field path for deduplication? (prevents duplicate concurrent executions)"
+  type: text
+  inference: allowed
+  scope: flow
+  skippable: true
+  maps_to: "flow.queueConfig.dedupeIdField"
+  note: >
+    Reference to a field in the trigger return payload used to deduplicate.
+    e.g., "body.data.webhook-id". Only relevant when FIFO or concurrency is configured.

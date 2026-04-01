@@ -1,0 +1,53 @@
+// Template: Raw Request Action (REQUIRED in every component)
+// Source: components repo standardization (actions.md)
+//
+// Located at: src/actions/misc/rawRequest.ts
+// This action allows integration builders to make arbitrary HTTP calls
+// to the API when the component's built-in actions don't cover their use case.
+
+import { action } from "@prismatic-io/spectral";
+import {
+  inputs as httpClientInputs,
+  sendRawRequest,
+} from "@prismatic-io/spectral/dist/clients/http";
+import { connection } from "../../inputs";
+import { createClient } from "../../client";
+
+const { debugRequest, ...rawRequestInputs } = httpClientInputs;
+
+export const rawRequest = action({
+  display: {
+    label: "Raw Request",
+    description: "Send raw HTTP request to {{COMPONENT_LABEL}}.",
+  },
+  inputs: {
+    connection,
+    ...rawRequestInputs,
+    url: {
+      ...rawRequestInputs.url,
+      comments:
+        "Input the path only (e.g., /endpoint). The base URL is already included.",
+      example: "/example-endpoint",
+    },
+  },
+  perform: async (
+    { debug: { enabled: debug } },
+    { connection, ...httpClientInputs },
+  ) => {
+    const client = createClient(connection, debug);
+    const { data } = await sendRawRequest(
+      "{{BASE_URL}}",
+      { ...httpClientInputs, debugRequest: debug },
+      client.defaults?.headers ?? {},
+    );
+    return { data };
+  },
+  examplePayload: {
+    data: {
+      statusCode: 200,
+      contentType: "application/json",
+      headers: {},
+      body: {},
+    },
+  },
+});

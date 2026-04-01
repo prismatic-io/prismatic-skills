@@ -33,8 +33,10 @@ import { slackOauth2 } from "./manifests/slack/connections/oauth2";
 When you call component actions, authentication is automatic:
 
 ```typescript
+import slackActions from "../manifests/slack/actions";
+
 // Connection handles all auth headers, token refresh, etc.
-await context.components.slack.postMessage({
+await slackActions.postMessage.perform({
   connection: context.configVars["Slack Connection"],
   channelName: "general",
   message: "Hello!",
@@ -144,9 +146,11 @@ Different APIs expect keys in different places. Manifest helpers handle this aut
 When authentication fails, provide clear error messages:
 
 ```typescript
+import slackActions from "../manifests/slack/actions";
+
 onExecution: async (context, params) => {
   try {
-    const result = await context.components.slack.postMessage({
+    const result = await slackActions.postMessage.perform({
       connection: context.configVars["Slack Connection"],
       channelName: "general",
       message: "Hello!",
@@ -315,7 +319,7 @@ context.logger.info("Slack API call successful");
 
 ```typescript
 try {
-  await context.components.slack.postMessage({...});
+  await slackActions.postMessage.perform({...});
 } catch (error) {
   context.logger.error(`Slack API error: ${error.message}`);
   throw new Error(`Failed to send Slack message: ${error.message}`);

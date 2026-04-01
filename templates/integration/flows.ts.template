@@ -1,0 +1,131 @@
+// Reference: CNI Flow Definition
+// This file shows the correct structure for flow files. It is a REFERENCE, not a rendered template.
+//
+// CRITICAL patterns:
+//   - Import from "@prismatic-io/spectral" (NEVER from dist/serverTypes)
+//   - Access config: context.configVars["varKey"]
+//   - Call component actions: import actions from manifest, call .perform()
+//   - NEVER use context.components.<key>.<action>() — not in the docs
+//   - Webhook flows WITHOUT lifecycle hooks: skip onTrigger — default passes payload through
+//   - Webhook flows WITH lifecycle hooks: MUST include pass-through onTrigger (Spectral validation requires it)
+//   - NEVER use instanceState in onInstanceDeploy/onInstanceDelete — use crossFlowState
+
+import { flow, util } from "@prismatic-io/spectral";
+import slackActions from "../manifests/slack/actions";
+
+// --- Webhook Flow (most common) ---
+// Do NOT define onTrigger — the default webhook trigger passes the full payload through.
+// Extract data in onExecution via params.onTrigger.results.
+
+const webhookFlow = flow({
+  name: "Webhook Flow",
+  stableKey: "webhook-flow",
+  description: "Receives webhooks and processes them",
+
+  onExecution: async (context, params) => {
+    // Access webhook payload from trigger results
+    const payload = params.onTrigger.results;
+    const body = payload.body.data as unknown as MyPayload;
+
+    // Access config variables
+    const connection = context.configVars["Slack OAuth Connection"];
+    const channel = context.configVars["Select Slack Channel"];
+
+    // Call component actions via manifest import + .perform()
+    await slackActions.postMessage.perform({
+      connection,
+      channelName: util.types.toString(channel),
+      message: `Received: ${body.name}`,
+    });
+
+    return { data: null };
+  },
+});
+
+// --- Scheduled Flow ---
+
+const scheduledFlow = flow({
+  name: "Scheduled Flow",
+  stableKey: "scheduled-flow",
+  description: "Runs on a schedule",
+  schedule: {
+    value: "*/5 * * * *",
+    timezone: "America/Chicago",
+  },
+
+  onExecution: async (context, params) => {
+    // No trigger payload for scheduled flows — logic drives execution
+    return { data: null };
+  },
+});
+
+// --- Flow with General Lifecycle Hooks (resource setup, state init) ---
+// NOTE: instanceState is NOT available in lifecycle hooks. Use crossFlowState instead.
+// IMPORTANT: Any flow with lifecycle hooks MUST include a pass-through onTrigger.
+// Spectral's validateTriggerPerformConfig requires onTrigger when the wrapper trigger path
+// is activated (which happens whenever onInstanceDeploy, onInstanceDelete, or
+// webhookLifecycleHandlers is present). Without it, the build fails with
+// "Invalid trigger configuration detected."
+
+const flowWithLifecycle = flow({
+  name: "Flow With Lifecycle",
+  stableKey: "flow-with-lifecycle",
+  description: "Includes deploy/delete hooks for resource setup",
+
+  // Pass-through trigger — required by Spectral when lifecycle hooks are present
+  onTrigger: async (_context, payload) => ({ payload }),
+
+  onInstanceDeploy: async (context, params) => {
+    // Initialize resources, create folders, set up state, etc.
+    // context.webhookUrls[context.flow.name] gives this flow's webhook URL
+    // Use context.crossFlowState for persistent state (NOT instanceState)
+  },
+
+  onInstanceDelete: async (context, params) => {
+    // Clean up resources created during deploy
+    // Use context.crossFlowState for persistent state
+  },
+
+  onExecution: async (context, params) => {
+    const payload = params.onTrigger.results;
+    const body = payload.body.data as unknown as MyPayload;
+    return { data: null };
+  },
+});
+
+// --- Flow with Webhook Lifecycle Handlers (auto-register/deregister webhooks) ---
+// Use webhookLifecycleHandlers when the source system supports programmatic webhook management.
+// Advantages over onInstanceDeploy for webhook registration:
+//   - .create runs AFTER onInstanceDeploy (guaranteed access to webhookUrls)
+//   - .delete runs on deletion AND when exiting listening mode (cleanup during testing too)
+
+const flowWithWebhookLifecycle = flow({
+  name: "Webhook With Auto-Registration",
+  stableKey: "webhook-auto-register",
+  description: "Auto-registers webhooks on deploy, cleans up on delete",
+
+  // Pass-through trigger — required by Spectral when lifecycle hooks are present
+  onTrigger: async (_context, payload) => ({ payload }),
+
+  webhookLifecycleHandlers: {
+    create: async (context) => {
+      // Runs after onInstanceDeploy. Register webhook URL with external API.
+      const webhookUrl = context.webhookUrls[context.flow.name];
+      // const result = await externalApi.registerWebhook(webhookUrl, eventTypes);
+      // context.crossFlowState["webhookId"] = result.id;
+    },
+    delete: async (context) => {
+      // Runs on instance deletion AND when exiting listening mode.
+      // const webhookId = context.crossFlowState["webhookId"];
+      // await externalApi.deleteWebhook(webhookId);
+    },
+  },
+
+  onExecution: async (context, params) => {
+    const payload = params.onTrigger.results;
+    const body = payload.body.data as unknown as MyPayload;
+    return { data: null };
+  },
+});
+
+export default [webhookFlow];

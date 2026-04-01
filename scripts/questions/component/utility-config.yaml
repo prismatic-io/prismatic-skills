@@ -1,0 +1,30 @@
+# Utility configuration — actions and input types
+# All items conditioned on component_type: utility
+
+utility_actions:
+  question: "What actions should this utility component provide? (e.g., 'format date, parse CSV, slugify string')"
+  type: text
+  inference: prohibited
+  scope: component
+  condition:
+    component_type: utility
+  agent_context: >
+    List every action this utility component should expose. Each action becomes a separate
+    function that integration builders can use in their flows. Be specific about what each
+    action does. Examples: "format date to ISO string", "parse CSV to JSON array",
+    "slugify string", "merge two JSON objects", "validate email format". The scaffold
+    generates one action definition per item with typed inputs and outputs.
+
+utility_inputs:
+  question: "What input types do these actions accept? (e.g., 'strings, dates, JSON objects, arrays')"
+  type: text
+  inference: allowed
+  scope: component
+  depends_on: [utility_actions]
+  condition:
+    component_type: utility
+  agent_context: >
+    Describe the input types across the utility's actions. This helps the scaffold generate
+    properly typed action inputs. Common types: strings, numbers, dates (ISO format), booleans,
+    JSON objects, arrays, file buffers. If different actions accept different types, list them
+    per action (e.g., "format-date: string or Date; parse-csv: string or Buffer").
