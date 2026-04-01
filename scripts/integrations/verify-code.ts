@@ -15,7 +15,7 @@
  *   2 - Usage error
  */
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { getSessionDirectory } from "../shared/project-directory.js";
 
@@ -514,6 +514,9 @@ function main(): number {
 
   const { gaps, notes, verified } = verify(projectDir, answers);
   console.log(formatOutput(gaps, notes, verified));
+
+  const resultPath = join(projectDir, "verify-code-result.json");
+  writeFileSync(resultPath, JSON.stringify({ verified: gaps.length === 0, gaps: gaps.length, timestamp: Date.now() }, null, 2));
 
   return gaps.length > 0 ? 1 : 0;
 }

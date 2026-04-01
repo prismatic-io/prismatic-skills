@@ -70,6 +70,28 @@ function deployIntegration(projectDir: string): number {
       sleepSync(5000);
       console.log("");
 
+      // Extract integration info from stdout if possible
+      const integrationId = result.stdout?.match(/ID:\s*(\S+)/)?.[1] || "unknown";
+      const projectName = projectDir.split("/").pop() || "unknown";
+
+      console.log("");
+      console.log("<deploy-result>");
+      console.log(JSON.stringify({
+        status: "deployed",
+        integration_name: projectName,
+        integration_id: integrationId,
+        next_required_action: "configure_test_instance",
+        exit_state: "deployed_awaiting_config",
+        guidance: [
+          "Check the test instance for unconfigured connections and config variables",
+          "Guide the user through configuration in the designer (opened automatically)",
+          "Run tests after configuration is complete",
+          "Do NOT produce a final summary until test_outcome is determined"
+        ]
+      }, null, 2));
+      console.log("</deploy-result>");
+
+      console.log("");
       console.log("Next steps:");
       console.log("  - View and configure integration in the web app");
       console.log(

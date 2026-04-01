@@ -643,6 +643,21 @@ function buildDescription(
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function escapeXml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function inferPhase(answered: number, total: number, ready: boolean): string {
+  if (answered === 0) return "greeting";
+  if (!ready && answered < total * 0.5) return "early-requirements";
+  if (!ready) return "late-requirements";
+  return "confirm-scaffold";
+}
+
+// ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
@@ -757,20 +772,53 @@ function main(): number {
     );
     const toComplete = manifest.tasks.filter((t) => t.status === "answered");
 
-    // Emit inference confirmation instruction when there are inferable items
-    const inferableCount = toCreate.filter(t => t.inference !== "prohibited").length +
-      toCreateOptional.filter(t => t.inference !== "prohibited").length;
-    if (inferableCount > 0 && toComplete.length < 5) {
-      // First run or early run — many items to infer
-      console.log(
-        `<present-inferences>\n` +
-        `  Before writing any inferred answers, present them to the user first.\n` +
-        `  For each inference: WHAT value, WHY (quote the user's words), and IMPACT on architecture.\n` +
-        `  Ask: "Does this look right? Anything I got wrong?"\n` +
-        `  WAIT for the user to respond before writing answers.\n` +
-        `  Optional items (${toCreateOptional.length} found) are the user's decision — present with your recommendation, do not fill silently.\n` +
-        `</present-inferences>`
-      );
+    // Categorize inferable completed items
+    const fromDescription: Array<{key: string, subject: string, value: string}> = [];
+    const defaults: Array<{key: string, subject: string, value: string, rationale: string}> = [];
+
+    for (const task of toComplete) {
+      const specItem = spec.items[task.spec_key];
+      if (!specItem) continue;
+      if (task.inference === "prohibited") continue; // These were explicitly asked
+
+      const defaultVal = (specItem as Record<string, unknown>).default;
+      const currentVal = String(task.current_value ?? "");
+      const note = typeof (specItem as Record<string, unknown>).note === "string"
+        ? ((specItem as Record<string, unknown>).note as string).split("\n")[0]
+        : "";
+
+      if (defaultVal !== undefined && currentVal === String(defaultVal)) {
+        defaults.push({ key: task.spec_key, subject: task.subject, value: currentVal, rationale: note || "Standard default" });
+      } else if (currentVal) {
+        fromDescription.push({ key: task.spec_key, subject: task.subject, value: currentVal });
+      }
+    }
+
+    if (fromDescription.length > 0 || defaults.length > 0) {
+      console.log(`<present-before-writing>`);
+      if (fromDescription.length > 0) {
+        console.log(`  <from-description count="${fromDescription.length}">`);
+        console.log(`    These were inferred from the user's description. Cite the user's words when presenting.`);
+        for (const item of fromDescription) {
+          console.log(`    <inferred key="${escapeXml(item.key)}" value="${escapeXml(item.value)}">${escapeXml(item.subject)}</inferred>`);
+        }
+        console.log(`  </from-description>`);
+      }
+      if (defaults.length > 0) {
+        console.log(`  <defaults count="${defaults.length}">`);
+        console.log(`    These are sensible defaults. Label them as defaults with rationale.`);
+        for (const item of defaults) {
+          console.log(`    <default key="${escapeXml(item.key)}" value="${escapeXml(item.value)}" rationale="${escapeXml(item.rationale)}">${escapeXml(item.subject)}</default>`);
+        }
+        console.log(`  </defaults>`);
+      }
+      console.log(`  <gate>`);
+      console.log(`    Do NOT call record-choices in the same response as this presentation.`);
+      console.log(`    Present these to the user and WAIT for their next message.`);
+      console.log(`    WRONG: Present inferences AND call record-choices in the same turn.`);
+      console.log(`    RIGHT: Present inferences → user says "looks good" → THEN record-choices.`);
+      console.log(`  </gate>`);
+      console.log(`</present-before-writing>`);
     }
 
     // Emit connection setup instruction when connection items are pending (integrations only)
@@ -865,22 +913,73 @@ function main(): number {
     }
 
     if (askItems.length > 0) {
-      console.log(
-        `<use-ask-user-question>\n` +
-        `  The following ${askItems.length} items have ≤4 choices.\n` +
-        `  Use AskUserQuestion for EACH ONE — not conversational text.\n` +
-        `  AskUserQuestion prevents hallucinated options and makes it clear you're waiting for input.\n` +
-        `  Present ONE AskUserQuestion per message. Wait for the user's response.\n` +
-        `  For inference:allowed items, you may infer if confident — but if you need to ask, use AskUserQuestion.\n` +
-        askItems.map(item =>
-          `  <ask spec_key="${item.spec_key}" subject="${item.subject}" inference="${item.inference}">\n` +
-          item.choices.map(c =>
-            `    <option value="${c}">${item.implications[c]?.split("\n")[0]?.trim() || c}</option>`
-          ).join("\n") + `\n` +
-          `  </ask>`
-        ).join("\n") + `\n` +
-        `</use-ask-user-question>`
-      );
+      console.log(`<ask-user-payloads>`);
+      console.log(`  Use AskUserQuestion for each of these. Copy the JSON payload verbatim.`);
+      console.log(`  Present ONE per message. Wait for the user's response before the next.`);
+      for (const item of askItems) {
+        const options = item.choices.map(c => ({
+          label: item.implications[c]?.split("\n")[0]?.split("—")[0]?.trim() || c.replace(/_/g, " "),
+          description: item.implications[c]?.split("\n")[0]?.trim() || c,
+        }));
+        const payload = {
+          question: item.subject,
+          header: item.spec_key.replace(/_/g, " ").slice(0, 12),
+          options: options.map((o) => ({
+            label: o.label,
+            description: o.description,
+          })),
+          multiSelect: false,
+        };
+        console.log(`  <payload spec_key="${item.spec_key}" inference="${item.inference}">`);
+        console.log(`  ${JSON.stringify(payload, null, 2).split("\n").join("\n  ")}`);
+        console.log(`  </payload>`);
+      }
+      console.log(`</ask-user-payloads>`);
+    }
+
+    // Emit parallel batch directive for mutually-independent lookup items
+    // Lookups that have all deps satisfied AND don't depend on each other can run in parallel
+    const lookupItems: Array<{ spec_key: string; subject: string; script: string }> = [];
+    for (const task of allPendingItems) {
+      const specItem = spec.items[task.spec_key];
+      if (specItem?.type === "lookup" && (specItem as Record<string, unknown>).lookup) {
+        const lookup = (specItem as Record<string, unknown>).lookup as Record<string, unknown>;
+        if (lookup.script) {
+          // Check all deps are satisfied
+          const deps = specItem.depends_on ?? [];
+          const condKeys = specItem.condition ? Object.keys(specItem.condition) : [];
+          const allDeps = [...new Set([...deps, ...condKeys])];
+          const allSatisfied = allDeps.every(d => !isEmpty(answers[d]));
+          if (allSatisfied) {
+            lookupItems.push({
+              spec_key: task.spec_key,
+              subject: task.subject,
+              script: String(lookup.script),
+            });
+          }
+        }
+      }
+    }
+
+    if (lookupItems.length > 1) {
+      // Verify mutual independence: none of these items depend on each other
+      const lookupKeys = new Set(lookupItems.map(l => l.spec_key));
+      const independent = lookupItems.filter(item => {
+        const specItem = spec.items[item.spec_key];
+        const deps = [...(specItem?.depends_on ?? [])];
+        if (specItem?.condition) deps.push(...Object.keys(specItem.condition));
+        return !deps.some(d => lookupKeys.has(d));
+      });
+
+      if (independent.length > 1) {
+        console.log(`<parallel-batch>`);
+        console.log(`  These ${independent.length} lookups are mutually independent — run them ALL as separate Bash commands in ONE response.`);
+        console.log(`  Do NOT wait for one to finish before starting the next.`);
+        for (const item of independent) {
+          console.log(`  <action spec_key="${escapeXml(item.spec_key)}" type="lookup" script="${escapeXml(item.script)}">${escapeXml(item.subject)}</action>`);
+        }
+        console.log(`</parallel-batch>`);
+      }
     }
 
     // Emit task creation instruction
@@ -943,12 +1042,47 @@ function main(): number {
     console.log(
       `<communication>Do not mention scripts, sync, spec, tasks, requirements, validation, items, or internal process to the user. Rewrite as what the user experiences.</communication>`
     );
-    console.log(
-      `<voice>You are Orby. Grounded optimist — deadpan funny, zero stress, completely unbothered by complexity. ` +
-      `Educator, not task runner — explain WHY, not just what. ` +
-      `Use simple physical metaphors for technical concepts. ` +
-      `No corporate fluff. If something breaks, treat it like a puzzle, not a crisis.</voice>`
-    );
+    const phase = inferPhase(manifest.summary.answered, manifest.summary.total_applicable, manifest.ready_for_next_phase);
+    const voiceExemplars: Record<string, string> = {
+      greeting: [
+        `<voice phase="greeting">`,
+        `Speak like:`,
+        `  "Hey! I'm Orby. I build Prismatic integrations through conversation — you describe what you need, I handle the wiring."`,
+        `  "Let's figure out what you're connecting and how data should flow."`,
+        `Never:`,
+        `  "I'd be happy to help you today!" or "Welcome! How can I assist you?"`,
+        `</voice>`,
+      ].join("\n"),
+      "early-requirements": [
+        `<voice phase="requirements">`,
+        `Speak like:`,
+        `  "That's a solid choice — retry with backoff is basically insurance for transient failures."`,
+        `  "Checking if Prismatic has a component for that..."`,
+        `Never:`,
+        `  "Great question!" or "I'd be happy to explain that!"`,
+        `  "Let me run the sync script to check what's next."`,
+        `</voice>`,
+      ].join("\n"),
+      "late-requirements": [
+        `<voice phase="late-requirements">`,
+        `Speak like:`,
+        `  "Almost there — just need to sort out how connections are managed."`,
+        `  "That covers error handling. A couple more things and we can start building."`,
+        `Never:`,
+        `  "We're making great progress!" or "Excellent choice!"`,
+        `</voice>`,
+      ].join("\n"),
+      "confirm-scaffold": [
+        `<voice phase="confirm-scaffold">`,
+        `Speak like:`,
+        `  "Here's the full picture of what I'm planning to build. Take a look and tell me if anything's off."`,
+        `  "Everything checks out. Ready when you are."`,
+        `Never:`,
+        `  "All requirements have been successfully gathered!"`,
+        `</voice>`,
+      ].join("\n"),
+    };
+    console.log(voiceExemplars[phase] || voiceExemplars["early-requirements"]);
 
     // Emit confirm gate instruction when ready
     if (manifest.ready_for_next_phase) {
@@ -959,6 +1093,15 @@ function main(): number {
         `  2. Ask: "Does this look right? Anything you'd like to add or change before I scaffold the project?"\n` +
         `  3. WAIT for the user to respond before proceeding.\n` +
         `</confirm-before-scaffold>`
+      );
+      console.log(
+        `<exit-states>\n` +
+        `  After deployment, the session must end in one of these states:\n` +
+        `  <state id="tested_and_passing">All flows tested successfully. The only "complete" state.</state>\n` +
+        `  <state id="deployed_awaiting_config">Deployed but needs configuration. A pause, not an exit.</state>\n` +
+        `  <state id="deployed_testing_deferred">User chose to defer testing. Valid exit with acknowledgment.</state>\n` +
+        `  The summary MUST include test_outcome identifying which state applies.\n` +
+        `</exit-states>`
       );
     }
 

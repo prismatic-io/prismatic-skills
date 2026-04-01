@@ -31,6 +31,52 @@ function isEmpty(value: unknown): boolean {
   );
 }
 
+function parseCookbook(content: string, answeredSections: Set<string>): { preamble: string; sections: Map<string, string> } {
+  const lines = content.split("\n");
+  const sections = new Map<string, string>();
+  let preambleLines: string[] = [];
+  let currentHeading = "";
+  let currentLines: string[] = [];
+  let foundFirstAnswerSection = false;
+
+  for (const line of lines) {
+    if (line.startsWith("## ")) {
+      const heading = line.replace(/^## /, "").trim();
+
+      if (currentHeading) {
+        if (foundFirstAnswerSection) {
+          sections.set(currentHeading, currentLines.join("\n"));
+        } else {
+          preambleLines.push(...currentLines);
+        }
+      }
+
+      // Check if this heading matches any answered cookbook_section
+      const isAnswerSection = answeredSections.has(heading);
+      if (isAnswerSection && !foundFirstAnswerSection) {
+        // Everything before this was preamble
+        preambleLines.push(...currentLines);
+        foundFirstAnswerSection = true;
+      }
+
+      currentHeading = heading;
+      currentLines = [line];
+    } else {
+      currentLines.push(line);
+    }
+  }
+  // Don't forget the last section
+  if (currentHeading) {
+    if (foundFirstAnswerSection) {
+      sections.set(currentHeading, currentLines.join("\n"));
+    } else {
+      preambleLines.push(...currentLines);
+    }
+  }
+
+  return { preamble: preambleLines.join("\n"), sections };
+}
+
 function main(): number {
   const args = process.argv.slice(2);
   let sessionName = "";
@@ -83,11 +129,52 @@ function main(): number {
     return 2;
   }
 
+  // Load and parse cookbook
+  const skillName = sessionType === "component" ? "component-patterns" : "integration-patterns";
+  const cookbookPath = join(getPluginRoot(), "skills", skillName, "references", "answer-to-code-cookbook.md");
+  let cookbookPreamble = "";
+  let cookbookSections = new Map<string, string>();
+  if (existsSync(cookbookPath)) {
+    const cookbookContent = readFileSync(cookbookPath, "utf-8");
+    const answeredSections = new Set<string>();
+    // Collect all cookbook_section values from answered items
+    for (const [id, item] of Object.entries(spec.items)) {
+      if (!isEmpty(answers[id])) {
+        const specItem = item as Record<string, unknown>;
+        if (specItem.cookbook_section) answeredSections.add(specItem.cookbook_section as string);
+      }
+    }
+    const parsed = parseCookbook(cookbookContent, answeredSections);
+    cookbookPreamble = parsed.preamble;
+    cookbookSections = parsed.sections;
+  }
+
+  // Size budget check: fall back to headings-only if inline content is too large
+  let totalInlineLines = cookbookPreamble.split("\n").length;
+  for (const [id, item] of Object.entries(spec.items)) {
+    if (!isEmpty(answers[id])) {
+      const specItem = item as Record<string, unknown>;
+      const cs = specItem.cookbook_section as string | undefined;
+      if (cs && cookbookSections.has(cs)) {
+        totalInlineLines += cookbookSections.get(cs)!.split("\n").length;
+      }
+    }
+  }
+  const useInline = totalInlineLines <= 3000;
+
   // Build manifest
   const covered: string[] = [];
   const uncovered: Array<{ key: string; value: string }> = [];
 
   console.log("<code-plan>");
+
+  // Always include cookbook preamble (import rules, default omission, critical types)
+  if (useInline && cookbookPreamble.trim()) {
+    const preambleLines = cookbookPreamble.split("\n").length;
+    console.log(`  <cookbook-preamble lines="${preambleLines}">`);
+    console.log(cookbookPreamble);
+    console.log(`  </cookbook-preamble>`);
+  }
 
   for (const [id, item] of Object.entries(spec.items)) {
     const value = answers[id];
@@ -114,7 +201,19 @@ function main(): number {
       covered.push(id);
       console.log(`  <answer key="${id}" value="${escapeXml(valueStr)}">`);
       if (hasCookbook) {
-        console.log(`    <cookbook>${escapeXml(cookbookSection!)}</cookbook>`);
+        if (useInline) {
+          const sectionContent = cookbookSections.get(cookbookSection!);
+          if (sectionContent) {
+            console.log(`    <cookbook-inline heading="${escapeXml(cookbookSection!)}">`);
+            console.log(sectionContent);
+            console.log(`    </cookbook-inline>`);
+          } else {
+            // Fallback: emit heading only if section not found
+            console.log(`    <cookbook>${escapeXml(cookbookSection!)}</cookbook>`);
+          }
+        } else {
+          console.log(`    <cookbook>${escapeXml(cookbookSection!)}</cookbook>`);
+        }
       }
       if (implications && typeof value === "string" && implications[value]) {
         const imp = implications[value].trim().split("\n")[0];
@@ -143,11 +242,12 @@ function main(): number {
   }
 
   // Instructions
-  const skillName = sessionType === "component"
-    ? "component-patterns"
-    : "integration-patterns";
   console.log(`  <instructions>`);
-  console.log(`    For each <cookbook> heading: Grep for it in answer-to-code-cookbook.md and read the matching section.`);
+  if (useInline) {
+    console.log(`    Cookbook sections are included inline above — do NOT read the cookbook file separately.`);
+  } else {
+    console.log(`    Cookbook content exceeded size budget. Grep for each <cookbook> heading in answer-to-code-cookbook.md.`);
+  }
   console.log(`    For each <reference> file: Read it from the ${skillName} skill references/ directory.`);
   console.log(`    For each <api-research> file: Read it for API-specific endpoint details.`);
   console.log(`    Use <implication> text to understand the architectural decision for each answer.`);

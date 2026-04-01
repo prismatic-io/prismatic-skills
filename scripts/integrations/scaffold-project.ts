@@ -17,7 +17,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, renameSync,
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { mkdtempSync } from "node:fs";
-import { getProjectRoot } from "../shared/project-directory.js";
+import { getProjectRoot, getSessionDirectory } from "../shared/project-directory.js";
 import { timedStep, printTimingSummary } from "../shared/timing.js";
 
 function printSection(title: string): void {
@@ -264,11 +264,15 @@ function parseArgs(args: string[]): {
   components: string[];
   privateComponents: Set<string>;
   credentials: Record<string, string>;
+  sessionName: string | null;
+  sessionType: string | null;
 } {
   let name: string | null = null;
   let components: string[] = [];
   let privateComponents: Set<string> = new Set();
   let credentials: Record<string, string> = {};
+  let sessionName: string | null = null;
+  let sessionType: string | null = null;
 
   let i = 0;
   while (i < args.length) {
@@ -286,6 +290,12 @@ function parseArgs(args: string[]): {
         process.exit(1);
       }
       i += 2;
+    } else if (args[i] === "--session" && i + 1 < args.length) {
+      sessionName = args[i + 1];
+      i += 2;
+    } else if (args[i] === "--type" && i + 1 < args.length) {
+      sessionType = args[i + 1];
+      i += 2;
     } else if (!args[i].startsWith("-")) {
       if (name !== null) {
         console.error(`Unexpected argument: ${args[i]}`);
@@ -298,7 +308,7 @@ function parseArgs(args: string[]): {
     }
   }
 
-  return { name, components, privateComponents, credentials };
+  return { name, components, privateComponents, credentials, sessionName, sessionType };
 }
 
 function main(): number {
@@ -314,7 +324,7 @@ function main(): number {
     return 1;
   }
 
-  const { name, components, privateComponents, credentials } = parseArgs(process.argv.slice(2));
+  const { name, components, privateComponents, credentials, sessionName, sessionType } = parseArgs(process.argv.slice(2));
 
   if (!name) {
     console.log("Missing integration name");
@@ -325,6 +335,21 @@ function main(): number {
     console.log("Invalid integration name");
     console.log("   Name must be lowercase with hyphens (e.g., 'salesforce-slack-sync')");
     return 1;
+  }
+
+  if (sessionName) {
+    const sessionDir = getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations");
+    const reqPath = join(sessionDir, "requirements.json");
+    if (existsSync(reqPath)) {
+      const reqs = JSON.parse(readFileSync(reqPath, "utf-8"));
+      if (reqs.phase_gate !== "confirmed") {
+        console.log("Requirements not yet confirmed by the user.");
+        console.log("");
+        console.log("Before scaffolding, present a summary of all decisions to the user.");
+        console.log("After confirmation, write: prismatic-tools record-choices --session " + sessionName + " phase_gate=confirmed");
+        return 0;
+      }
+    }
   }
 
   printSection("Scaffolding Project");
