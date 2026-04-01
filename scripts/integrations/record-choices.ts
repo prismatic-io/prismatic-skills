@@ -419,6 +419,55 @@ function main(): number {
     }
   }
 
+  // Gate: reject large inference batches without --confirmed flag.
+  // When the agent batch-writes 4+ inference-allowed items early in a session,
+  // it's dumping inferences without presenting them to the user first.
+  // Force the agent to present first, get confirmation, then re-run with --confirmed.
+  const isConfirmed = process.argv.includes("--confirmed");
+  if (!isConfirmed && spec) {
+    // Count existing answers (excluding metadata keys)
+    const metaKeys = new Set(["name", "session", "type", "flows", "phase_gate", "additional_systems"]);
+    const existingCount = Object.keys(target).filter(k => !metaKeys.has(k)).length;
+
+    // Count inference-allowed items in this batch (exclude lookups, flow_definitions, connection keys)
+    const noGateKeys = new Set([
+      "flow_definitions", "flow_count", "systems", "source_system", "destination_system",
+      "additional_systems", "phase_gate",
+    ]);
+    const connectionPattern = /_(connection|connection_type|connection_existing|org_connection_scope)$/;
+
+    let inferenceCount = 0;
+    const inferredItems: Array<{ key: string; value: string }> = [];
+    for (const [key, val] of Object.entries(batch)) {
+      if (noGateKeys.has(key)) continue;
+      if (connectionPattern.test(key)) continue;
+      const specItem = spec.items[key];
+      if (!specItem) continue;
+      if (specItem.inference === "prohibited") continue;
+      if ((specItem as Record<string, unknown>).type === "lookup") continue;
+      inferenceCount++;
+      inferredItems.push({ key, value: typeof val === "string" ? val : JSON.stringify(val) });
+    }
+
+    if (inferenceCount >= 4 && existingCount < 8) {
+      console.log(
+        `0 answers written. Batch was HELD for user confirmation.\n\n` +
+        `<confirm-inferences-before-writing count="${inferenceCount}">\n` +
+        `  You are batch-writing ${inferenceCount} inferred values. Present these to the user FIRST.\n` +
+        `  Show what you inferred, why (cite the user's words), and the architectural impact.\n` +
+        `  WAIT for the user to confirm or correct before writing.\n` +
+        `  \n` +
+        `  Inferred values:\n` +
+        inferredItems.map(i => `    ${i.key} = ${i.value}`).join("\n") + `\n` +
+        `  \n` +
+        `  After the user confirms, re-run this exact command with --confirmed:\n` +
+        `    prismatic-tools record-choices --session ${sessionName} --type ${sessionType} --confirmed ${Object.entries(batch).map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`).join(" ")}\n` +
+        `</confirm-inferences-before-writing>`
+      );
+      process.exit(0);
+    }
+  }
+
   for (const [questionId, rawAnswer] of Object.entries(batch)) {
     let answer = rawAnswer;
 
@@ -477,42 +526,19 @@ function main(): number {
     target[questionId] = answer;
     written.push(questionId);
 
-    // Auto-inference: when *_connection_existing is written with a rich connection object,
-    // infer *_connection (strategy) and *_connection_type from the search result data.
-    // This eliminates 2-3 follow-up questions the agent would otherwise ask.
+    // When *_connection_existing is written with a rich connection object:
+    // - Auto-infer connection_type (data extraction, not a user decision)
+    // - Do NOT auto-infer connection strategy — that's a user decision. Emit a directive instead.
     const existingMatch = questionId.match(/^(source|destination|connector_\d+)_connection_existing$/);
     if (existingMatch && sessionType !== "component" && answer && typeof answer === "object") {
       const prefix = existingMatch[1];
       const conn = answer as Record<string, unknown>;
-      const managedBy = conn.managedBy as string | undefined;
-      const variableScope = conn.variableScope as string | undefined;
       const connectionType = conn.connectionType as string | undefined;
+      const managedBy = conn.managedBy as string | undefined;
+      const stableKey = conn.stableKey as string | undefined;
+      const connectionName = conn.name as string | undefined;
 
-      // Infer connection strategy from managedBy / connectionType
-      let inferredStrategy: string | null = null;
-      if (connectionType === "CUSTOMER" || managedBy === "CUSTOMER") {
-        inferredStrategy = "customer_activated";
-      } else if (connectionType === "ORG" || managedBy === "ORGANIZATION") {
-        inferredStrategy = "org_activated";
-      }
-
-      if (inferredStrategy && !target[`${prefix}_connection`]) {
-        target[`${prefix}_connection`] = inferredStrategy;
-        written.push(`${prefix}_connection`);
-        console.log(`   Auto-inferred: ${prefix}_connection = ${inferredStrategy} (from existing connection data)`);
-
-        // Infer org_connection_scope if org_activated
-        if (inferredStrategy === "org_activated" && variableScope && !target[`${prefix}_org_connection_scope`]) {
-          const scope = variableScope === "ORG" ? "global" : "per_customer";
-          target[`${prefix}_org_connection_scope`] = scope;
-          written.push(`${prefix}_org_connection_scope`);
-          console.log(`   Auto-inferred: ${prefix}_org_connection_scope = ${scope} (from variableScope: ${variableScope})`);
-        }
-      }
-
-      // Infer connection_type from the existing connection's component data
-      // The connection object from search-connections may have a connectionKey that
-      // matches one of the component's connections array entries
+      // Auto-infer connection_type from the component's connections array (data, not a decision)
       const connectionKey = conn.connectionKey as string | undefined;
       if (connectionKey && !target[`${prefix}_connection_type`]) {
         const compAnswer = target[`${prefix}_component`] || answers[`${prefix}_component`];
@@ -528,6 +554,32 @@ function main(): number {
             }
           }
         }
+      }
+
+      // Determine what the existing connection tells us — but DON'T auto-write the strategy
+      let detectedStrategy = "";
+      if (connectionType === "CUSTOMER" || managedBy === "CUSTOMER") {
+        detectedStrategy = "customer_activated";
+      } else if (connectionType === "ORG" || managedBy === "ORGANIZATION") {
+        detectedStrategy = "org_activated";
+      }
+
+      // Emit a directive: present this connection to the user and let them decide
+      const systemKey = `${prefix}_system`;
+      const systemName = typeof (target[systemKey] || answers[systemKey]) === "string"
+        ? (target[systemKey] || answers[systemKey]) as string
+        : prefix;
+
+      if (detectedStrategy && !target[`${prefix}_connection`]) {
+        onAnswerActions.push(
+          `<connection-found system="${systemName}" prefix="${prefix}" blocking="true">\n` +
+          `  Found existing connection: "${connectionName || stableKey || "unknown"}" (${detectedStrategy})\n` +
+          `  Present this to the user: "I found an existing ${detectedStrategy.replace("_", "-")} connection for ${systemName}: ${connectionName || stableKey}. Use this one?"\n` +
+          `  <on-yes>Record: ${prefix}_connection=${detectedStrategy}</on-yes>\n` +
+          `  <on-no>Ask what connection strategy the user wants instead</on-no>\n` +
+          `  Do NOT auto-select. The user must confirm.\n` +
+          `</connection-found>`
+        );
       }
     }
 
