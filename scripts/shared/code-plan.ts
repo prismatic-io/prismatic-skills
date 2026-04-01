@@ -229,6 +229,34 @@ function main(): number {
     }
   }
 
+  // Emit per-connector summary for 3+ connector integrations
+  if (sessionType === "integration") {
+    const additionalSystems = answers.additional_systems;
+    if (additionalSystems) {
+      let systems: string[] = [];
+      if (Array.isArray(additionalSystems)) {
+        systems = additionalSystems.map(String);
+      } else if (typeof additionalSystems === "string") {
+        try { systems = JSON.parse(additionalSystems); } catch { /* ignore */ }
+      }
+      if (systems.length > 0) {
+        console.log(`  <additional-connectors count="${systems.length}">`);
+        console.log(`    Source (connectors[0]) and destination (connectors[1]) use standard patterns.`);
+        console.log(`    The following additional connectors need config page entries, imports, and flow integration:`);
+        for (let i = 0; i < systems.length; i++) {
+          const idx = i + 2;
+          const prefix = `connector_${idx}`;
+          const comp = answers[`${prefix}_component`];
+          const connType = answers[`${prefix}_connection`];
+          const compKey = comp && typeof comp === "object" ? (comp as Record<string, unknown>).key : String(comp ?? "none");
+          console.log(`    <connector index="${idx}" system="${escapeXml(systems[i])}" component="${escapeXml(String(compKey))}" connection="${escapeXml(String(connType ?? "unknown"))}" />`);
+        }
+        console.log(`    Each additional connector needs: componentRegistry import, configPage connection entry, flow action imports.`);
+        console.log(`  </additional-connectors>`);
+      }
+    }
+  }
+
   // Check for api-research.json
   const researchCandidates = [
     join(sessionDir, "api-research.json"),

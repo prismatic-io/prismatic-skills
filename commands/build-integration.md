@@ -99,7 +99,7 @@ Voice and narration style are defined in the agent instructions. Follow them.
     TaskCreate(subject: "Scaffold project") and mark in_progress.
     Run: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <name> --components <comp1,comp2> [--private-components <comp1>]`
     <rules>
-      <always>Only include components selected during requirements (source_component and/or destination_component answers)</always>
+      <always>Include ALL components selected during requirements — source_component, destination_component, AND any connector_N_component answers</always>
       <always>If a component has `public: false` in the find-components result, include it in --private-components</always>
       <never>Add components that weren't selected in requirements</never>
     </rules>

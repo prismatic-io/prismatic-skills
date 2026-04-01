@@ -10,6 +10,24 @@ systems:
     The answer drives component search, connection setup, and the overall architecture.
     Be specific: "Salesforce" not "CRM", "Slack" not "messaging app."
 
+additional_systems:
+  question: "Are there additional systems beyond source and destination? (e.g., a notification channel, a logging service)"
+  type: text
+  inference: allowed
+  scope: integration
+  depends_on: [source_system, destination_system]
+  skippable: true
+  agent_context: >
+    Most integrations connect exactly two systems (source and destination). Some need
+    additional connectors — for example, "Kyriba → BigQuery → Slack" where Slack sends
+    notifications but isn't the primary destination. If the user described 3+ systems,
+    list the additional system names here as a JSON array (e.g., '["Slack", "PagerDuty"]').
+    Each additional system gets its own component search, connection setup, and config page entries.
+    If only two systems are involved, skip this item entirely.
+  note: >
+    Value should be a JSON array of system names: ["Slack", "PagerDuty"].
+    update-tasks.ts expands connector template items for each additional system.
+
 trigger_type:
   question: "What triggers this integration?"
   type: choice

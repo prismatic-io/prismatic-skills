@@ -248,15 +248,19 @@ function main(): number {
   }
 
   // Validation for connection-type questions (must be full JSON objects)
+  // Includes dynamically-expanded connector_N_connection_type keys
   const connectionTypeQuestions = [
     "source_connection_type",
     "destination_connection_type",
+    ...Object.keys(batch).filter(k => /^connector_\d+_connection_type$/.test(k)),
   ];
 
   // Connection strategy questions require search-connections to be run first
+  // Includes dynamically-expanded connector_N_connection keys
   const connectionStrategyQuestions = [
     "source_connection",
     "destination_connection",
+    ...Object.keys(batch).filter(k => /^connector_\d+_connection$/.test(k)),
   ];
 
   const written: string[] = [];
@@ -271,7 +275,14 @@ function main(): number {
         const value = typeof rawValue === "string" ? rawValue : JSON.stringify(rawValue);
         // Gate: any connection strategy requires searching for existing connections first
         if (value !== "no_connection") {
-          const system = key.startsWith("source") ? "source" : "destination";
+          // Extract prefix: source_, destination_, or connector_N_
+          let system: string;
+          const connectorMatch = key.match(/^(connector_\d+)_connection$/);
+          if (connectorMatch) {
+            system = connectorMatch[1];
+          } else {
+            system = key.startsWith("source") ? "source" : "destination";
+          }
           const rawSystem = batch[`${system}_system`] || answers[`${system}_system`] || system;
           const systemName = typeof rawSystem === "string" ? rawSystem : (rawSystem as Record<string, unknown>)?.source as string || (rawSystem as Record<string, unknown>)?.name as string || system;
           const existingKey = `${system}_connection_existing`;

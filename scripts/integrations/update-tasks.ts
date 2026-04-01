@@ -442,6 +442,204 @@ function getRelevantGroups(modificationScopes: string[], sessionType?: string): 
 }
 
 // ---------------------------------------------------------------------------
+// Connector template expansion (for 3+ connectors)
+// ---------------------------------------------------------------------------
+
+/**
+ * Expand the connector template for additional systems beyond source/destination.
+ * Reads additional_systems from answers, loads the template YAML, and creates
+ * dynamically-prefixed items (connector_2_*, connector_3_*, etc.).
+ *
+ * Source (connectors[0]) and destination (connectors[1]) use existing items.
+ * This only creates items for connectors[2+].
+ */
+function expandConnectorTemplate(
+  spec: Spec,
+  answers: Answers,
+): void {
+  // Parse additional_systems — should be a JSON array of system names
+  const raw = answers.additional_systems;
+  if (!raw) return;
+
+  let additionalSystems: string[];
+  if (Array.isArray(raw)) {
+    additionalSystems = raw.map(String);
+  } else if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        additionalSystems = parsed.map(String);
+      } else {
+        return; // Not an array
+      }
+    } catch {
+      // Could be a comma-separated string
+      additionalSystems = raw.split(",").map(s => s.trim()).filter(Boolean);
+    }
+  } else {
+    return;
+  }
+
+  if (additionalSystems.length === 0) return;
+
+  // Load the connector template
+  const templatePath = join(getPluginRoot(), "scripts", "questions", "integration", "connector-template.yaml");
+  if (!existsSync(templatePath)) return;
+
+  let templateContent: string;
+  try {
+    templateContent = readFileSync(templatePath, "utf-8");
+  } catch {
+    return;
+  }
+
+  // For each additional system, expand the template with the appropriate prefix
+  for (let i = 0; i < additionalSystems.length; i++) {
+    const systemName = additionalSystems[i];
+    const connectorIndex = i + 2; // 0=source, 1=destination, 2+=additional
+    const prefix = `connector_${connectorIndex}`;
+
+    // Pre-populate the system answer from the connectors array
+    if (!answers[`${prefix}_system`]) {
+      answers[`${prefix}_system`] = systemName;
+    }
+
+    // Substitute template variables
+    let expanded = templateContent;
+    expanded = expanded.replace(/\{PREFIX\}/g, prefix);
+    expanded = expanded.replace(/\{SYSTEM\}/g, systemName);
+    expanded = expanded.replace(/\{INDEX\}/g, String(connectorIndex));
+
+    // Parse the expanded YAML into items
+    // Simple YAML parser: extract top-level keys and their properties
+    const items = parseSimpleYaml(expanded);
+
+    // Add each item to the spec
+    for (const [id, item] of Object.entries(items)) {
+      if (!spec.items[id]) {
+        spec.items[id] = item;
+      }
+    }
+
+    // Find or create a group for this connector
+    const groupId = `connector_${connectorIndex}`;
+    const existingGroup = spec.groups.find(g => g.id === groupId);
+    if (!existingGroup) {
+      const itemIds = Object.keys(items);
+      spec.groups.push({
+        id: groupId,
+        label: `${systemName} (Connector ${connectorIndex + 1})`,
+        items: itemIds,
+      });
+    }
+  }
+}
+
+/**
+ * Simple YAML-like parser for the connector template.
+ * Extracts top-level quoted keys and their properties.
+ * This is not a full YAML parser — it handles the specific format of connector-template.yaml.
+ */
+function parseSimpleYaml(content: string): Record<string, SpecItem> {
+  const items: Record<string, SpecItem> = {};
+  const lines = content.split("\n");
+  let currentKey = "";
+  let currentItem: Record<string, unknown> = {};
+
+  for (const line of lines) {
+    // Skip comments and empty lines
+    if (line.startsWith("#") || line.trim() === "") continue;
+
+    // Top-level key (starts with " at column 0)
+    const topLevelMatch = line.match(/^"([^"]+)":\s*$/);
+    if (topLevelMatch) {
+      if (currentKey) {
+        items[currentKey] = finalizeItem(currentItem);
+      }
+      currentKey = topLevelMatch[1];
+      currentItem = {};
+      continue;
+    }
+
+    // Property line (indented)
+    if (currentKey && line.startsWith("  ")) {
+      const propMatch = line.match(/^\s{2}(\w+):\s*(.*)$/);
+      if (propMatch) {
+        const [, prop, value] = propMatch;
+        if (value.startsWith(">") || value.startsWith("|")) {
+          // Multi-line string — collect until next property
+          currentItem[prop] = ""; // Will be filled by subsequent lines
+          currentItem[`_multiline_${prop}`] = true;
+        } else if (value.startsWith("[") && value.endsWith("]")) {
+          // Inline array
+          try {
+            currentItem[prop] = JSON.parse(value);
+          } catch {
+            currentItem[prop] = value.slice(1, -1).split(",").map(s => s.trim().replace(/^["']|["']$/g, ""));
+          }
+        } else if (value.startsWith("{")) {
+          // Inline object
+          try {
+            currentItem[prop] = JSON.parse(value);
+          } catch {
+            currentItem[prop] = value;
+          }
+        } else if (value === "true" || value === "false") {
+          currentItem[prop] = value === "true";
+        } else {
+          // String value — strip quotes
+          currentItem[prop] = value.replace(/^["']|["']$/g, "");
+        }
+      } else {
+        // Continuation of multi-line or nested content — append to last property
+        const trimmed = line.trim();
+        for (const key of Object.keys(currentItem)) {
+          if (currentItem[`_multiline_${key}`]) {
+            currentItem[key] = ((currentItem[key] as string) + " " + trimmed).trim();
+          }
+        }
+      }
+    }
+  }
+
+  // Don't forget the last item
+  if (currentKey) {
+    items[currentKey] = finalizeItem(currentItem);
+  }
+
+  return items;
+}
+
+function finalizeItem(raw: Record<string, unknown>): SpecItem {
+  // Remove multiline markers
+  const clean: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!k.startsWith("_multiline_")) {
+      clean[k] = v;
+    }
+  }
+
+  return {
+    question: clean.question as string | undefined,
+    type: clean.type as string | undefined,
+    inference: clean.inference as "allowed" | "prohibited" | undefined,
+    scope: (clean.scope as "integration" | "flow") ?? "integration",
+    choices: clean.choices as string[] | undefined,
+    condition: clean.condition as Record<string, unknown> | undefined,
+    depends_on: clean.depends_on as string[] | undefined,
+    skippable: clean.skippable as boolean | undefined,
+    skip_if_empty: clean.skip_if_empty as boolean | undefined,
+    default: clean.default,
+    agent_context: clean.agent_context as string | undefined,
+    implications: clean.implications as Record<string, string> | undefined,
+    cookbook_section: clean.cookbook_section as string | undefined,
+    maps_to: clean.maps_to as string | undefined,
+    note: clean.note as string | undefined,
+    on_answer: clean.on_answer as Record<string, string> | undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Build task manifest
 // ---------------------------------------------------------------------------
 
@@ -752,6 +950,11 @@ function main(): number {
     }
   }
 
+  // Expand connector template for additional systems (3+ connectors)
+  if (sessionType === "integration") {
+    expandConnectorTemplate(spec, answers);
+  }
+
   const manifest = buildManifest(spec, answers, {
     mode,
     extractedState,
@@ -823,15 +1026,23 @@ function main(): number {
 
     // Emit connection setup instruction when connection items are pending (integrations only)
     if (sessionType !== "component") {
-      const connectionKeys = ["source_connection", "destination_connection"];
+      const connectionKeys = ["source_connection", "destination_connection",
+        ...Object.keys(spec.items).filter(k => /^connector_\d+_connection$/.test(k))];
       const pendingConnectionItems = toCreate.filter(t => connectionKeys.includes(t.spec_key));
       if (pendingConnectionItems.length > 0) {
         const systems = pendingConnectionItems.map(t => {
-          const system = t.spec_key.startsWith("source") ? "source" : "destination";
-          const raw = answers[`${system}_system`];
+          // Extract the prefix: source_, destination_, or connector_N_
+          let systemKey: string;
+          if (t.spec_key.startsWith("source_")) systemKey = "source_system";
+          else if (t.spec_key.startsWith("destination_")) systemKey = "destination_system";
+          else {
+            const match = t.spec_key.match(/^(connector_\d+)_/);
+            systemKey = match ? `${match[1]}_system` : t.spec_key;
+          }
+          const raw = answers[systemKey];
           if (typeof raw === "string") return raw;
-          if (raw && typeof raw === "object") return (raw as Record<string, unknown>).source as string || (raw as Record<string, unknown>).name as string || system;
-          return system;
+          if (raw && typeof raw === "object") return (raw as Record<string, unknown>).source as string || (raw as Record<string, unknown>).name as string || systemKey;
+          return systemKey;
         });
         console.log(
           `<connection-setup-required systems="${systems.join(",")}">\n` +
@@ -993,6 +1204,49 @@ function main(): number {
       `  ALL in one response. The task list is the user's dashboard — they need to see everything.\n` +
       `</task-creation>`
     );
+
+    // Emit draft-proposal when all lookups are complete and remaining items are choice/text
+    // This enables the "review a proposal" metaphor instead of sequential question-answer
+    const pendingLookups = allPendingItems.filter(t => {
+      const si = spec.items[t.spec_key];
+      return si?.type === "lookup";
+    });
+    const pendingChoiceOrText = allPendingItems.filter(t => {
+      const si = spec.items[t.spec_key];
+      return si?.type === "choice" || si?.type === "multi_choice" || si?.type === "text";
+    });
+
+    if (
+      pendingLookups.length === 0 &&
+      pendingChoiceOrText.length > 0 &&
+      manifest.summary.answered > manifest.summary.pending &&
+      manifest.summary.answered >= 5
+    ) {
+      // All lookups done, remaining items are decisions — draft a proposal
+      console.log(`<draft-proposal>`);
+      console.log(`  All system lookups are complete. Instead of asking questions one by one,`);
+      console.log(`  present a complete draft of what you plan to build.`);
+      console.log(`  `);
+      console.log(`  Include in the proposal:`);
+      console.log(`  - All systems and components found`);
+      console.log(`  - All existing connections matched`);
+      console.log(`  - Pending choices with your recommended defaults`);
+      console.log(`  `);
+      console.log(`  Format: "Here's what I plan to build. [full picture]. Confirm or correct."`);
+      console.log(`  `);
+      console.log(`  Pending decisions to include in the proposal:`);
+      for (const item of pendingChoiceOrText) {
+        const si = spec.items[item.spec_key];
+        const defaultVal = si?.default !== undefined ? ` (recommend: ${si.default})` : "";
+        const choicesStr = si?.choices ? ` [${(si.choices as string[]).join(", ")}]` : "";
+        console.log(`  <decision key="${escapeXml(item.spec_key)}" subject="${escapeXml(item.subject)}"${choicesStr}${defaultVal} />`);
+      }
+      console.log(`  `);
+      console.log(`  The user can correct any decision with a simple phrase:`);
+      console.log(`  "change error handling to retry" or "make BigQuery org-activated"`);
+      console.log(`  Record all confirmed+corrected answers in one batch after the user responds.`);
+      console.log(`</draft-proposal>`);
+    }
 
     // Emit spec-reading directive with group→file mapping for pending items
     const pendingGroups = new Set<string>();

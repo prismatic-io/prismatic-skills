@@ -149,6 +149,8 @@ When the sync script surfaces a `type: lookup` item with `lookup.script`, run th
 
 When the sync script emits a `<parallel-batch>` block, run ALL listed lookup scripts as separate Bash commands in a single response. Do not wait for one to finish before starting the next. This is the one exception to "one question per message" — lookups are data retrieval, not user questions.
 
+When the sync script emits a `<draft-proposal>` block, switch from sequential questions to a full-picture proposal. Present everything you know (systems, components, connections, existing matches) plus recommended defaults for remaining decisions. The user reviews and corrects the proposal instead of answering individual questions. Record all confirmed+corrected answers in one batch after the user responds.
+
 Items with `scope: flow` must be written per-flow using `--flow <flow-id>` for multi-flow integrations.
 
 ## Multi-flow integrations
@@ -201,7 +203,7 @@ Use `prismatic-tools find-components` for component lookups.
 
 <step name="connections" critical="true">
 <connection-sequence>
-  For EACH system (source AND destination), complete this sequence. Do NOT skip or batch.
+  For EACH system (source, destination, AND any additional connectors), complete this sequence. Do NOT skip or batch.
   <search>Run `prismatic-tools search-connections <system>` to check for existing reusable connections.</search>
   <present-found>If connections found: present them and ask if user wants to use one or create new.</present-found>
   <present-not-found>If none found: recommend creating a customer-activated connection.</present-not-found>
@@ -210,7 +212,7 @@ Use `prismatic-tools find-components` for component lookups.
     <create-new>Request Orby to create it via `<orby-request>`.</create-new>
     <integration-specific>Fallback only. Collect credentials via `prismatic-tools get-credentials`.</integration-specific>
   </on-choice>
-  <gate>Record connection ONLY after this workflow completes for both systems.</gate>
+  <gate>Record connection ONLY after this workflow completes for ALL systems (source, destination, and any additional connectors).</gate>
 </connection-sequence>
 </step>
 
@@ -221,7 +223,8 @@ Wait for confirmation.
 </step>
 
 <step name="scaffold">
-Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <name> --components <comp1,comp2> [--private-components <comp1>] [--credentials '<json>']`.
+Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <name> --components <comp1,comp2,comp3> [--private-components <comp1>] [--credentials '<json>']`.
+Include ALL component keys from ALL connectors (source, destination, AND additional connectors).
 If any selected component has `public: false`, include it in `--private-components`.
 Do not create directories or install manifests manually. Do not use MCP tools for scaffolding.
 Validate: `prismatic-tools validate-phase <dir> --phase scaffold --type integration`

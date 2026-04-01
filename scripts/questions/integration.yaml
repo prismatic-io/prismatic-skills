@@ -29,8 +29,9 @@
 #   integration/flow-planning.yaml      — flow_count, flow_definitions, flow_name, flow_description
 #   integration/overview.yaml           — systems, trigger_type, schedule_*, data_flow
 #   integration/flow-config.yaml        — sync mode, endpoint type, routing, security, org API keys
-#   integration/source-system.yaml      — source component, connection, credentials
-#   integration/destination-system.yaml — destination component, connection, credentials
+#   integration/source-system.yaml      — source component, connection, credentials (connectors[0])
+#   integration/destination-system.yaml — destination component, connection, credentials (connectors[1])
+#   integration/connector-template.yaml — template for additional connectors (connectors[2+])
 #   integration/payload-and-behavior.yaml — payload shape, config elements, transformations
 #   integration/error-handling.yaml     — immediate retry (errorConfig)
 #   integration/execution-retry.yaml    — delayed retry (retryConfig)
@@ -102,7 +103,7 @@ groups:
       - https://prismatic.io/docs/integrations/code-native.md
       - https://prismatic.io/docs/integrations/code-native/flows.md
       - https://prismatic.io/docs/integrations/triggers.md
-    items: [systems, trigger_type, schedule_value, schedule_timezone, data_flow]
+    items: [systems, additional_systems, trigger_type, schedule_value, schedule_timezone, data_flow]
 
   - id: flow_planning
     label: "Flow Planning"
