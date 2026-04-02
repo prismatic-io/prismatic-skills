@@ -68,25 +68,38 @@ When the user chooses a connection type during the component selection step, tha
 After writing any choice answer, check the spec item for an `on_answer` field keyed by the written value. If present, execute the action immediately — before asking the next question.
 
 <connection-workflow critical="true">
-## Connection setup — do NOT skip or batch
+## Connection setup — follows the spec's dependency chain
 
-Connection questions (`source_connection`, `destination_connection`) require a multi-step workflow.
-Do NOT batch these with other answers. Do NOT skip ahead to scaffolding after recording them.
+The connection flow is driven by spec conditions. Do NOT skip steps or reorder.
 
-For EACH system's connection:
-1. Run `prismatic-tools search-connections <system>` BEFORE presenting the connection management question
-2. Present the options informed by what exists — recommend reusable connections (customer-activated)
-3. Write the answer
-4. Follow the on_answer trigger IMMEDIATELY:
-   - If customer_activated or org_activated: search for existing connections, present results,
-     let user select or create new via `create-organization-connection`
-   - If manifest_based: collect credentials via `prismatic-tools get-credentials`
-5. Do NOT proceed to the next question until the connection is fully configured
+**The flow for each system (source, destination, additional connectors):**
 
-**If the user defers credentials (says "skip for now"):**
-Record `manifest_based` as the connection strategy. Do NOT attempt to deploy with a
-`customerActivatedConnection` pointing to a connection that doesn't exist — it will fail.
-Never invent spec values. The only valid values are those in the spec's `choices` array.
+1. **Component found** → search-connections runs automatically (source_connection_existing lookup)
+2. **Search result determines the path:**
+
+   **Usable connection found** (search returned a connection object):
+   - Present to user: "I found an existing [type] connection for [system]: [name]. Use this one?"
+   - If YES: write `source_connection` based on connectionType (CUSTOMER → customer_activated, ORG → org_activated). Connection type is auto-inferred. Done for this system.
+   - If NO: proceed to connection_type question.
+
+   **Only build-only connections found** (search returned "solo_build_only"):
+   - Ask connection_type (from component's connections array)
+   - Ask connection strategy — explain that build-only exists for testing but CANNOT be used for production org_activated. Recommend customer_activated or manifest_based.
+
+   **No connections found** (search returned "none"):
+   - Ask connection_type (from component's connections array)
+   - Ask connection strategy
+
+3. **After writing connection strategy:**
+   - customer_activated or org_activated with no existing SCV: offer to create one via `create-organization-connection`
+   - org_activated: also ask about scope (per-customer vs global) before creating
+   - manifest_based: ask about providing credentials now or later
+
+**Rules:**
+- Do NOT batch-write connection keys with other answers
+- Do NOT auto-select a connection without user confirmation
+- Do NOT use build-only connections with organizationActivatedConnection() in production code
+- If user defers SCV creation, the connection will be configured post-deploy in admin UI
 </connection-workflow>
 
 ## Using tools
@@ -202,18 +215,29 @@ Use `prismatic-tools find-components` for component lookups.
 </step>
 
 <step name="connections" critical="true">
-<connection-sequence>
-  For EACH system (source, destination, AND any additional connectors), complete this sequence. Do NOT skip or batch.
-  <search>Run `prismatic-tools search-connections <system>` to check for existing reusable connections.</search>
-  <present-found>If connections found: present them and ask if user wants to use one or create new.</present-found>
-  <present-not-found>If none found: recommend creating a customer-activated connection.</present-not-found>
-  <on-choice>
-    <use-existing>Record the connection object as the answer.</use-existing>
-    <create-new>Request Orby to create it via `<orby-request>`.</create-new>
-    <integration-specific>Fallback only. Collect credentials via `prismatic-tools get-credentials`.</integration-specific>
-  </on-choice>
-  <gate>Record connection ONLY after this workflow completes for ALL systems (source, destination, and any additional connectors).</gate>
-</connection-sequence>
+<connection-flow>
+  The spec's dependency chain drives connection setup: component → search → branch → strategy.
+  Complete this for ALL systems (source, destination, additional connectors) before confirm-before-scaffold.
+
+  <rule>The search-connections lookup fires automatically when the component is found. Do NOT manually run search-connections.</rule>
+  <rule>Follow the <![CDATA[<connection-found>]]> or <![CDATA[<create-scv-recommended>]]> directives from record-choices output.</rule>
+  <rule>Do NOT auto-select connections — always present found connections and let the user decide.</rule>
+  <rule>Do NOT use build-only connections with organizationActivatedConnection() in production code.</rule>
+
+  <branch name="usable-connection-found">
+    record-choices emits <![CDATA[<connection-found>]]> with the connection details.
+    Present to user: "I found an existing [type] connection for [system]: [name]. Use this one?"
+    If YES: write *_connection based on connectionType. connection_type is auto-inferred. Done.
+    If NO: source_connection_type and source_connection appear as pending. Ask them.
+  </branch>
+
+  <branch name="build-only-or-none">
+    source_connection_type appears as pending — ask which auth method.
+    source_connection appears as pending — ask which strategy.
+    After writing strategy, record-choices emits <![CDATA[<create-scv-recommended>]]> if no SCV exists.
+    Offer to create one. If user declines, connection is configured post-deploy.
+  </branch>
+</connection-flow>
 </step>
 
 <step name="confirm-before-scaffold">

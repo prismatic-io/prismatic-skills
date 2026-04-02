@@ -1,4 +1,13 @@
 # Source system — component, connection, credentials, API docs
+#
+# Connection flow (canonical ordering):
+#   source_system → source_component (lookup) → source_connection_existing (lookup)
+#     → BRANCH on result:
+#       A) Usable connection found → present to user → if confirmed, auto-populate type + strategy
+#       B) Only build-only found → ask connection_type → ask connection strategy
+#       C) None found → ask connection_type → ask connection strategy
+#     → IF customer_activated or org_activated → offer to create SCV
+#     → IF manifest_based → ask about credentials
 
 source_system:
   question: "What is the SOURCE system name?"
@@ -38,13 +47,52 @@ source_component:
   docs:
     - https://prismatic.io/docs/integrations/code-native/existing-components.md
 
+source_connection_existing:
+  question: "Search for existing connections for the source system."
+  type: lookup
+  inference: prohibited
+  scope: integration
+  lookup:
+    script: scripts/integrations/search-connections.ts
+    args: ["${source_system}"]
+  depends_on: [source_component]
+  condition:
+    source_component: { not_empty: true }
+  agent_context: |
+    This search runs automatically after the component is found. It checks for existing
+    reusable connections in the org. The result determines the next steps:
+
+    BRANCH A — Usable connection found (result is a connection object):
+      Record the full connection object as the answer.
+      The record-choices script will auto-infer source_connection_type from the object.
+      It will also emit a <connection-found> directive telling you to present the
+      connection to the user: "I found an existing [type] connection for [system]: [name]. Use this one?"
+      - If user says YES: write source_connection based on the connectionType field
+        (CUSTOMER → customer_activated, ORG → org_activated). DONE for this system.
+      - If user says NO: the source_connection_type and source_connection questions
+        will appear as pending. Proceed to ask them.
+
+    BRANCH B — Only build-only connections found:
+      Record "solo_build_only". The source_connection_type and source_connection
+      questions will appear as pending.
+      Build-only connections work for testing in the designer but CANNOT be used
+      for production deployments with organizationActivatedConnection().
+      Present this context when asking the connection strategy question.
+
+    BRANCH C — No connections found:
+      Record "none". The source_connection_type and source_connection questions
+      will appear as pending. Proceed to ask them.
+  note: >
+    This search fires BEFORE the strategy choice. The result feeds into conditions
+    on source_connection_type (only asked when "none" or "solo_build_only").
+    Build-only connections (connectionType: "Build-Only") cannot be used for production.
+
 source_connection_type:
   question: "Which connection/auth type for the source component?"
   type: lookup
   inference: prohibited
   scope: integration
   skippable: true
-  skip_if_empty: true
   lookup:
     note: "Extract connection types from the source_component search results. Present each connection option (e.g., OAuth2, API Key, Basic Auth) to the user."
     source: source_component.connections
@@ -53,8 +101,10 @@ source_connection_type:
     source_component: { not_empty: true }
     source_connection_existing: { in: ["none", "solo_build_only"] }
   note: >
+    This question is SKIPPED when an existing usable connection was found (Branch A above)
+    because the connection type is auto-inferred from the existing connection object.
+    It only appears when no usable connections exist (Branches B and C).
     Store the FULL connection object from the lookup result, not just the key string.
-    The key is needed for manifest helper imports during code generation.
   agent_context: |
     <lookup-contract>
       This question is ONLY about which auth method (OAuth 2.0, API Key, Token-Based Auth, etc.).
@@ -71,21 +121,13 @@ source_connection:
   inference: prohibited
   scope: integration
   choices:
-    - org_activated
     - customer_activated
+    - org_activated
     - manifest_based
     - no_connection
   depends_on: [source_connection_type]
   condition:
     source_connection_type: { not_empty: true }
-  note: >
-    Each choice produces different code:
-    - Organization-activated → organizationActivatedConnection() in scopedConfigVars
-    - Customer-activated → customerActivatedConnection() in configPages
-    - Create new → manifest connection helper (e.g., slackOauth2()) on configPage
-    - No connection → no connection config needed
-    WARNING: Build-only/demo connections cannot be used with organizationActivatedConnection().
-    If only build-only connections exist for org-activated, switch to manifest-based.
   agent_context: |
     <present-as>
       <option value="customer_activated" recommended="true">Customer-activated (reusable) — each customer provides and authorizes their own credentials (OAuth flow or API keys). The connection is defined once in Prismatic and reusable across integrations. Code: customerActivatedConnection() in configPages.</option>
@@ -93,7 +135,12 @@ source_connection:
       <option value="manifest_based">Integration-specific — connection defined on this integration's config page only. Not reusable across integrations. Org provides OAuth app creds, customer authorizes during setup. Code: connectionConfigVar() or manifest helper in configPages.</option>
       <option value="no_connection">No auth needed.</option>
     </present-as>
-    Recommend customer_activated for most cases. The record-choices script will guide next steps.
+
+    If source_connection_existing is "solo_build_only":
+      Explain that build-only connections exist for testing but cannot be used for production
+      org_activated deployments. Recommend customer_activated or manifest_based.
+
+    Recommend customer_activated for most cases.
   implications:
     "customer_activated": >
       Each customer provides and authorizes their own credentials during instance setup.
@@ -112,45 +159,24 @@ source_connection:
       No authentication required. Suitable for public endpoints or when auth is handled
       differently (e.g., API key passed as a config variable).
   on_answer:
-    org_activated: >
-      IMMEDIATELY run `prismatic-tools search-connections ${source_system}` to find existing org connections.
-      Present results to the user and let them select one. Do not proceed to the next question
-      until a connection is selected. Build-only/demo connections cannot be used with
-      organizationActivatedConnection() — warn if only those exist.
     customer_activated: >
-      IMMEDIATELY run `prismatic-tools search-connections ${source_system}` to find existing connections.
-      Present results to the user and let them select one. If none exist, offer to create one
-      with `create-organization-connection`.
+      If no reusable connection exists yet (source_connection_existing is "none" or "solo_build_only"),
+      offer to create one: "No reusable customer-activated connection exists for [system]. Want me to
+      create one?" If yes, run create-organization-connection with --strategy customer-activated.
+      If the user declines, the connection will be configured post-deploy in the admin UI.
+    org_activated: >
+      The next question (source_org_connection_scope) asks about per-customer vs global.
+      After that, if no reusable connection exists yet, offer to create one with
+      create-organization-connection using the appropriate --strategy.
+      WARNING: Build-only connections CANNOT be used with organizationActivatedConnection().
+      If only build-only connections exist, warn the user and suggest customer_activated or manifest_based.
     manifest_based: >
-      The next question will ask about providing credentials. Prepare to run
-      `prismatic-tools get-credentials` if the user chooses to provide them now.
+      The next question will ask about providing credentials now or later.
+      If the user provides them now, they go into .env for immediate use after deploy.
+      If skipped, credentials must be configured in the Prismatic admin UI post-deploy.
   docs:
     - https://prismatic.io/docs/integrations/connections.md
   cookbook_section: "Connection Strategy Code Paths"
-
-source_connection_existing:
-  question: "Search for existing connections for the source system."
-  type: lookup
-  inference: prohibited
-  scope: integration
-  lookup:
-    script: scripts/integrations/search-connections.ts
-    args: ["${source_system}"]
-  depends_on: [source_component]
-  condition:
-    source_component: { not_empty: true }
-  agent_context: |
-    Search runs automatically after the component is found. Present results to the user:
-    - If usable connections found: "Found an existing [type] connection for [system]. Use it, or create a new one?"
-      If user picks one, infer source_connection_type from the component's connections array
-      (match by component key) and source_connection from the connectionType field (CUSTOMER → customer_activated,
-      ORG → org_activated). Skip source_connection_type and source_connection questions entirely.
-    - If only build-only connections found: record "solo_build_only" and proceed to source_connection_type.
-    - If no connections found: record "none" and proceed to source_connection_type.
-  note: >
-    This search now fires BEFORE the strategy choice, not after. If the user picks an
-    existing connection, the strategy and type are inferred from the search result.
-    Build-only connections (connectionType: "Build-Only") cannot be used for production.
 
 source_org_connection_scope:
   question: "Should the org provide unique credentials per customer, or use one shared connection for all customers?"

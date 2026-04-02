@@ -58,7 +58,7 @@ interface TestInstanceInfo {
   instance_id: string;
   designer_url: string;
   config_state: string;
-  unconfigured: Array<{ key: string; label: string; type: string }>;
+  unconfigured: Array<{ key: string; type: string }>;
   flow_urls: Array<{ name: string; stable_key: string; webhook_url: string }>;
 }
 
@@ -79,7 +79,6 @@ function getTestInstanceInfo(integrationId: string): TestInstanceInfo | null {
               status
               requiredConfigVariable {
                 key
-                label
                 dataType
               }
             }
@@ -110,7 +109,6 @@ function getTestInstanceInfo(integrationId: string): TestInstanceInfo | null {
         const rcv = cv.requiredConfigVariable as Record<string, unknown>;
         return {
           key: (rcv?.key as string) || "",
-          label: (rcv?.label as string) || "",
           type: (rcv?.dataType as string) || "",
         };
       })
@@ -236,7 +234,7 @@ function deployIntegration(projectDir: string): number {
         deployResult.guidance = [
           `Open the test instance designer: ${testInstance.designer_url}`,
           testInstance.unconfigured.length > 0
-            ? `Configure ${testInstance.unconfigured.length} unconfigured item(s): ${testInstance.unconfigured.map(u => u.label || u.key).join(", ")}`
+            ? `Configure ${testInstance.unconfigured.length} unconfigured item(s): ${testInstance.unconfigured.map(u => u.key).join(", ")}`
             : "All config variables are set",
           "Ask the user to confirm configuration is complete before running tests",
           "Do NOT produce a final summary until test_outcome is determined",

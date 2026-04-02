@@ -199,7 +199,6 @@ query getTestInstance($integrationId: ID!) {
           status
           requiredConfigVariable {
             key
-            label
             dataType
           }
         }

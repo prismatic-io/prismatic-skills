@@ -41,6 +41,7 @@ function removeTestFiles(projectPath: string): void {
     ".env.testing",
     "src/flows.test.ts",
     "src/componentRegistry.ts",
+    "src/client.ts",
     "jest.config.js",
     ".npmrc",
   ];

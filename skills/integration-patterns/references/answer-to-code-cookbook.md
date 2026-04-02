@@ -638,17 +638,34 @@ export default integration({
 
 ## Component Action Calls (in onExecution)
 
-### Accessing config vars
+### Accessing config vars (configPages connections)
 ```typescript
+// Connections defined in configPages are fully typed
 const connection = context.configVars["Slack Connection"];
 const channel = context.configVars["Slack Channel"];
 const apiKey = context.configVars["API Key"];
 ```
 
+### Accessing org-activated connections (scopedConfigVars)
+```typescript
+// Org-activated connections are in scopedConfigVars on the integration definition.
+// They're available at runtime via context.configVars but NOT in the ConfigVars type
+// (which only covers configPages). Use a typed cast:
+const slackConnection = context.configVars["Slack Connection"] as unknown as {
+  fields: Record<string, string>;
+  token?: { access_token: string };
+};
+// Then access fields normally:
+const token = slackConnection.token?.access_token;
+```
+
 ### Accessing connection fields
 ```typescript
+// For configPages connections (customer-activated, manifest-based):
 const signingSecret = context.configVars["Slack Connection"].fields.signingSecret;
 const accessToken = context.configVars["Slack Connection"].token?.access_token;
+
+// For org-activated connections (scopedConfigVars) — use the cast pattern above.
 ```
 
 ### Calling component actions (manifest import + .perform() pattern)
