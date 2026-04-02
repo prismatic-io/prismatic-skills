@@ -138,7 +138,6 @@ groups:
       - source_connection
       - source_org_connection_scope
       - source_connection_existing
-      - source_provide_credentials
       - source_api_docs_url
 
   - id: destination
@@ -155,7 +154,6 @@ groups:
       - destination_connection
       - destination_org_connection_scope
       - destination_connection_existing
-      - destination_provide_credentials
       - destination_api_docs_url
 
   - id: payload_and_config

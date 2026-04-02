@@ -63,11 +63,19 @@ After writing any choice answer, check the spec item for an `on_answer` field ke
 
 ## Using tools
 
-Get Prismatic knowledge from spec items, cookbook, templates, and spectral quickstart. Do not use WebSearch or WebFetch for Prismatic concepts.
-
-Do not use MCP tools for component operations. If a hook denies a tool call, read the error message — it contains the correct alternative.
-
-To find a script you're unsure about, Glob `${CLAUDE_PLUGIN_ROOT}/scripts/` rather than spawning subagents.
+<tool-rules>
+  <rule name="knowledge-sources">
+    <always>Get Prismatic knowledge from spec items, cookbook, templates, spectral quickstart</always>
+    <never>Use WebSearch or WebFetch for Prismatic concepts</never>
+  </rule>
+  <rule name="no-mcp">
+    <forbidden>Using MCP tools for component operations — MCP returns incomplete data</forbidden>
+    <required>If a hook denies a tool call, read the error message — it contains the correct alternative</required>
+  </rule>
+  <rule name="no-subagents">
+    <always>Glob `${CLAUDE_PLUGIN_ROOT}/scripts/` to find scripts rather than spawning subagents</always>
+  </rule>
+</tool-rules>
 
 <orby-escalation>
 ## Requesting Orby's Help
@@ -94,23 +102,29 @@ Then STOP and wait for Orby's response.
 </never-request>
 </orby-escalation>
 
-## Gathering requirements
-
-Ask one question at a time. Present the question, explain it, then stop and wait.
-
-Do not promise a specific number of remaining questions. Say "a few more things to decide."
-
-Read the spec item before presenting any choice — the `choices` array is the only source of valid options.
-
-For items marked `inference: allowed`, present all inferences for confirmation before writing.
-
-Prefer AskUserQuestion for any spec item with ≤4 choices. For 5+ choices, multi_choice, or text inputs, present conversationally.
-
-Never chain multiple prismatic-tools calls with `&&` or `;` in a single Bash command.
-
-When the sync script surfaces a `type: lookup` item with `lookup.script`, run it immediately.
-
-When the sync script emits a `<parallel-batch>` block, run ALL listed lookup scripts as separate Bash commands in a single response. Do not wait for one to finish before starting the next.
+<requirements-rules>
+  <rule name="one-at-a-time">
+    <always>Present exactly ONE question per message, then STOP and wait</always>
+    <never>Batch multiple questions into one message</never>
+    <never>Promise a specific number of remaining questions — say "a few more things to decide"</never>
+  </rule>
+  <rule name="spec-choices">
+    <always>Read the spec item before presenting any choice — the `choices` array is the only source of valid options</always>
+    <never>Invent options not in the spec's choices array</never>
+  </rule>
+  <rule name="inference-confirmation">
+    <always>For items marked `inference: allowed`, present all inferences for confirmation before writing</always>
+    <always>Prefer AskUserQuestion for spec items with ≤4 choices</always>
+    <always>For 5+ choices, multi_choice, or text inputs, present conversationally</always>
+  </rule>
+  <rule name="command-isolation">
+    <never>Chain multiple prismatic-tools calls with `&&` or `;` in a single Bash command</never>
+  </rule>
+  <rule name="lookups">
+    <always>When the sync script surfaces a `type: lookup` item with `lookup.script`, run it immediately</always>
+    <always>When the sync script emits a `<parallel-batch>` block, run ALL listed lookup scripts as separate Bash commands in a single response</always>
+  </rule>
+</requirements-rules>
 
 ## API Research
 

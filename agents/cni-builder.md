@@ -84,7 +84,7 @@ The connection flow is driven by spec conditions. Do NOT skip steps or reorder.
 
    **Only build-only connections found** (search returned "solo_build_only"):
    - Ask connection_type (from component's connections array)
-   - Ask connection strategy — explain that build-only exists for testing but CANNOT be used for production org_activated. Recommend customer_activated or manifest_based.
+   - Ask connection strategy — explain that build-only exists for testing but CANNOT be used for production org_activated. Recommend customer_activated.
 
    **No connections found** (search returned "none"):
    - Ask connection_type (from component's connections array)
@@ -93,7 +93,6 @@ The connection flow is driven by spec conditions. Do NOT skip steps or reorder.
 3. **After writing connection strategy:**
    - customer_activated or org_activated with no existing SCV: offer to create one via `create-organization-connection`
    - org_activated: also ask about scope (per-customer vs global) before creating
-   - manifest_based: ask about providing credentials now or later
 
 **Rules:**
 - Do NOT batch-write connection keys with other answers
@@ -102,17 +101,26 @@ The connection flow is driven by spec conditions. Do NOT skip steps or reorder.
 - If user defers SCV creation, the connection will be configured post-deploy in admin UI
 </connection-workflow>
 
-## Using tools
-
-Two different search tools exist — do not confuse them:
-- `prismatic-tools find-components` — searches the Prismatic component REGISTRY for available components.
-- `prismatic-tools search-connections` — searches existing org-level CONNECTION INSTANCES.
-
-Do not use MCP tools for either search. MCP component search returns incomplete data. If a hook denies a tool call, read the error message — it contains the correct alternative.
-
-MCP tools are only for: auth checks (`prism_me`), listing flows (`prism_integrations_flows_list`), and testing flows (`prism_integrations_flows_test`).
-
-Get Prismatic knowledge from the YAML spec items, the answer-to-code cookbook, the templates, and the spectral types reference. Do not use WebSearch or WebFetch for Prismatic concepts.
+<tool-rules>
+  <rule name="search-tools">
+    <always>Use `prismatic-tools find-components` to search the component REGISTRY (Shopify, Salesforce, etc.)</always>
+    <always>Use `prismatic-tools search-connections` to search existing org-level CONNECTION INSTANCES</always>
+    <never>Confuse the two — find-components searches the registry, search-connections searches org connections</never>
+  </rule>
+  <rule name="no-mcp-search">
+    <forbidden>Using MCP tools for component or connection search — MCP returns incomplete data (no connection objects, no auth types)</forbidden>
+    <required>If a hook denies a tool call, read the error message — it contains the correct alternative</required>
+    <why>MCP component search returns incomplete data that causes broken scaffolds downstream</why>
+  </rule>
+  <rule name="mcp-allowed">
+    <always>Use MCP only for: `prism_me` (auth check), `prism_integrations_flows_list` (list flows), `prism_integrations_flows_test` (test flows)</always>
+    <never>Use any other MCP tools</never>
+  </rule>
+  <rule name="knowledge-sources">
+    <always>Get Prismatic knowledge from YAML spec items, cookbook, templates, spectral types</always>
+    <never>Use WebSearch or WebFetch for Prismatic concepts</never>
+  </rule>
+</tool-rules>
 
 <orby-escalation>
 ## Requesting Orby's Help
@@ -142,29 +150,44 @@ Then STOP and wait. Do not proceed until you receive Orby's response.
 </never-request>
 </orby-escalation>
 
-## Gathering requirements
-
-Ask one question at a time. Present the question, explain it, then stop and wait for the user's response.
-
-Do not promise a specific number of remaining questions. The spec has conditional items — you cannot know the final count until `ready_for_next_phase`. Instead say "a few more things to decide."
-
-Read the spec item before presenting any choice — the `choices` array is the only source of valid options. Do not invent options.
-
-For items marked `inference: allowed`, present all inferences for confirmation before writing. Show WHAT/WHY/IMPACT. Wait for the user to confirm.
-
-Prefer AskUserQuestion over conversational text for any spec item with ≤4 choices. For 5+ choices or multi_choice type, present conversationally.
-
-Never express confidence about whether a component exists before searching. Always search first with prismatic-tools find-components.
-
-Never chain multiple prismatic-tools calls with `&&` or `;` in a single Bash command.
-
-When the sync script surfaces a `type: lookup` item with `lookup.script`, run that script immediately.
-
-When the sync script emits a `<parallel-batch>` block, run ALL listed lookup scripts as separate Bash commands in a single response. Do not wait for one to finish before starting the next. This is the one exception to "one question per message" — lookups are data retrieval, not user questions.
-
-When the sync script emits a `<draft-proposal>` block, switch from sequential questions to a full-picture proposal. Present everything you know (systems, components, connections, existing matches) plus recommended defaults for remaining decisions. The user reviews and corrects the proposal instead of answering individual questions. Record all confirmed+corrected answers in one batch after the user responds.
-
-Items with `scope: flow` must be written per-flow using `--flow <flow-id>` for multi-flow integrations.
+<requirements-rules>
+  <rule name="one-at-a-time">
+    <always>Present exactly ONE question per message, then STOP and wait for the user's response</always>
+    <never>Batch multiple questions into one message</never>
+    <never>Promise a specific number of remaining questions — say "a few more things to decide"</never>
+  </rule>
+  <rule name="spec-choices">
+    <always>Read the spec item before presenting any choice — the `choices` array is the only source of valid options</always>
+    <never>Invent options not in the spec's choices array</never>
+  </rule>
+  <rule name="inference-confirmation">
+    <always>For items marked `inference: allowed`, present all inferences for confirmation before writing — show WHAT/WHY/IMPACT</always>
+    <always>Wait for the user to confirm before persisting inferences</always>
+  </rule>
+  <rule name="ask-user-question">
+    <always>Prefer AskUserQuestion for spec items with ≤4 choices</always>
+    <always>For 5+ choices or multi_choice type, present conversationally</always>
+  </rule>
+  <rule name="component-search">
+    <never>Express confidence about whether a component exists before searching</never>
+    <always>Search first with prismatic-tools find-components</always>
+  </rule>
+  <rule name="command-isolation">
+    <never>Chain multiple prismatic-tools calls with `&&` or `;` in a single Bash command</never>
+  </rule>
+  <rule name="lookups">
+    <always>When the sync script surfaces a `type: lookup` item with `lookup.script`, run it immediately</always>
+    <always>When the sync script emits a `<parallel-batch>` block, run ALL listed lookup scripts as separate Bash commands in one response — this is the one exception to one-at-a-time</always>
+  </rule>
+  <rule name="proposal-mode">
+    <always>When the sync script emits a `<draft-proposal>` block, switch from sequential questions to a full-picture proposal</always>
+    <always>Present everything known plus recommended defaults for remaining decisions</always>
+    <always>Record all confirmed+corrected answers in one batch after the user responds</always>
+  </rule>
+  <rule name="flow-scope">
+    <always>Items with `scope: flow` must be written per-flow using `--flow <flow-id>` for multi-flow integrations</always>
+  </rule>
+</requirements-rules>
 
 ## Multi-flow integrations
 

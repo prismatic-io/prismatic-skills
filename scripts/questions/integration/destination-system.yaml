@@ -132,7 +132,6 @@ destination_connection:
   choices:
     - customer_activated
     - org_activated
-    - manifest_based
     - no_connection
   depends_on: [destination_connection_type]
   condition:
@@ -141,34 +140,29 @@ destination_connection:
     <present-as>
       <option value="customer_activated" recommended="true">Customer-activated (reusable) — each customer authorizes their own account. Reusable across integrations.</option>
       <option value="org_activated">Org-activated (reusable) — your team configures credentials. Can be per-customer or one shared connection.</option>
-      <option value="manifest_based">Integration-specific — credentials on this integration's config page only. Not reusable.</option>
       <option value="no_connection">No auth needed.</option>
     </present-as>
 
     If destination_connection_existing is "solo_build_only":
       Explain that build-only connections exist for testing but cannot be used for production
-      org_activated deployments. Recommend customer_activated or manifest_based.
+      org_activated deployments. Recommend customer_activated.
 
     Recommend customer_activated for most cases.
+    Code pattern is determined automatically during code gen.
   implications:
     "customer_activated": >
       Each customer authorizes their own account. Reusable across integrations.
     "org_activated": >
       One shared connection managed centrally. Cannot use build-only connections.
-    "manifest_based": >
-      Integration-specific connection. Not reusable.
     "no_connection": >
       No auth required for the destination.
   on_answer:
     customer_activated: >
-      If no reusable connection exists yet (destination_connection_existing is "none" or "solo_build_only"),
-      offer to create one with create-organization-connection --strategy customer-activated.
+      If no reusable connection exists yet, offer to create one with create-organization-connection.
     org_activated: >
       The next question (destination_org_connection_scope) asks about per-customer vs global.
-      After that, if no reusable connection exists yet, offer to create one.
+      After that, offer to create SCV if none exists.
       WARNING: Build-only connections CANNOT be used with organizationActivatedConnection().
-    manifest_based: >
-      The next question will ask about providing credentials now or later.
   docs:
     - https://prismatic.io/docs/integrations/connections.md
   cookbook_section: "Connection Strategy Code Paths"
@@ -194,21 +188,6 @@ destination_org_connection_scope:
     global: >
       Creates an org-activated org-scoped connection (SCV) with credentials stored directly
       on the connection definition. All instances share.
-
-destination_provide_credentials:
-  question: "Provide OAuth/API credentials for the destination system now?"
-  type: choice
-  inference: prohibited
-  scope: integration
-  choices:
-    - "yes"
-    - "skip"
-  depends_on: [destination_connection]
-  condition:
-    destination_connection: "manifest_based"
-  agent_context: >
-    Providing credentials now means the integration works immediately after deploy.
-    Skip if you don't have them on hand — you'll need to edit .env manually later.
 
 destination_api_docs_url:
   question: "API documentation URL for the destination system"

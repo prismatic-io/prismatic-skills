@@ -12,39 +12,122 @@ Load this reference at the start of the code generation phase.
 | `src/documentation.md` | Document all config variables, connections, flow logic |
 | `.spectral/flows/<flow-key>/payloads/sample-payload.json` | Test payload in VS Code extension format: `{ headers, data, contentType }` |
 
-## Flow Patterns
-- **Webhook with component trigger:** Check `src/manifests/<component>/triggers/` for a built-in trigger. If one exists, use it as `onTrigger` — it handles HMAC validation and webhook lifecycle automatically. Import: `import { triggerName } from "./manifests/<component>/triggers/<key>"`.
-- **Webhook without component trigger, no lifecycle hooks:** Skip `onTrigger`. Extract data in `onExecution` via `params.onTrigger.results`.
-- **Webhook without component trigger, with lifecycle hooks:** Must include `onTrigger: async (_context, payload) => ({ payload })`.
-- **Webhook auto-registration with component trigger:** The component trigger's `webhookLifecycleHandlers.create/.delete` handle registration automatically. These also fire in **listening mode** (test runner), which `onInstanceDeploy`/`onInstanceDelete` do not.
-- **Webhook auto-registration without component trigger:** Use `webhookLifecycleHandlers: { create: async (context, params) => {...}, delete: async (context, params) => {...} }` on the flow. These handlers must use `crossFlowState` (not `instanceState`) and must be idempotent. If `webhookLifecycleHandlers` are not suitable, fall back to `onInstanceDeploy`/`onInstanceDelete` with a pass-through `onTrigger`.
-- **General setup/teardown (non-webhook):** Use `onInstanceDeploy`/`onInstanceDelete` for creating folders, record types, or other resources that don't need listening mode support.
-- `onExecution`: config via `context.configVars["varKey"]`, connection fields via `.fields.signingSecret`, `.token?.access_token`
-- Component actions: Import from manifest, call `.perform()`. Do not use `context.components.<key>.<action>()`.
-- Action result shapes: Check the manifest's `examplePayload` for the action before assuming the response type. If `examplePayload` is missing, cast the result as `unknown` and add `logger.info(JSON.stringify(result))` during testing to verify the actual shape. Common mistake: assuming a singleton return when the API returns an array.
-- `flow({...})` without generics. Do not add type annotations to callback parameters.
-- `instanceState` never in `onInstanceDeploy`/`onInstanceDelete` — use `crossFlowState`.
-- State is written in its entirety — NOT concurrency-safe. For record ID mapping between systems (e.g., GitHub issue → Zendesk ticket), prefer using the destination system's externalId field instead of storing a mapping in state. This avoids race conditions and survives failed executions.
-- Import only from `@prismatic-io/spectral`.
-- QueueConfig: flat shape (`usesFifoQueue`, `concurrencyLimit`, `singletonExecutions`, `dedupeIdField`).
-- Cast patterns: `as unknown as MyType` for payloads, `as Record<string, unknown>` for component results.
+<connection-code-rules>
+  <rule name="follow-code-plan">
+    <always>The `code-plan` output includes a `<connection-patterns>` block for each connector</always>
+    <always>Follow the pattern it specifies — customerActivatedConnection, manifest_helper, connectionConfigVar_inline, or organizationActivatedConnection</always>
+    <never>Guess which connection pattern to use — the code-plan determines it based on whether an SCV exists</never>
+  </rule>
+  <rule name="scv-prerequisite">
+    <always>`customerActivatedConnection()` and `organizationActivatedConnection()` require a pre-existing SCV</always>
+    <always>If no SCV exists, use the manifest helper pattern (component exists) or connectionConfigVar (no component)</always>
+    <forbidden>Using customerActivatedConnection() with a stableKey that doesn't match an existing SCV — deploy will fail</forbidden>
+  </rule>
+  <rule name="org-activated-placement">
+    <always>`organizationActivatedConnection()` goes in `scopedConfigVars` on integration() — NOT in configPages</always>
+    <always>Access in onExecution requires a typed cast since scopedConfigVars aren't in the ConfigVars type</always>
+  </rule>
+</connection-code-rules>
 
-## Integration-Specific Rules
-- Do NOT generate `src/client.ts` for integrations that use component manifests. All HTTP calls go through the component's `.perform()` method. `client.ts` is a component-only pattern.
-- `iconPath` in `integration()` should be `"assets/icon.png"` — the scaffold creates the icon at `assets/icon.png`, not at the root.
-- Generate `.spectral/trigger-config.json` during code gen with the test payload mapping:
-  ```json
-  { "flows": { "<flow-key>": { "payload": ".spectral/flows/<flow-key>/payloads/sample-payload.json" } } }
-  ```
+<webhook-patterns>
+  <rule name="component-trigger">
+    <always>Check `src/manifests/<component>/triggers/` for a built-in trigger first</always>
+    <always>If one exists, use it as `onTrigger` — it handles HMAC validation and webhook lifecycle automatically</always>
+    <always>Import: `import { triggerName } from "./manifests/<component>/triggers/<key>"`</always>
+  </rule>
+  <rule name="no-component-trigger-no-lifecycle">
+    <always>Skip `onTrigger` entirely — extract data in `onExecution` via `params.onTrigger.results`</always>
+  </rule>
+  <rule name="no-component-trigger-with-lifecycle">
+    <required>`onTrigger: async (_context, payload) => ({ payload })` passthrough</required>
+    <why>Lifecycle handlers require onTrigger to exist</why>
+  </rule>
+  <rule name="webhook-lifecycle-with-component">
+    <always>The component trigger's `webhookLifecycleHandlers.create/.delete` handle registration automatically</always>
+    <always>These also fire in listening mode (test runner), which `onInstanceDeploy`/`onInstanceDelete` do not</always>
+  </rule>
+  <rule name="webhook-lifecycle-without-component">
+    <always>Use `webhookLifecycleHandlers: { create: async (context, params) => {...}, delete: async (context, params) => {...} }` on the flow</always>
+    <required>Use `crossFlowState` (not `instanceState`) in lifecycle handlers</required>
+    <required>Handlers must be idempotent</required>
+  </rule>
+  <rule name="general-setup-teardown">
+    <always>Use `onInstanceDeploy`/`onInstanceDelete` for non-webhook resources (folders, record types)</always>
+  </rule>
+</webhook-patterns>
 
-## Polling Flows with componentRegistry
-- `PollingFlow.onTrigger` accepts ONLY an inline `PollingTriggerPerformFunction` — NOT a component trigger reference (`TriggerReference`).
-- If your integration has a `componentRegistry` with component triggers, the polling flow's `onTrigger` must still be an inline function using `context.polling.getState()`/`setState()`.
-- Component actions remain available in `onExecution` via `context.components.*` even in polling flows.
-- Do not set `triggerType: "polling"` on a flow that uses a component manifest trigger as `onTrigger` — the types are incompatible.
+<code-rules>
+  <rule name="component-actions">
+    <always>Import actions from manifest and call `.perform()`</always>
+    <forbidden>Using `context.components.<key>.<action>()` — not available in integrations</forbidden>
+  </rule>
+  <rule name="action-results">
+    <always>Check the manifest's `examplePayload` for the action before assuming the response type</always>
+    <always>If `examplePayload` is missing, cast as `unknown` and add `logger.info(JSON.stringify(result))` to verify shape</always>
+  </rule>
+  <rule name="flow-generics">
+    <always>`flow({...})` without generics</always>
+    <never>Add type annotations to callback parameters</never>
+  </rule>
+  <rule name="lifecycle-state">
+    <forbidden>Using `instanceState` in `onInstanceDeploy`/`onInstanceDelete`</forbidden>
+    <required>Use `crossFlowState` in lifecycle handlers</required>
+  </rule>
+  <rule name="state-concurrency">
+    <always>State is written in its entirety — NOT concurrency-safe</always>
+    <always>For record ID mapping between systems, prefer the destination system's externalId field over state</always>
+    <why>Avoids race conditions and survives failed executions</why>
+  </rule>
+  <rule name="imports">
+    <always>Import only from `@prismatic-io/spectral`</always>
+    <never>Import from internal paths like `@prismatic-io/spectral/dist/...`</never>
+  </rule>
+  <rule name="queue-config">
+    <always>QueueConfig uses flat shape: `usesFifoQueue`, `concurrencyLimit`, `singletonExecutions`, `dedupeIdField`</always>
+  </rule>
+  <rule name="cast-patterns">
+    <always>`as unknown as MyType` for payloads, `as Record<string, unknown>` for component results</always>
+  </rule>
+</code-rules>
 
-## Component Registry
-- Import: `import slack from "./manifests/slack"` (component key as variable name)
-- Export: `export const componentRegistry = componentManifests({ slack })`
-- Manifests are auto-generated during scaffolding — never create manually
-- If a component doesn't exist in the registry (find-components returns nothing), use direct HTTP calls with axios from the Spectral SDK — do NOT fabricate a component key like "http"
+<integration-rules>
+  <rule name="no-client-ts">
+    <forbidden>Generating `src/client.ts` for integrations that use component manifests</forbidden>
+    <required>All HTTP calls go through the component's `.perform()` method</required>
+    <why>`client.ts` is a component-only pattern — CNIs use manifest actions or direct SDK clients</why>
+  </rule>
+  <rule name="icon-path">
+    <always>`iconPath` in `integration()` must be `"icon.png"`</always>
+    <never>Use `"assets/icon.png"` — webpack copies assets/ contents to dist/ root, so the built path is just `icon.png`</never>
+  </rule>
+  <rule name="trigger-config">
+    <always>Generate `.spectral/trigger-config.json` during code gen for webhook flows</always>
+    <always>Format: `{ "flows": { "<flow-key>": { "payload": ".spectral/flows/<flow-key>/payloads/sample-payload.json" } } }`</always>
+  </rule>
+</integration-rules>
+
+<polling-rules>
+  <rule name="polling-with-registry">
+    <always>`PollingFlow.onTrigger` accepts ONLY an inline `PollingTriggerPerformFunction`</always>
+    <forbidden>Using a component trigger reference (`TriggerReference`) as `onTrigger` on a polling flow</forbidden>
+    <why>The types are incompatible — `PollingFlow` requires inline function, not `TriggerReference`</why>
+  </rule>
+  <rule name="polling-inline">
+    <always>Polling flow's `onTrigger` must be an inline function using `context.polling.getState()`/`setState()`</always>
+    <always>Component actions remain available in `onExecution` even in polling flows</always>
+  </rule>
+</polling-rules>
+
+<registry-rules>
+  <rule name="manifest-imports">
+    <always>Import: `import slack from "./manifests/slack"` (component key as variable name)</always>
+    <always>Export: `export const componentRegistry = componentManifests({ slack })`</always>
+  </rule>
+  <rule name="manifest-generation">
+    <forbidden>Creating manifests manually — they are auto-generated during scaffolding</forbidden>
+  </rule>
+  <rule name="no-component-fallback">
+    <always>If no component exists in the registry, use direct HTTP calls with axios from Spectral SDK</always>
+    <forbidden>Fabricating a component key like "http"</forbidden>
+  </rule>
+</registry-rules>

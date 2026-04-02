@@ -7,7 +7,7 @@
 #       B) Only build-only found → ask connection_type → ask connection strategy
 #       C) None found → ask connection_type → ask connection strategy
 #     → IF customer_activated or org_activated → offer to create SCV
-#     → IF manifest_based → ask about credentials
+#     → IF customer_activated or org_activated with no SCV → offer to create one
 
 source_system:
   question: "What is the SOURCE system name?"
@@ -123,38 +123,35 @@ source_connection:
   choices:
     - customer_activated
     - org_activated
-    - manifest_based
     - no_connection
   depends_on: [source_connection_type]
   condition:
     source_connection_type: { not_empty: true }
   agent_context: |
     <present-as>
-      <option value="customer_activated" recommended="true">Customer-activated (reusable) — each customer provides and authorizes their own credentials (OAuth flow or API keys). The connection is defined once in Prismatic and reusable across integrations. Code: customerActivatedConnection() in configPages.</option>
-      <option value="org_activated">Org-activated (reusable) — your team provides credentials on behalf of customers. Can be per-customer (unique creds per customer) or global (one shared connection for all). Code: organizationActivatedConnection() in scopedConfigVars.</option>
-      <option value="manifest_based">Integration-specific — connection defined on this integration's config page only. Not reusable across integrations. Org provides OAuth app creds, customer authorizes during setup. Code: connectionConfigVar() or manifest helper in configPages.</option>
-      <option value="no_connection">No auth needed.</option>
+      <option value="customer_activated" recommended="true">Customer-activated (reusable) — each customer provides and authorizes their own credentials. The connection is defined once in Prismatic and reusable across integrations. Customers see an "Authorize" button in the config wizard.</option>
+      <option value="org_activated">Org-activated (reusable) — your team provides credentials on behalf of customers. Can be per-customer (unique creds per customer) or global (one shared connection for all). Customers never see this connection.</option>
+      <option value="no_connection">No auth needed — public API or webhook-only.</option>
     </present-as>
 
     If source_connection_existing is "solo_build_only":
       Explain that build-only connections exist for testing but cannot be used for production
-      org_activated deployments. Recommend customer_activated or manifest_based.
+      org_activated deployments. Recommend customer_activated.
 
     Recommend customer_activated for most cases.
+
+    The code pattern (manifest helper, connectionConfigVar, etc.) is determined automatically
+    during code generation based on whether a component manifest exists. The user does not
+    need to choose between these — only who manages the credentials.
   implications:
     "customer_activated": >
       Each customer provides and authorizes their own credentials during instance setup.
-      Connection defined once in Prismatic, reusable across integrations. Uses
-      customerActivatedConnection({ stableKey }) in configPages.ts.
+      Connection defined once in Prismatic, reusable across integrations.
+      Code gen: customerActivatedConnection() if SCV exists, or manifest helper on configPages.
     "org_activated": >
       Your team provides credentials — either unique per customer or one shared connection
-      for all customers. Not visible to customers in the config wizard. Uses
-      organizationActivatedConnection({ stableKey }) in index.ts scopedConfigVars.
-    "manifest_based": >
-      Integration-specific connection on the config page. Org provides the OAuth app
-      registration (client ID/secret set post-deploy in Prismatic admin). Customer
-      completes the OAuth flow during setup. Not reusable across integrations. Uses
-      connectionConfigVar() or manifest helpers (e.g., slackOauth2()) in configPages.ts.
+      for all customers. Not visible to customers in the config wizard.
+      Code gen: organizationActivatedConnection() in scopedConfigVars.
     "no_connection": >
       No authentication required. Suitable for public endpoints or when auth is handled
       differently (e.g., API key passed as a config variable).
@@ -169,11 +166,7 @@ source_connection:
       After that, if no reusable connection exists yet, offer to create one with
       create-organization-connection using the appropriate --strategy.
       WARNING: Build-only connections CANNOT be used with organizationActivatedConnection().
-      If only build-only connections exist, warn the user and suggest customer_activated or manifest_based.
-    manifest_based: >
-      The next question will ask about providing credentials now or later.
-      If the user provides them now, they go into .env for immediate use after deploy.
-      If skipped, credentials must be configured in the Prismatic admin UI post-deploy.
+      If only build-only connections exist, warn the user and suggest customer_activated instead.
   docs:
     - https://prismatic.io/docs/integrations/connections.md
   cookbook_section: "Connection Strategy Code Paths"
@@ -199,23 +192,6 @@ source_org_connection_scope:
     global: >
       Creates an org-activated org-scoped connection (SCV) with credentials stored directly
       on the connection definition. No per-customer credentials needed. All instances share.
-
-source_provide_credentials:
-  question: "Provide OAuth/API credentials for the source system now? If yes, they'll be written to .env for immediate use after deploy."
-  type: choice
-  inference: prohibited
-  scope: integration
-  choices:
-    - "yes"
-    - "skip"
-  depends_on: [source_connection]
-  condition:
-    source_connection: "manifest_based"
-  agent_context: >
-    If you have the OAuth Client ID, Client Secret, and any other required credentials on hand,
-    providing them now means the integration will work immediately after deploy. The credentials
-    are written to a .env file that the scaffold reads at build time. If you skip this step,
-    you'll need to manually edit .env before the connection will authenticate.
 
 source_api_docs_url:
   question: "API documentation URL for the source system (e.g., https://developers.example.com/api)"

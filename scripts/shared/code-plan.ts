@@ -257,6 +257,98 @@ function main(): number {
     }
   }
 
+  // Emit per-connector connection code pattern guidance
+  // The code pattern depends on: connection strategy + whether an SCV exists
+  if (sessionType === "integration") {
+    const connectorPrefixes = ["source", "destination"];
+    // Add additional connectors
+    for (const key of Object.keys(answers)) {
+      const match = key.match(/^(connector_\d+)_system$/);
+      if (match) connectorPrefixes.push(match[1]);
+    }
+
+    const connectionPatterns: Array<{ prefix: string; system: string; strategy: string; pattern: string; stableKey: string; componentKey: string; connectionKey: string }> = [];
+
+    for (const prefix of connectorPrefixes) {
+      const strategy = answers[`${prefix}_connection`];
+      if (!strategy || strategy === "no_connection") continue;
+
+      const system = String(answers[`${prefix}_system`] ?? prefix);
+      const connExisting = answers[`${prefix}_connection_existing`];
+      const component = answers[`${prefix}_component`];
+      const connType = answers[`${prefix}_connection_type`];
+
+      const componentKey = component && typeof component === "object"
+        ? String((component as Record<string, unknown>).key ?? "")
+        : "";
+      const connectionKey = connType && typeof connType === "object"
+        ? String((connType as Record<string, unknown>).key ?? "")
+        : "";
+
+      // Determine if an SCV exists (connection_existing is a real object, not "none"/"solo_build_only")
+      const hasSCV = connExisting !== undefined
+        && connExisting !== null
+        && connExisting !== "none"
+        && connExisting !== "solo_build_only"
+        && typeof connExisting === "object";
+
+      let stableKey = "";
+      if (hasSCV && typeof connExisting === "object") {
+        stableKey = String((connExisting as Record<string, unknown>).stableKey ?? "");
+      }
+
+      let pattern: string;
+      if (strategy === "org_activated") {
+        if (hasSCV && stableKey) {
+          pattern = "organizationActivatedConnection";
+        } else {
+          // org_activated without SCV — should have been created, but fallback
+          pattern = "organizationActivatedConnection_NEEDS_SCV";
+        }
+      } else if (strategy === "customer_activated") {
+        if (hasSCV && stableKey) {
+          pattern = "customerActivatedConnection";
+        } else if (componentKey && connectionKey) {
+          pattern = "manifest_helper";
+        } else {
+          pattern = "connectionConfigVar_inline";
+        }
+      } else {
+        pattern = "unknown";
+      }
+
+      connectionPatterns.push({ prefix, system, strategy: String(strategy), pattern, stableKey, componentKey, connectionKey });
+    }
+
+    if (connectionPatterns.length > 0) {
+      console.log(`  <connection-patterns>`);
+      for (const cp of connectionPatterns) {
+        console.log(`    <connector prefix="${cp.prefix}" system="${escapeXml(cp.system)}" strategy="${cp.strategy}" pattern="${cp.pattern}">`);
+        if (cp.pattern === "customerActivatedConnection") {
+          console.log(`      Use: customerActivatedConnection({ stableKey: "${escapeXml(cp.stableKey)}" }) in configPages`);
+          console.log(`      The SCV exists — reference it by stableKey.`);
+        } else if (cp.pattern === "organizationActivatedConnection") {
+          console.log(`      Use: organizationActivatedConnection({ stableKey: "${escapeXml(cp.stableKey)}" }) in scopedConfigVars on integration()`);
+          console.log(`      Access in onExecution: context.configVars["${escapeXml(cp.system)} Connection"] as unknown as { fields: Record<string, string>; token?: { access_token: string } }`);
+        } else if (cp.pattern === "manifest_helper") {
+          console.log(`      Use: manifest helper from ./manifests/${escapeXml(cp.componentKey)}/connections/${escapeXml(cp.connectionKey)} in configPages`);
+          console.log(`      Import the helper and call it with a stableKey and input overrides.`);
+          console.log(`      For customer-visible OAuth: org provides clientId/clientSecret (permissionAndVisibilityType: "organization"), customer completes OAuth flow.`);
+          console.log(`      Example: ${cp.connectionKey}("${cp.prefix}-${cp.componentKey}-${cp.connectionKey}", { clientId: { value: "", permissionAndVisibilityType: "organization" }, ... })`);
+        } else if (cp.pattern === "connectionConfigVar_inline") {
+          console.log(`      Use: connectionConfigVar({ stableKey: "...", dataType: "connection", ... }) in configPages`);
+          console.log(`      No component manifest — define the connection inputs inline.`);
+        } else if (cp.pattern === "organizationActivatedConnection_NEEDS_SCV") {
+          console.log(`      WARNING: org_activated chosen but no SCV was created. The agent should have created one.`);
+          console.log(`      Create an SCV first with: prismatic-tools create-organization-connection`);
+          console.log(`      Then use: organizationActivatedConnection({ stableKey: "<created-stable-key>" }) in scopedConfigVars`);
+        }
+        console.log(`    </connector>`);
+      }
+      console.log(`  </connection-patterns>`);
+    }
+  }
+
   // Check for api-research.json
   const researchCandidates = [
     join(sessionDir, "api-research.json"),

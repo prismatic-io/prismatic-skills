@@ -310,7 +310,7 @@ function main(): number {
           const existingStr = typeof existingValue === "string" ? existingValue : JSON.stringify(existingValue ?? "");
           const noneOrBuildOnly = existingStr === "none" || existingStr === "solo_build_only";
 
-          if (noneOrBuildOnly && value !== "manifest_based" && value !== "no_connection") {
+          if (noneOrBuildOnly && value !== "no_connection") {
             // Strategy written, but no usable SCV exists yet. Build post-write guidance.
             const connType = value === "customer_activated" ? "customer-activated" : value === "org_activated" ? "org-activated" : value;
             const hasBuildOnly = existingStr === "solo_build_only";

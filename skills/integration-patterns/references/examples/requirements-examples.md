@@ -36,7 +36,7 @@ NOT: "Raise error", "Log and ignore", "Custom error handler flow" — these don'
 </example>
 
 <example>
-<input>User said "customer-managed". Spec item `source_connection` has choices: [org_activated, customer_activated, manifest_based, no_connection].</input>
+<input>User said "customer-managed". Spec item `source_connection` has choices: [customer_activated, org_activated, no_connection].</input>
 <output>
 Map "customer-managed" to the spec slug `customer_activated` (not `customer_managed`, not `customer`, not `managed`).
 Command: `prismatic-tools record-choices --session <name> source_connection=customer_activated`

@@ -82,9 +82,8 @@
   inference: prohibited
   scope: integration
   choices:
-    - org_activated
     - customer_activated
-    - manifest_based
+    - org_activated
     - no_connection
   depends_on: ["{PREFIX}_connection_type"]
   condition:
@@ -93,25 +92,22 @@
     <present-as>
       <option value="customer_activated" recommended="true">Customer-activated (reusable) — each customer provides their own credentials.</option>
       <option value="org_activated">Org-activated (reusable) — your team provides credentials.</option>
-      <option value="manifest_based">Integration-specific — credentials on this integration's config page only.</option>
       <option value="no_connection">No auth needed.</option>
     </present-as>
+    Code pattern is determined automatically during code gen.
   implications:
     "customer_activated": >
       Each customer authorizes their own account. Reusable across integrations.
     "org_activated": >
       One shared connection managed centrally. Cannot use build-only connections.
-    "manifest_based": >
-      Integration-specific connection. Not reusable.
     "no_connection": >
       No authentication required.
   on_answer:
-    org_activated: >
-      IMMEDIATELY run `prismatic-tools search-connections ${{{PREFIX}_system}}` to find existing org connections.
     customer_activated: >
-      IMMEDIATELY run `prismatic-tools search-connections ${{{PREFIX}_system}}` to find existing connections.
-    manifest_based: >
-      Prepare to run `prismatic-tools get-credentials` if needed.
+      If no reusable connection exists, offer to create one with create-organization-connection.
+    org_activated: >
+      Ask about scope (per-customer vs global). If no reusable connection exists, offer to create one.
+      Build-only connections CANNOT be used with organizationActivatedConnection().
   cookbook_section: "Connection Strategy Code Paths"
 
 "{PREFIX}_org_connection_scope":
