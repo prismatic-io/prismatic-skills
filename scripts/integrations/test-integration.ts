@@ -222,8 +222,11 @@ function testSingleFlow(
 
     const result = spawnSync(cmd[0], cmd.slice(1), {
       encoding: "utf-8",
-      stdio: "inherit",
+      timeout: 90000,
     });
+
+    if (result.stdout) console.log(result.stdout);
+    if (result.stderr) console.log(result.stderr);
 
     console.log("-".repeat(60));
     console.log("");
@@ -236,6 +239,7 @@ function testSingleFlow(
       console.log(
         `Flow '${flowName}' failed with exit code ${result.status}`
       );
+      if (result.error) console.log(`Error: ${result.error.message}`);
       console.log("");
       return false;
     }
