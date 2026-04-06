@@ -361,6 +361,86 @@ function main(): number {
     }
   }
 
+  // Check for migration schema (migration-specific context)
+  const migrationSchemaPath = join(sessionDir, "migration-schema.json");
+  if (existsSync(migrationSchemaPath)) {
+    try {
+      const schema = JSON.parse(readFileSync(migrationSchemaPath, "utf-8")) as Record<string, unknown>;
+
+      console.log(`  <migration-context>`);
+      console.log(`    This integration was migrated from another platform. Use the data below for exact field names and translations.`);
+
+      // API profiles — exact field names and nesting structure
+      const apiProfiles = schema.api_profiles as Record<string, unknown> | undefined;
+      if (apiProfiles && Object.keys(apiProfiles).length > 0) {
+        const profileJson = JSON.stringify(apiProfiles);
+        const MAX_PROFILE_SIZE = 5000;
+        console.log(`    <api-profiles count="${Object.keys(apiProfiles).length}">`);
+        console.log(`      Use exact field names from these profiles — do NOT invent or rename fields.`);
+        if (profileJson.length <= MAX_PROFILE_SIZE) {
+          console.log(`      ${profileJson}`);
+        } else {
+          console.log(`      ${profileJson.slice(0, MAX_PROFILE_SIZE)}`);
+          console.log(`      <truncated original-size="${profileJson.length}" shown="${MAX_PROFILE_SIZE}">Read migration-schema.json for full profiles</truncated>`);
+        }
+        console.log(`    </api-profiles>`);
+      }
+
+      // Scripts for translation
+      const scripts = schema.scripts as Array<Record<string, unknown>> | undefined;
+      if (scripts && scripts.length > 0) {
+        console.log(`    <script-translations count="${scripts.length}">`);
+        console.log(`      Translate these scripts completely — no TODO placeholders.`);
+        for (const script of scripts.slice(0, 5)) {
+          const name = script.name ?? "unnamed";
+          const lang = script.script_language ?? "groovy";
+          const content = script.script_content as string | undefined;
+          const lines = content ? content.split("\n").length : 0;
+          console.log(`      <script name="${escapeXml(String(name))}" language="${lang}" lines="${lines}">`);
+          if (content && lines <= 100) {
+            console.log(content);
+          } else if (content) {
+            console.log(`        [${lines} lines — read migration-schema.json scripts section for full source]`);
+          }
+          console.log(`      </script>`);
+        }
+        console.log(`    </script-translations>`);
+      }
+
+      // Field mappings from data_transformations
+      const transforms = schema.data_transformations as Array<Record<string, unknown>> | undefined;
+      if (transforms && transforms.length > 0) {
+        const totalMappings = transforms.reduce((sum, t) => {
+          const m = t.mappings as unknown[] | undefined;
+          return sum + (m?.length ?? 0);
+        }, 0);
+        console.log(`    <field-mappings transforms="${transforms.length}" mappings="${totalMappings}">`);
+        console.log(`      ${JSON.stringify(transforms).slice(0, 3000)}`);
+        console.log(`    </field-mappings>`);
+      }
+
+      // Known endpoints
+      const endpoints = schema.endpoints as Array<Record<string, unknown>> | undefined;
+      if (endpoints && endpoints.length > 0) {
+        console.log(`    <endpoints count="${endpoints.length}">`);
+        for (const ep of endpoints) {
+          const path = ep.path ?? ep.url ?? "unknown";
+          const method = ep.method ?? "GET";
+          const conf = ep.confidence ?? "unknown";
+          console.log(`      <endpoint method="${method}" path="${escapeXml(String(path))}" confidence="${conf}" />`);
+        }
+        console.log(`    </endpoints>`);
+      }
+
+      console.log(`  </migration-context>`);
+    } catch (e) {
+      console.error(`FATAL: migration-schema.json exists but could not be parsed: ${e}`);
+      console.error(`Without migration data, this is not a migration — use /build-integration instead.`);
+      console.error(`Fix the schema at: ${migrationSchemaPath}`);
+      return 2;
+    }
+  }
+
   // Instructions
   console.log(`  <instructions>`);
   if (useInline) {
