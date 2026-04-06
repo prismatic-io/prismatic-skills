@@ -312,7 +312,7 @@ Structured API request/response profile definitions extracted from the source pl
 - `used_by_operations`: Which connector operations use this profile, for traceability.
 - `body_structure` (request profiles only): Explicitly defines the top-level nesting hierarchy of the request body. This prevents the code generator from incorrectly nesting sibling fields inside each other.
   - `top_level_fields`: Array of field names that are direct children of the root object. These are **siblings** and must NOT be nested inside each other.
-  - `nesting`: Object mapping parent field names to their child field names.
+  - `nesting`: Object mapping parent field names to arrays of child field names. Example: `{ "properties": ["email", "firstname", "lastname"] }`. Values MUST be arrays, not strings.
   - `notes`: Clarifying notes about the structure (e.g., "externalCitation and externalCustomFields are siblings at the top level").
 
 **Important:** For request profiles, always include `body_structure` when the request body has nested objects. This is critical for preventing bugs where the code generator incorrectly nests top-level siblings inside each other.

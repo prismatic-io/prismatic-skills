@@ -523,7 +523,8 @@ function generateAnswers(
         }
         const nestingMap = bodyStructure.nesting ?? {};
         for (const [parent, children] of Object.entries(nestingMap)) {
-          additionalParts.push(`    ${parent} contains: ${children.join(", ")}`);
+          const childList = Array.isArray(children) ? children.join(", ") : String(children);
+          additionalParts.push(`    ${parent} contains: ${childList}`);
         }
       }
     }

@@ -78,7 +78,16 @@ Migrate an integration from $ARGUMENTS to a Prismatic Code Native Integration.
   </step>
 
   <step name="standard-build">
+    <rules critical="true">
+      <rule name="component-results">
+        <always>When find-components returns a result, record the FULL JSON object — not a bare string key</always>
+        <always>When find-components returns empty, record "none" and ask the user: "No Prismatic component exists for [system]. Research the API for direct HTTP calls, or build a custom component first?"</always>
+        <never>Silently decide to use HTTP calls — the user must confirm</never>
+      </rule>
+    </rules>
+
     From here, follow the standard build-integration workflow:
+    - Component search for each system (record full object or "none")
     - Connection search and setup
     - Confirm before scaffold
     - Scaffold project
