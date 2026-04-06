@@ -16,8 +16,8 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { writeFileSync, existsSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { writeFileSync, existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from "node:fs";
+import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getSessionDirectory } from "../shared/project-directory.js";
 
@@ -99,6 +99,23 @@ function main(): number {
     const outputPath = join(sessionDir, "parsed-export.json");
     writeFileSync(outputPath, output);
     console.error(`Parsed export written to: ${outputPath}`);
+
+    // Copy raw export into session so it's preserved alongside parsed output
+    const exportDir = join(sessionDir, "raw-export");
+    mkdirSync(exportDir, { recursive: true });
+    try {
+      const stat = statSync(exportPath);
+      if (stat.isDirectory()) {
+        for (const f of readdirSync(exportPath)) {
+          copyFileSync(join(exportPath, f), join(exportDir, f));
+        }
+      } else {
+        copyFileSync(exportPath, join(exportDir, basename(exportPath)));
+      }
+      console.error(`Raw export copied to: ${exportDir}`);
+    } catch (e) {
+      console.error(`Warning: could not copy raw export: ${e}`);
+    }
   }
 
   // Output to stdout (the hook captures this)
