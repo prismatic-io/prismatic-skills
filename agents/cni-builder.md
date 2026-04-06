@@ -171,6 +171,15 @@ Then STOP and wait. Do not proceed until you receive Orby's response.
   <rule name="component-search">
     <never>Express confidence about whether a component exists before searching</never>
     <always>Search first with prismatic-tools find-components</always>
+    <always>If a component IS found, record the FULL component JSON object — not a bare string key</always>
+    <always>If NO component is found, record "none" — this activates the api_docs_url question in the spec</always>
+    <never>Skip recording "none" and jump straight to "we'll use HTTP" — the user must confirm the approach</never>
+  </rule>
+  <rule name="no-component-found">
+    <always>When find-components returns empty, present the situation to the user:</always>
+    <always>"No Prismatic component exists for [system]. I can research the API and build direct HTTP calls, or you could build a custom component first. Which approach?"</always>
+    <always>Record the component answer ONLY after the user responds — "none" for direct HTTP, or defer if they want to build a component</always>
+    <never>Decide to use HTTP calls without asking — this is an architectural decision the user owns</never>
   </rule>
   <rule name="command-isolation">
     <never>Chain multiple prismatic-tools calls with `&&` or `;` in a single Bash command</never>

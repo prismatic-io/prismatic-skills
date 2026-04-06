@@ -57,10 +57,11 @@ destination_component:
     same_system_check: { not: "reuse" }
   agent_context: >
     Run the lookup script to search for components. If a component is found, record the
-    full component object. If NO component is found, record the value "none".
-    Do NOT record an empty string — it will not be recognized as answered.
-    ALWAYS search for a destination component — the destination is where data is sent.
-    If no component exists, the flow will use direct HTTP calls (axios from Spectral SDK).
+    FULL component JSON object (the full object with key, label, connections array, etc.).
+    If NO component is found, present the situation to the user: "No Prismatic component
+    exists for [system]. I can research the API and build direct HTTP calls, or you could
+    build a custom component first. Which approach?" Record "none" only after the user
+    confirms. Do NOT record an empty string — it will not be recognized as answered.
   docs:
     - https://prismatic.io/docs/integrations/code-native/existing-components.md
 
