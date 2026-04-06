@@ -112,24 +112,24 @@
       "timeout": 120
     },
     "detect-platform": {
-      "script": "migration/detect-platform",
+      "script": "detect-platform",
       "desc": "Detect whether export files are from Boomi or Cyclr",
       "usage": "<export-path>"
     },
     "parse-export": {
-      "script": "migration/parse-export",
+      "script": "parse-export",
       "desc": "Parse a Boomi or Cyclr export into structured JSON",
       "usage": "<export-path> --platform <boomi|cyclr> [--summary] [--session <name>]",
       "timeout": 120
     },
     "schema-to-answers": {
-      "script": "migration/schema-to-answers",
+      "script": "schema-to-answers",
       "desc": "Convert a migration schema to pre-populated spec answers",
       "usage": "--session <name> --schema <path>",
       "timeout": 30
     },
     "generate-diagrams": {
-      "script": "migration/generate-mermaid-diagrams",
+      "script": "generate-mermaid-diagrams",
       "desc": "Generate Mermaid flow diagrams from parsed Boomi export",
       "usage": "<parsed-export-json> --output <dir>",
       "timeout": 30
