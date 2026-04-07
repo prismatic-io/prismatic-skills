@@ -10,11 +10,19 @@
  *   Types: components, integrations
  */
 
-import { mkdirSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export function getProjectRoot(): string {
+  // Walk up from cwd to find the directory containing .prismatic/
+  // This makes session paths work even when the agent cd's into subdirectories
+  let dir = process.cwd();
+  while (dir !== dirname(dir)) {
+    if (existsSync(join(dir, ".prismatic"))) return dir;
+    dir = dirname(dir);
+  }
+  // Fallback to cwd if no .prismatic/ found
   return process.cwd();
 }
 

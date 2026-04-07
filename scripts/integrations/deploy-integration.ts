@@ -15,7 +15,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import { ensureAuthenticated, graphql, GraphQLError } from "../shared/graphql.js";
 import { runPrismMutation, runPrismQuery } from "../shared/prism-retry.js";
 
@@ -186,7 +186,7 @@ function deployIntegration(projectDir: string): number {
       sleepSync(5000);
 
       // --- Reliable integration ID extraction (B) ---
-      const projectName = projectDir.split("/").pop() || "unknown";
+      const projectName = basename(projectDir) || "unknown";
       let integrationId = result.stdout?.match(/ID:\s*(\S+)/)?.[1] || null;
 
       if (!integrationId || integrationId === "unknown") {

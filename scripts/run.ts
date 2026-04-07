@@ -77,7 +77,8 @@ function main(): number {
     const grouped: Record<string, string[]> = {};
     for (const [name, path] of index) {
       const rel = path.replace(SCRIPTS_DIR, "");
-      const dir = rel.includes("/") ? rel.split("/")[0] : "(root)";
+      const parts = rel.split(/[/\\]/);
+      const dir = parts.length > 1 ? parts[0] : "(root)";
       if (!grouped[dir]) grouped[dir] = [];
       grouped[dir].push(name);
     }

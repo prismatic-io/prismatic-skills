@@ -267,6 +267,43 @@ function main(): number {
   const onAnswerActions: string[] = [];
   let hasValidationErrors = false;
 
+  // Gate: component fallback requires user confirmation (integrations only)
+  // When writing *_component with a key that doesn't match the system name (e.g., http for dacra),
+  // reject unless --confirmed flag is present.
+  const isConfirmed = process.argv.includes("--confirmed");
+  if (sessionType !== "component" && !isConfirmed) {
+    const componentKeys = Object.keys(batch).filter(k =>
+      /^(source|destination|connector_\d+)_component$/.test(k)
+    );
+    for (const key of componentKeys) {
+      const val = batch[key];
+      if (!val || typeof val !== "object") continue;
+      if (val === "none" || (typeof val === "string" && val === "none")) continue;
+
+      const prefix = key.replace(/_component$/, "");
+      const systemKey = `${prefix}_system`;
+      const systemName = String(batch[systemKey] || answers[systemKey] || "").toLowerCase();
+      const componentKey = String((val as Record<string, unknown>).key || "").toLowerCase();
+
+      if (systemName && componentKey && !componentKey.includes(systemName) && !systemName.includes(componentKey)) {
+        console.log(
+          `0 answers written. ${key} was NOT recorded.\n\n` +
+          `<component-fallback-confirmation system="${systemName}" component="${componentKey}" blocking="true">\n` +
+          `  No dedicated Prismatic component exists for "${systemName}".\n` +
+          `  You selected "${componentKey}" as a generic fallback.\n` +
+          `  Present this choice to the user BEFORE recording:\n` +
+          `  "No Prismatic component exists for ${systemName}. Options:\n` +
+          `    1. Use the ${componentKey} component with direct API calls (works now)\n` +
+          `    2. Build a custom ${systemName} component first (reusable, more structured)"\n` +
+          `  After the user confirms, re-run with --confirmed:\n` +
+          `    prismatic-tools record-choices --session ${sessionName} --type ${sessionType} --confirmed ${key}='${JSON.stringify(val)}'\n` +
+          `</component-fallback-confirmation>`
+        );
+        process.exit(0);
+      }
+    }
+  }
+
   // Gate: connection strategy answers require prior connection search (integrations only)
   if (sessionType !== "component") {
     for (const key of connectionStrategyQuestions) {
@@ -395,7 +432,6 @@ function main(): number {
   // When the agent batch-writes 4+ inference-allowed items early in a session,
   // it's dumping inferences without presenting them to the user first.
   // Force the agent to present first, get confirmation, then re-run with --confirmed.
-  const isConfirmed = process.argv.includes("--confirmed");
   if (!isConfirmed && spec) {
     // Count existing answers (excluding metadata keys)
     const metaKeys = new Set(["name", "session", "type", "flows", "phase_gate", "additional_systems"]);
