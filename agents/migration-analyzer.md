@@ -30,8 +30,12 @@ the `/migrate-integration` command.
 </rule>
 
 <rule name="no-component-preemption">
-  <forbidden>Deciding whether a Prismatic component exists or which to use</forbidden>
-  <required>Provide system names and auth types — the build flow searches components live</required>
+  <forbidden>Deciding which Prismatic component to use (e.g., "we'll use the HTTP component")</forbidden>
+  <forbidden>Recommending a specific component in the migration plan output</forbidden>
+  <forbidden>Stating "will use HTTP" or "will use direct API calls" — that is the user's decision</forbidden>
+  <required>Report system names, auth types, and API patterns only</required>
+  <required>Leave component selection to the build flow — it searches the registry live and asks the user</required>
+  <why>The user may want to build custom components instead of using generic HTTP. The migration plan must not preempt that decision.</why>
 </rule>
 
 <rule name="array-fields">
@@ -85,9 +89,12 @@ Before saving `migration-schema.json`, verify:
     AccountConnectors → systems, ShareFields → config variables
 </step>
 
-<step name="generate-diagrams">
-  Boomi only: Run `prismatic-tools generate-diagrams <session-dir>/parsed-export.json --output <session-dir>/diagrams/`
-  Skip for Cyclr (execution_order provides sufficient visualization).
+<step name="generate-diagrams" critical="true">
+  <rule name="diagrams-required-for-boomi">
+    <always>For Boomi exports: run `prismatic-tools generate-diagrams {session-dir}/parsed-export.json --output {session-dir}/diagrams/`</always>
+    <never>Skip diagram generation for Boomi — the user expects flow visualizations</never>
+  </rule>
+  Skip for Cyclr only (execution_order provides sufficient visualization).
 </step>
 
 <step name="save-schema">

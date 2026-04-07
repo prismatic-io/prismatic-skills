@@ -1,6 +1,6 @@
 ---
 name: migrate-integration
-description: Migrate an integration from another platform (Boomi, Cyclr) to a Prismatic Code Native Integration
+description: Migrate an integration from another platform to a Prismatic Code Native Integration
 argument-hint: [export-path]
 agent: cni-builder
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, TaskCreate, TaskUpdate, TaskList, TaskGet, AskUserQuestion
@@ -42,9 +42,13 @@ Migrate an integration from $ARGUMENTS to a Prismatic Code Native Integration.
   </step>
 
   <step name="analyze" critical="true">
-    Spawn the `migration-analyzer` agent with this prompt:
+    Output an `<analyzer-request>` tag to delegate analysis to the migration-analyzer agent.
+    The main conversation handles the handoff (see CLAUDE.md orchestration).
 
-    "Analyze the {platform} export for session '{session-name}'.
+    ```
+    I need the migration analyzer to build the integration schema.
+    <analyzer-request>
+    Analyze the {platform} export for session '{session-name}'.
     Session directory: {session-dir}
     The parsed export is at: {session-dir}/parsed-export.json
 
@@ -55,9 +59,12 @@ Migrate an integration from $ARGUMENTS to a Prismatic Code Native Integration.
     4. Generate flow diagrams if Boomi
     5. Present the migration plan with confidence scores
 
-    Write migration-schema.json to: {session-dir}/migration-schema.json"
+    Write migration-schema.json to: {session-dir}/migration-schema.json
+    </analyzer-request>
+    ```
 
-    After the analyzer returns, present the migration plan to the user.
+    Then STOP and wait for the analyzer's response via SendMessage.
+    After it returns, present the migration plan to the user.
     Use AskUserQuestion: "Here's the migration plan. Ready to proceed?"
     WAIT for user approval before continuing.
   </step>
@@ -81,8 +88,27 @@ Migrate an integration from $ARGUMENTS to a Prismatic Code Native Integration.
     <rules critical="true">
       <rule name="component-results">
         <always>When find-components returns a result, record the FULL JSON object — not a bare string key</always>
-        <always>When find-components returns empty, record "none" and ask the user: "No Prismatic component exists for [system]. Research the API for direct HTTP calls, or build a custom component first?"</always>
+        <always>When find-components returns empty, ask the user: "No Prismatic component exists for [system]. Options: 1) Research the API and use direct HTTP calls, 2) Build a custom component first"</always>
         <never>Silently decide to use HTTP calls — the user must confirm</never>
+      </rule>
+      <rule name="build-custom-component-branch">
+        <always>If the user chooses "build custom component":</always>
+        <always>1. Record *_component=none for that system (activates api_docs_url question)</always>
+        <always>2. Ask for or use API docs URL from migration schema</always>
+        <always>3. Spawn external-api-researcher to analyze the API</always>
+        <always>4. WAIT for researcher to complete</always>
+        <always>5. Launch /build-component for that system using the research</always>
+        <always>6. After component is published, re-run find-components — now it exists</always>
+        <always>7. Record the real component object and continue the connection flow</always>
+        <never>Launch /build-component without running the API researcher first</never>
+      </rule>
+      <rule name="direct-http-branch">
+        <always>If the user chooses "direct HTTP calls":</always>
+        <always>1. Record *_component=none (activates api_docs_url question)</always>
+        <always>2. Ask for or use API docs URL from migration schema</always>
+        <always>3. Spawn external-api-researcher to analyze the API</always>
+        <always>4. WAIT for researcher to complete — research informs code generation</always>
+        <always>5. Continue with HTTP component for connections</always>
       </rule>
     </rules>
 
@@ -100,17 +126,23 @@ Migrate an integration from $ARGUMENTS to a Prismatic Code Native Integration.
   </step>
 
   <step name="review" depends="standard-build">
-    After a successful deploy, spawn the `migration-reviewer` agent with this prompt:
+    After a successful deploy, output a `<reviewer-request>` tag:
 
-    "Review the generated CNI code against the migration schema.
+    ```
+    I need the migration reviewer to validate the generated code.
+    <reviewer-request>
+    Review the generated CNI code against the migration schema.
     Project directory: {project-dir}
     Migration schema: {session-dir}/migration-schema.json
 
     Run your full 8-point review checklist. Compare field names, endpoints,
     transformations, and script translations against the original export data.
-    Output a <review-result> XML report."
+    Output a <review-result> XML report.
+    </reviewer-request>
+    ```
 
-    Parse the reviewer's `<review-result>` output:
+    Then STOP and wait for the reviewer's response via SendMessage.
+    Parse the `<review-result>` output:
     - For `fixable="yes"` findings: apply the fixes, rebuild, and redeploy
     - For `fixable="needs-verification"` findings: present them to the user
     - If no findings: report clean migration

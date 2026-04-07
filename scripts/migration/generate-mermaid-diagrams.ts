@@ -18,7 +18,7 @@
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -123,7 +123,7 @@ function resolveLabel(
     return resolveComponentName(config.map_id ?? "", components) || label || "Map";
   }
 
-  if (shapeType === "decision") return config.name ?? label || "Decision";
+  if (shapeType === "decision") return config.name ?? (label || "Decision");
 
   if (shapeType === "branch") {
     const num = config.num_branches;
@@ -142,7 +142,7 @@ function resolveLabel(
       doccacheretrieve: "Cache Retrieve",
       doccacheremove: "Cache Remove",
     };
-    return label || actionMap[shapeType] ?? "Doc Cache";
+    return label || (actionMap[shapeType] ?? "Doc Cache");
   }
 
   return label || shapeType;
@@ -271,15 +271,16 @@ function generateDiagrams(parsedData: ParsedExport, outputDir: string): string[]
 // ── Main ───────────────────────────────────────────────────────────────
 
 function main(): number {
-  if (process.argv.length !== 4) {
+  if (process.argv.length < 3) {
     console.error(
-      "Usage: generate-mermaid-diagrams <parsed-export.json> <output-dir>"
+      "Usage: generate-mermaid-diagrams <parsed-export.json> [output-dir]"
     );
     return 1;
   }
 
   const inputPath = process.argv[2]!;
-  const outputDir = process.argv[3]!;
+  // Default output dir: diagrams/ alongside the input file
+  const outputDir = process.argv[3] || join(dirname(inputPath), "diagrams");
 
   let parsedData: ParsedExport;
   try {

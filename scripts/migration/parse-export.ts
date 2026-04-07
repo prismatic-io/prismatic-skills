@@ -16,9 +16,10 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { writeFileSync, existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
 import { getSessionDirectory } from "../shared/project-directory.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -66,9 +67,13 @@ function main(): number {
   const parserArgs = [parserScript, exportPath];
   if (summary) parserArgs.push("--summary");
 
-  // Run the parser — Boomi needs @xmldom/xmldom for XML parsing (npx caches it on first use)
+  // Run the parser — Boomi uses npx --package to make @xmldom/xmldom available
+  // The parser uses createRequire to resolve it from npx's cache (zero install)
+  // Output goes to a temp file to avoid pipe buffer truncation with large exports
+  const tmpOut = join(tmpdir(), `parse-export-${process.pid}.json`);
   const npxArgs = platform === "boomi"
-    ? ["--package=@xmldom/xmldom", "tsx", ...parserArgs]
+    ? ["--package=@xmldom/xmldom", "--package=tsx", "--yes", "-c",
+       `tsx ${parserArgs.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(" ")} > '${tmpOut}'`]
     : ["tsx", ...parserArgs];
 
   const result = spawnSync("npx", npxArgs, {
@@ -76,13 +81,24 @@ function main(): number {
     timeout: 120000,
   });
 
-  if (result.status !== 0) {
-    console.error(`Parser failed with exit code ${result.status}`);
-    if (result.stderr) console.error(result.stderr);
-    return 1;
+  // For Boomi: read from temp file. For Cyclr: read from stdout.
+  let output: string;
+  if (platform === "boomi") {
+    try {
+      output = readFileSync(tmpOut, "utf-8");
+    } catch {
+      console.error("Parser produced no output");
+      if (result.stderr) console.error(result.stderr);
+      return 1;
+    }
+  } else {
+    if (result.status !== 0) {
+      console.error(`Parser failed with exit code ${result.status}`);
+      if (result.stderr) console.error(result.stderr);
+      return 1;
+    }
+    output = result.stdout;
   }
-
-  const output = result.stdout;
 
   // Validate JSON output
   try {

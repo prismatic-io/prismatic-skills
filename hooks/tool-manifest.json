@@ -113,12 +113,12 @@
     },
     "detect-platform": {
       "script": "detect-platform",
-      "desc": "Detect whether export files are from Boomi or Cyclr",
+      "desc": "Detect the source platform of an integration export",
       "usage": "<export-path>"
     },
     "parse-export": {
       "script": "parse-export",
-      "desc": "Parse a Boomi or Cyclr export into structured JSON",
+      "desc": "Parse an integration export into structured JSON",
       "usage": "<export-path> --platform <boomi|cyclr> [--summary] [--session <name>]",
       "timeout": 120
     },
@@ -130,8 +130,8 @@
     },
     "generate-diagrams": {
       "script": "generate-mermaid-diagrams",
-      "desc": "Generate Mermaid flow diagrams from parsed Boomi export",
-      "usage": "<parsed-export-json> --output <dir>",
+      "desc": "Generate Mermaid flow diagrams from a parsed export",
+      "usage": "<parsed-export-json> [output-dir]",
       "timeout": 30
     }
   },

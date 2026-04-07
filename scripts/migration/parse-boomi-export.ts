@@ -24,7 +24,31 @@
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { DOMParser } from "@xmldom/xmldom";
+import { createRequire } from "node:module";
+
+// Resolve @xmldom/xmldom from npx cache or local node_modules — zero install required.
+// When invoked via `npx --package=@xmldom/xmldom`, npx adds its temp node_modules/.bin
+// to PATH. We derive the node_modules path from that and use createRequire to load from it.
+function resolveNpxPackage(moduleName: string): unknown {
+  try { return require(moduleName); } catch { /* not in local node_modules */ }
+
+  const npxBin = (process.env.PATH || "")
+    .split(process.platform === "win32" ? ";" : ":")
+    .find(p => p.includes("_npx") && p.endsWith(".bin"));
+
+  if (!npxBin) {
+    throw new Error(
+      `Cannot find ${moduleName}. Run via: npx --package=${moduleName} npx tsx <script>`
+    );
+  }
+
+  const nmPath = npxBin.replace(/[/\\]\.bin$/, "");
+  const customRequire = createRequire(join(nmPath, "_virtual.js"));
+  return customRequire(moduleName);
+}
+
+import type { DOMParser as DOMParserType } from "@xmldom/xmldom";
+const { DOMParser } = resolveNpxPackage("@xmldom/xmldom") as { DOMParser: typeof DOMParserType };
 
 // ---------------------------------------------------------------------------
 // Types

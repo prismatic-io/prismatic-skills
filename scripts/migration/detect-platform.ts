@@ -17,7 +17,7 @@
  */
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 
 interface DetectionResult {
   platform: "boomi" | "cyclr" | "unknown";
@@ -98,7 +98,7 @@ function main(): number {
   const result: DetectionResult = {
     platform,
     file_count: files.length,
-    files: files.map(f => f.split("/").pop() ?? f),
+    files: files.map(f => basename(f)),
     confidence,
   };
 
