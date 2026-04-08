@@ -112,48 +112,28 @@ Migrate an integration from $ARGUMENTS to a Prismatic Code Native Integration.
       </rule>
     </rules>
 
-    From here, follow the standard build-integration workflow:
-    - Component search for each system (record full object or "none")
-    - Connection search and setup
-    - Confirm before scaffold
-    - Scaffold project
-    - Generate code (code-plan will include `<migration-context>` with API profiles and scripts)
-    - Verify code
-    - Build
-    - Confirm before deploy
-    - Deploy
-    - Test
+    Hand off to the standard `/build-integration` workflow from here.
+    The session is pre-populated, components are searched, code-plan will emit
+    `<migration-context>` automatically when `migration-schema.json` exists.
+    Follow the build-integration command's procedure from the scaffold step onward.
   </step>
 
-  <step name="review" depends="standard-build">
-    After a successful deploy, output a `<reviewer-request>` tag:
+  <step name="post-deploy-review">
+    After the build-integration flow completes deploy and test, spawn the
+    `migration-reviewer` agent to validate the generated code against the original export:
 
-    ```
-    I need the migration reviewer to validate the generated code.
-    <reviewer-request>
-    Review the generated CNI code against the migration schema.
+    "Review the generated CNI code against the migration schema.
     Project directory: {project-dir}
     Migration schema: {session-dir}/migration-schema.json
 
     Run your full 8-point review checklist. Compare field names, endpoints,
     transformations, and script translations against the original export data.
-    Output a <review-result> XML report.
-    </reviewer-request>
-    ```
+    Output a <review-result> XML report."
 
-    Then STOP and wait for the reviewer's response via SendMessage.
     Parse the `<review-result>` output:
     - For `fixable="yes"` findings: apply the fixes, rebuild, and redeploy
     - For `fixable="needs-verification"` findings: present them to the user
     - If no findings: report clean migration
-  </step>
-
-  <step name="summary">
-    Present the migration results:
-    - What was migrated successfully
-    - What requires manual configuration (connections, credentials)
-    - What requires manual review (low-confidence mappings, untranslated scripts)
-    - Link to the designer URL for the test instance
   </step>
 
 </procedure>
