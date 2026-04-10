@@ -1,5 +1,14 @@
 # Embedded Authentication
 
+## Contents
+
+- [Security Rule: Always Sign on the Backend](#security-rule-always-sign-on-the-backend)
+- [JWT Claims](#jwt-claims) — Required and optional claims, header, example payload
+- [Token Lifetime and Re-authentication](#token-lifetime-and-re-authentication)
+- [Signing Key Setup](#signing-key-setup) — Generate, import, list
+- [Backend Examples](#backend-examples) — Node.js, Python, Ruby, Go, C#
+- [Frontend Authentication](#frontend-authentication)
+
 ## Security Rule: Always Sign on the Backend
 
 **JWT tokens must be generated and signed on your backend server.** The private signing key must never be exposed to the frontend. Your frontend calls a backend API endpoint to get a signed token string, then passes that token to `prismatic.authenticate()`.

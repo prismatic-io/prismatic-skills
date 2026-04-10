@@ -1,5 +1,13 @@
 # Framework Integration Examples
 
+## Contents
+
+- [React](#react) — usePrismaticAuth hook, marketplace component
+- [Next.js](#nextjs) — API routes (App Router + Pages Router), client components
+- [Vue (Composition API)](#vue-composition-api) — composable, marketplace component, Nuxt 3
+- [Svelte / SvelteKit](#svelte--sveltekit) — auth store, API endpoint, marketplace page
+- [Environment Variables](#environment-variables) — .env setup, multiline PEM keys
+
 ## React
 
 ### usePrismaticAuth hook

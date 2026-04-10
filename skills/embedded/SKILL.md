@@ -1,6 +1,7 @@
 ---
 name: embedded
-description: Reference documentation for embedding Prismatic's integration marketplace and workflow builder in a web application. Covers JWT authentication, the embedded SDK, marketplace and workflow embedding, theming, i18n, additional screens, and custom marketplace UI.
+version: 1.0.0
+description: Reference documentation for embedding Prismatic's integration marketplace and workflow builder in a web application. Covers JWT authentication, the embedded SDK, marketplace and workflow embedding, theming, i18n, additional screens, and custom marketplace UI. Use when the user asks about embedding Prismatic, JWT tokens for embedded apps, marketplace iframes, workflow builder integration, custom marketplace UI, or frontend SDK setup.
 user-invocable: false
 ---
 
@@ -117,9 +118,31 @@ Minimum valid payload:
 | `prismatic.setConfigVars({ iframe, configVars })` | Programmatically set config variables |
 | `prismatic.graphqlRequest({ query, variables? })` | Execute authenticated GraphQL queries |
 
+## Phase-Specific References
+
+Load only the references relevant to the current setup step. This keeps context focused.
+
+### Step 2: Signing Keys
+- `references/authentication.md` — Signing key setup (generate, import, list)
+
+### Step 3: Backend JWT Endpoint
+- `references/authentication.md` — Backend examples for Node.js, Python, Ruby, Go, C#; JWT claims reference
+
+### Step 4: Frontend SDK Setup
+- `references/framework-examples.md` — React, Next.js, Vue, Svelte integration patterns with full code
+- `references/sdk-api.md` — Full SDK type definitions, method signatures, ScreenConfiguration
+
+### Follow-up Topics (load on demand)
+- Theming / dark mode / custom fonts → `references/theming-and-i18n.md`
+- Translations / i18n / phrase keys → `references/theming-and-i18n.md`
+- Marketplace filters, events, setConfigVars → `references/marketplace.md`
+- Workflow builder setup → `references/workflow-builder.md`
+- Dashboard, connections, logs, components → `references/additional-screens.md`
+- Custom marketplace UI / GraphQL → `references/custom-marketplace-ui.md`
+
 ## All References
 
-Load these on demand based on the task at hand:
+Full list for manual lookup:
 
 - `references/authentication.md` — JWT claims, signing examples for Node.js, Python, Ruby, Go, C#, and re-authentication pattern
 - `references/sdk-api.md` — Full SDK type definitions, ScreenConfiguration, Filters, PrismaticMessageEvent enum

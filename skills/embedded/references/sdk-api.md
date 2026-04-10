@@ -1,5 +1,23 @@
 # Embedded SDK API Reference
 
+## Contents
+
+- [Installation](#installation)
+- [prismatic.init](#prismaticinit) — Initialize the SDK
+- [prismatic.authenticate](#prismaticauthenticate) — Authenticate with JWT
+- [prismatic.showMarketplace](#prismaticshowmarketplace) — Marketplace screen
+- [prismatic.configureInstance](#prismaticconfigureinstance) — Config wizard
+- [prismatic.showWorkflows / showWorkflow](#prismaticshowworkflows) — Workflow builder
+- [prismatic.showDashboard](#prismaticshowdashboard) — Customer dashboard
+- [prismatic.showConnections](#prismaticshowconnections) — Connection management
+- [prismatic.showLogs](#prismaticshowlogs) — Logs screen
+- [prismatic.showComponents / showComponent](#prismaticshowcomponents) — Component browser
+- [prismatic.setConfigVars](#prismaticsetconfigvars) — Programmatic config
+- [prismatic.graphqlRequest](#prismaticgraphqlrequest) — Authenticated GraphQL
+- [prismatic.closePopover](#prismaticclosepopover) — Close popover
+- [Type Reference](#type-reference) — ScreenConfiguration, Filters, PrismaticMessageEvent, Fonts, Translations
+- [Utility Functions](#utility-functions) — getMessageIframe, closePopover
+
 ## Installation
 
 ```bash
