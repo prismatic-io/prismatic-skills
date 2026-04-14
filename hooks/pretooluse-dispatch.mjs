@@ -67,6 +67,10 @@ if (command.startsWith(PREFIX)) {
   if (toolArgs.includes("&&") || toolArgs.includes("; prismatic")) {
     deny("Cannot chain multiple prismatic-tools calls in one command. Run each as a separate Bash command.");
   }
+  // Reject newline-separated commands (agent sometimes puts multiple calls on separate lines)
+  if (command.includes("\n") && command.split("\n").filter(l => l.trim().startsWith("prismatic-tools")).length > 1) {
+    deny("Cannot put multiple prismatic-tools calls on separate lines in one Bash command. Run each as a separate Bash command.");
+  }
 
   // Load manifest
   let manifest;

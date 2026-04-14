@@ -26,6 +26,7 @@ const SEARCH_DIRS = [
   join(SCRIPTS_DIR, "integrations"),
   join(SCRIPTS_DIR, "shared"),
   join(SCRIPTS_DIR, "components"),
+  join(SCRIPTS_DIR, "migration"),
 ];
 
 /** Build a map of script basename (no .ts) → full path. */

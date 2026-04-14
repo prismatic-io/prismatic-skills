@@ -296,6 +296,27 @@ Before writing any code:
 5. Read ALL templates under `${CLAUDE_PLUGIN_ROOT}/templates/integration/`
 6. Check `<verify-coverage>` — escalate to Orby for uncovered items
 
+<migration-code-gen>
+  If code-plan output includes a `<migration-context>` block, this is a migration from another platform.
+  Read `references/migration-code-gen-guide.md` from the migration-framework skill.
+  <rule name="api-profiles">
+    <always>Use exact field names from `<api-profiles>` — do NOT invent or rename fields</always>
+    <always>Check response nesting_path for correct data extraction</always>
+    <always>Check request body_structure for correct top-level siblings</always>
+  </rule>
+  <rule name="script-translation">
+    <always>Translate Groovy scripts from `<script-translations>` completely — no TODO placeholders</always>
+    <always>Preserve input/output contracts from the script metadata</always>
+  </rule>
+  <rule name="field-mappings">
+    <always>Use `<field-mappings>` for source→destination field mapping in onExecution</always>
+  </rule>
+  <rule name="endpoints">
+    <always>Use `<endpoints>` for API paths — check confidence scores</always>
+    <never>Fabricate endpoint paths not in the migration schema</never>
+  </rule>
+</migration-code-gen>
+
 Templates define the correct code patterns — follow them exactly.
 After writing all files: `prismatic-tools validate-phase <dir> --phase code-gen --type integration`
 Verify values: `prismatic-tools verify-code <dir> --session <name>`

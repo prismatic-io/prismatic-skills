@@ -110,6 +110,29 @@
       "desc": "Run a test execution of a deployed integration",
       "usage": "<integration-id> [--integration-dir <dir>] [--flow <flow-name>]",
       "timeout": 120
+    },
+    "detect-platform": {
+      "script": "detect-platform",
+      "desc": "Detect the source platform of an integration export",
+      "usage": "<export-path>"
+    },
+    "parse-export": {
+      "script": "parse-export",
+      "desc": "Parse an integration export into structured JSON",
+      "usage": "<export-path> --platform <boomi|cyclr> [--summary] [--session <name>]",
+      "timeout": 120
+    },
+    "schema-to-answers": {
+      "script": "schema-to-answers",
+      "desc": "Convert a migration schema to pre-populated spec answers",
+      "usage": "--session <name> --schema <path>",
+      "timeout": 30
+    },
+    "generate-diagrams": {
+      "script": "generate-mermaid-diagrams",
+      "desc": "Generate Mermaid flow diagrams from a parsed export",
+      "usage": "<parsed-export-json> [output-dir]",
+      "timeout": 30
     }
   },
   "explicit": {
