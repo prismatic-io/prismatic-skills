@@ -222,8 +222,11 @@ function testSingleFlow(
 
     const result = spawnSync(cmd[0], cmd.slice(1), {
       encoding: "utf-8",
-      stdio: "inherit",
+      timeout: 90000,
     });
+
+    if (result.stdout) console.log(result.stdout);
+    if (result.stderr) console.log(result.stderr);
 
     console.log("-".repeat(60));
     console.log("");
@@ -236,6 +239,7 @@ function testSingleFlow(
       console.log(
         `Flow '${flowName}' failed with exit code ${result.status}`
       );
+      if (result.error) console.log(`Error: ${result.error.message}`);
       console.log("");
       return false;
     }
@@ -449,36 +453,51 @@ function testIntegration(
     }
   }
 
-  // Multiple flows - list them and exit for user to choose
-  console.log(`Found ${flows.length} flows in this integration:`);
+  // Multiple flows — test ALL sequentially and report per-flow results
+  console.log(`Found ${flows.length} flows — testing all sequentially.`);
   console.log("");
-  for (let i = 0; i < flows.length; i++) {
-    const flow = flows[i];
-    const flowName = flow.name || flow.stableKey;
-    const description = flow.description || "";
-    console.log(`${i + 1}. ${flowName}`);
-    if (description) console.log(`   ${description}`);
-  }
-  console.log("");
-  console.log("=".repeat(60));
-  console.log("MULTIPLE FLOWS FOUND");
-  console.log("=".repeat(60));
-  console.log("");
-  console.log("Please specify which flow to test by re-running with:");
-  console.log(
-    `  npx tsx scripts/test-integration.ts ${integrationId} <flow-name>`
-  );
-  console.log("");
-  console.log("Available flow names:");
+
+  const results: Array<{ name: string; success: boolean }> = [];
+
   for (const flow of flows) {
-    console.log(`  - ${flow.name || flow.stableKey}`);
+    const flowName = flow.name || flow.stableKey || "unnamed-flow";
+    const testUrl = flow.testUrl;
+
+    if (!testUrl) {
+      console.log(`Skipping flow '${flowName}' — no test URL available`);
+      results.push({ name: flowName, success: false });
+      continue;
+    }
+
+    // Load payload for this flow
+    let fp: string | null = null;
+    let fct: string | null = null;
+    if (integrationDir) {
+      const requirements = loadTriggerMetadata(integrationDir, flow.stableKey || flowName);
+      if (requirements.needs_payload) {
+        fp = requirements.sample_payload;
+        fct = requirements.content_type;
+      }
+    }
+
+    const success = testSingleFlow(flowName, testUrl, fp, fct);
+    results.push({ name: flowName, success });
+    console.log("");
+  }
+
+  // Summary
+  console.log("=".repeat(60));
+  console.log("TEST RESULTS");
+  console.log("=".repeat(60));
+  const passed = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success).length;
+  for (const r of results) {
+    console.log(`  ${r.success ? "PASS" : "FAIL"}  ${r.name}`);
   }
   console.log("");
-  console.log(
-    "Claude: Ask the user which flow they want to test, then re-run"
-  );
-  console.log("   the script with the chosen flow name as the second argument.");
-  return 0;
+  console.log(`${passed} passed, ${failed} failed out of ${results.length} flows`);
+
+  return failed > 0 ? 2 : 0;
 }
 
 function main(): number {

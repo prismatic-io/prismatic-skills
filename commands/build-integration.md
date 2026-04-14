@@ -99,7 +99,7 @@ Voice and narration style are defined in the agent instructions. Follow them.
     TaskCreate(subject: "Scaffold project") and mark in_progress.
     Run: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <name> --components <comp1,comp2> [--private-components <comp1>]`
     <rules>
-      <always>Only include components selected during requirements (source_component and/or destination_component answers)</always>
+      <always>Include ALL components selected during requirements — source_component, destination_component, AND any connector_N_component answers</always>
       <always>If a component has `public: false` in the find-components result, include it in --private-components</always>
       <never>Add components that weren't selected in requirements</never>
     </rules>
@@ -123,8 +123,8 @@ Voice and narration style are defined in the agent instructions. Follow them.
 
     <rules>
       <always>Use connectionConfigVar() wrapper for connections on config pages — as shown in configPages.ts.template</always>
-      <always>Use onInstanceDeploy/onInstanceDelete for lifecycle hooks — as shown in flows.ts.template</always>
-      <never>Use webhookLifecycleHandlers — causes "Invalid trigger configuration" deploy errors</never>
+      <always>Use onInstanceDeploy/onInstanceDelete for general setup/teardown (folder creation, record types, non-webhook resources)</always>
+      <always>Use webhookLifecycleHandlers.create/.delete for webhook subscription management — they support listening mode (test runner) and run after onInstanceDeploy</always>
       <never>Define onTrigger for webhook flows unless custom parsing or a component trigger is needed — default passes payload through</never>
       <never>Use raw connection constructors directly in configPages</never>
     </rules>

@@ -203,6 +203,31 @@ mutation importIntegration($definition: String!) {
 }
 ```
 
+## Mutation: Set Marketplace Availability
+
+Controls whether an integration appears in the customer-facing marketplace.
+
+```graphql
+mutation setMarketplaceAvailability($integrationId: ID!, $config: String!) {
+  updateIntegrationMarketplaceConfiguration(input: {
+    integration: $integrationId
+    marketplaceConfiguration: $config
+  }) {
+    integration {
+      id
+      name
+      marketplaceConfiguration
+    }
+    errors {
+      field
+      messages
+    }
+  }
+}
+```
+
+**Variables**: `config` is one of `"AVAILABLE"` or `"HIDDEN"`.
+
 ## Key Fields
 
 | Field                | Type       | Description                          |

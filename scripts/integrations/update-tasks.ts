@@ -442,6 +442,204 @@ function getRelevantGroups(modificationScopes: string[], sessionType?: string): 
 }
 
 // ---------------------------------------------------------------------------
+// Connector template expansion (for 3+ connectors)
+// ---------------------------------------------------------------------------
+
+/**
+ * Expand the connector template for additional systems beyond source/destination.
+ * Reads additional_systems from answers, loads the template YAML, and creates
+ * dynamically-prefixed items (connector_2_*, connector_3_*, etc.).
+ *
+ * Source (connectors[0]) and destination (connectors[1]) use existing items.
+ * This only creates items for connectors[2+].
+ */
+function expandConnectorTemplate(
+  spec: Spec,
+  answers: Answers,
+): void {
+  // Parse additional_systems — should be a JSON array of system names
+  const raw = answers.additional_systems;
+  if (!raw) return;
+
+  let additionalSystems: string[];
+  if (Array.isArray(raw)) {
+    additionalSystems = raw.map(String);
+  } else if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        additionalSystems = parsed.map(String);
+      } else {
+        return; // Not an array
+      }
+    } catch {
+      // Could be a comma-separated string
+      additionalSystems = raw.split(",").map(s => s.trim()).filter(Boolean);
+    }
+  } else {
+    return;
+  }
+
+  if (additionalSystems.length === 0) return;
+
+  // Load the connector template
+  const templatePath = join(getPluginRoot(), "scripts", "questions", "integration", "connector-template.yaml");
+  if (!existsSync(templatePath)) return;
+
+  let templateContent: string;
+  try {
+    templateContent = readFileSync(templatePath, "utf-8");
+  } catch {
+    return;
+  }
+
+  // For each additional system, expand the template with the appropriate prefix
+  for (let i = 0; i < additionalSystems.length; i++) {
+    const systemName = additionalSystems[i];
+    const connectorIndex = i + 2; // 0=source, 1=destination, 2+=additional
+    const prefix = `connector_${connectorIndex}`;
+
+    // Pre-populate the system answer from the connectors array
+    if (!answers[`${prefix}_system`]) {
+      answers[`${prefix}_system`] = systemName;
+    }
+
+    // Substitute template variables
+    let expanded = templateContent;
+    expanded = expanded.replace(/\{PREFIX\}/g, prefix);
+    expanded = expanded.replace(/\{SYSTEM\}/g, systemName);
+    expanded = expanded.replace(/\{INDEX\}/g, String(connectorIndex));
+
+    // Parse the expanded YAML into items
+    // Simple YAML parser: extract top-level keys and their properties
+    const items = parseSimpleYaml(expanded);
+
+    // Add each item to the spec
+    for (const [id, item] of Object.entries(items)) {
+      if (!spec.items[id]) {
+        spec.items[id] = item;
+      }
+    }
+
+    // Find or create a group for this connector
+    const groupId = `connector_${connectorIndex}`;
+    const existingGroup = spec.groups.find(g => g.id === groupId);
+    if (!existingGroup) {
+      const itemIds = Object.keys(items);
+      spec.groups.push({
+        id: groupId,
+        label: `${systemName} (Connector ${connectorIndex + 1})`,
+        items: itemIds,
+      });
+    }
+  }
+}
+
+/**
+ * Simple YAML-like parser for the connector template.
+ * Extracts top-level quoted keys and their properties.
+ * This is not a full YAML parser — it handles the specific format of connector-template.yaml.
+ */
+function parseSimpleYaml(content: string): Record<string, SpecItem> {
+  const items: Record<string, SpecItem> = {};
+  const lines = content.split("\n");
+  let currentKey = "";
+  let currentItem: Record<string, unknown> = {};
+
+  for (const line of lines) {
+    // Skip comments and empty lines
+    if (line.startsWith("#") || line.trim() === "") continue;
+
+    // Top-level key (starts with " at column 0)
+    const topLevelMatch = line.match(/^"([^"]+)":\s*$/);
+    if (topLevelMatch) {
+      if (currentKey) {
+        items[currentKey] = finalizeItem(currentItem);
+      }
+      currentKey = topLevelMatch[1];
+      currentItem = {};
+      continue;
+    }
+
+    // Property line (indented)
+    if (currentKey && line.startsWith("  ")) {
+      const propMatch = line.match(/^\s{2}(\w+):\s*(.*)$/);
+      if (propMatch) {
+        const [, prop, value] = propMatch;
+        if (value.startsWith(">") || value.startsWith("|")) {
+          // Multi-line string — collect until next property
+          currentItem[prop] = ""; // Will be filled by subsequent lines
+          currentItem[`_multiline_${prop}`] = true;
+        } else if (value.startsWith("[") && value.endsWith("]")) {
+          // Inline array
+          try {
+            currentItem[prop] = JSON.parse(value);
+          } catch {
+            currentItem[prop] = value.slice(1, -1).split(",").map(s => s.trim().replace(/^["']|["']$/g, ""));
+          }
+        } else if (value.startsWith("{")) {
+          // Inline object
+          try {
+            currentItem[prop] = JSON.parse(value);
+          } catch {
+            currentItem[prop] = value;
+          }
+        } else if (value === "true" || value === "false") {
+          currentItem[prop] = value === "true";
+        } else {
+          // String value — strip quotes
+          currentItem[prop] = value.replace(/^["']|["']$/g, "");
+        }
+      } else {
+        // Continuation of multi-line or nested content — append to last property
+        const trimmed = line.trim();
+        for (const key of Object.keys(currentItem)) {
+          if (currentItem[`_multiline_${key}`]) {
+            currentItem[key] = ((currentItem[key] as string) + " " + trimmed).trim();
+          }
+        }
+      }
+    }
+  }
+
+  // Don't forget the last item
+  if (currentKey) {
+    items[currentKey] = finalizeItem(currentItem);
+  }
+
+  return items;
+}
+
+function finalizeItem(raw: Record<string, unknown>): SpecItem {
+  // Remove multiline markers
+  const clean: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!k.startsWith("_multiline_")) {
+      clean[k] = v;
+    }
+  }
+
+  return {
+    question: clean.question as string | undefined,
+    type: clean.type as string | undefined,
+    inference: clean.inference as "allowed" | "prohibited" | undefined,
+    scope: (clean.scope as "integration" | "flow") ?? "integration",
+    choices: clean.choices as string[] | undefined,
+    condition: clean.condition as Record<string, unknown> | undefined,
+    depends_on: clean.depends_on as string[] | undefined,
+    skippable: clean.skippable as boolean | undefined,
+    skip_if_empty: clean.skip_if_empty as boolean | undefined,
+    default: clean.default,
+    agent_context: clean.agent_context as string | undefined,
+    implications: clean.implications as Record<string, string> | undefined,
+    cookbook_section: clean.cookbook_section as string | undefined,
+    maps_to: clean.maps_to as string | undefined,
+    note: clean.note as string | undefined,
+    on_answer: clean.on_answer as Record<string, string> | undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Build task manifest
 // ---------------------------------------------------------------------------
 
@@ -643,6 +841,21 @@ function buildDescription(
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function escapeXml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function inferPhase(answered: number, total: number, ready: boolean): string {
+  if (answered === 0) return "greeting";
+  if (!ready && answered < total * 0.5) return "early-requirements";
+  if (!ready) return "late-requirements";
+  return "confirm-scaffold";
+}
+
+// ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
@@ -737,6 +950,11 @@ function main(): number {
     }
   }
 
+  // Expand connector template for additional systems (3+ connectors)
+  if (sessionType === "integration") {
+    expandConnectorTemplate(spec, answers);
+  }
+
   const manifest = buildManifest(spec, answers, {
     mode,
     extractedState,
@@ -757,33 +975,74 @@ function main(): number {
     );
     const toComplete = manifest.tasks.filter((t) => t.status === "answered");
 
-    // Emit inference confirmation instruction when there are inferable items
-    const inferableCount = toCreate.filter(t => t.inference !== "prohibited").length +
-      toCreateOptional.filter(t => t.inference !== "prohibited").length;
-    if (inferableCount > 0 && toComplete.length < 5) {
-      // First run or early run — many items to infer
-      console.log(
-        `<present-inferences>\n` +
-        `  Before writing any inferred answers, present them to the user first.\n` +
-        `  For each inference: WHAT value, WHY (quote the user's words), and IMPACT on architecture.\n` +
-        `  Ask: "Does this look right? Anything I got wrong?"\n` +
-        `  WAIT for the user to respond before writing answers.\n` +
-        `  Optional items (${toCreateOptional.length} found) are the user's decision — present with your recommendation, do not fill silently.\n` +
-        `</present-inferences>`
-      );
+    // Categorize inferable completed items
+    const fromDescription: Array<{key: string, subject: string, value: string}> = [];
+    const defaults: Array<{key: string, subject: string, value: string, rationale: string}> = [];
+
+    for (const task of toComplete) {
+      const specItem = spec.items[task.spec_key];
+      if (!specItem) continue;
+      if (task.inference === "prohibited") continue; // These were explicitly asked
+
+      const defaultVal = (specItem as Record<string, unknown>).default;
+      const currentVal = String(task.current_value ?? "");
+      const note = typeof (specItem as Record<string, unknown>).note === "string"
+        ? ((specItem as Record<string, unknown>).note as string).split("\n")[0]
+        : "";
+
+      if (defaultVal !== undefined && currentVal === String(defaultVal)) {
+        defaults.push({ key: task.spec_key, subject: task.subject, value: currentVal, rationale: note || "Standard default" });
+      } else if (currentVal) {
+        fromDescription.push({ key: task.spec_key, subject: task.subject, value: currentVal });
+      }
+    }
+
+    if (fromDescription.length > 0 || defaults.length > 0) {
+      console.log(`<present-before-writing>`);
+      if (fromDescription.length > 0) {
+        console.log(`  <from-description count="${fromDescription.length}">`);
+        console.log(`    These were inferred from the user's description. Cite the user's words when presenting.`);
+        for (const item of fromDescription) {
+          console.log(`    <inferred key="${escapeXml(item.key)}" value="${escapeXml(item.value)}">${escapeXml(item.subject)}</inferred>`);
+        }
+        console.log(`  </from-description>`);
+      }
+      if (defaults.length > 0) {
+        console.log(`  <defaults count="${defaults.length}">`);
+        console.log(`    These are sensible defaults. Label them as defaults with rationale.`);
+        for (const item of defaults) {
+          console.log(`    <default key="${escapeXml(item.key)}" value="${escapeXml(item.value)}" rationale="${escapeXml(item.rationale)}">${escapeXml(item.subject)}</default>`);
+        }
+        console.log(`  </defaults>`);
+      }
+      console.log(`  <gate>`);
+      console.log(`    Do NOT call record-choices in the same response as this presentation.`);
+      console.log(`    Present these to the user and WAIT for their next message.`);
+      console.log(`    WRONG: Present inferences AND call record-choices in the same turn.`);
+      console.log(`    RIGHT: Present inferences → user says "looks good" → THEN record-choices.`);
+      console.log(`  </gate>`);
+      console.log(`</present-before-writing>`);
     }
 
     // Emit connection setup instruction when connection items are pending (integrations only)
     if (sessionType !== "component") {
-      const connectionKeys = ["source_connection", "destination_connection"];
+      const connectionKeys = ["source_connection", "destination_connection",
+        ...Object.keys(spec.items).filter(k => /^connector_\d+_connection$/.test(k))];
       const pendingConnectionItems = toCreate.filter(t => connectionKeys.includes(t.spec_key));
       if (pendingConnectionItems.length > 0) {
         const systems = pendingConnectionItems.map(t => {
-          const system = t.spec_key.startsWith("source") ? "source" : "destination";
-          const raw = answers[`${system}_system`];
+          // Extract the prefix: source_, destination_, or connector_N_
+          let systemKey: string;
+          if (t.spec_key.startsWith("source_")) systemKey = "source_system";
+          else if (t.spec_key.startsWith("destination_")) systemKey = "destination_system";
+          else {
+            const match = t.spec_key.match(/^(connector_\d+)_/);
+            systemKey = match ? `${match[1]}_system` : t.spec_key;
+          }
+          const raw = answers[systemKey];
           if (typeof raw === "string") return raw;
-          if (raw && typeof raw === "object") return (raw as Record<string, unknown>).source as string || (raw as Record<string, unknown>).name as string || system;
-          return system;
+          if (raw && typeof raw === "object") return (raw as Record<string, unknown>).source as string || (raw as Record<string, unknown>).name as string || systemKey;
+          return systemKey;
         });
         console.log(
           `<connection-setup-required systems="${systems.join(",")}">\n` +
@@ -865,22 +1124,73 @@ function main(): number {
     }
 
     if (askItems.length > 0) {
-      console.log(
-        `<use-ask-user-question>\n` +
-        `  The following ${askItems.length} items have ≤4 choices.\n` +
-        `  Use AskUserQuestion for EACH ONE — not conversational text.\n` +
-        `  AskUserQuestion prevents hallucinated options and makes it clear you're waiting for input.\n` +
-        `  Present ONE AskUserQuestion per message. Wait for the user's response.\n` +
-        `  For inference:allowed items, you may infer if confident — but if you need to ask, use AskUserQuestion.\n` +
-        askItems.map(item =>
-          `  <ask spec_key="${item.spec_key}" subject="${item.subject}" inference="${item.inference}">\n` +
-          item.choices.map(c =>
-            `    <option value="${c}">${item.implications[c]?.split("\n")[0]?.trim() || c}</option>`
-          ).join("\n") + `\n` +
-          `  </ask>`
-        ).join("\n") + `\n` +
-        `</use-ask-user-question>`
-      );
+      console.log(`<ask-user-payloads>`);
+      console.log(`  Use AskUserQuestion for each of these. Copy the JSON payload verbatim.`);
+      console.log(`  Present ONE per message. Wait for the user's response before the next.`);
+      for (const item of askItems) {
+        const options = item.choices.map(c => ({
+          label: item.implications[c]?.split("\n")[0]?.split("—")[0]?.trim() || c.replace(/_/g, " "),
+          description: item.implications[c]?.split("\n")[0]?.trim() || c,
+        }));
+        const payload = {
+          question: item.subject,
+          header: item.spec_key.replace(/_/g, " ").slice(0, 12),
+          options: options.map((o) => ({
+            label: o.label,
+            description: o.description,
+          })),
+          multiSelect: false,
+        };
+        console.log(`  <payload spec_key="${item.spec_key}" inference="${item.inference}">`);
+        console.log(`  ${JSON.stringify(payload, null, 2).split("\n").join("\n  ")}`);
+        console.log(`  </payload>`);
+      }
+      console.log(`</ask-user-payloads>`);
+    }
+
+    // Emit parallel batch directive for mutually-independent lookup items
+    // Lookups that have all deps satisfied AND don't depend on each other can run in parallel
+    const lookupItems: Array<{ spec_key: string; subject: string; script: string }> = [];
+    for (const task of allPendingItems) {
+      const specItem = spec.items[task.spec_key];
+      if (specItem?.type === "lookup" && (specItem as Record<string, unknown>).lookup) {
+        const lookup = (specItem as Record<string, unknown>).lookup as Record<string, unknown>;
+        if (lookup.script) {
+          // Check all deps are satisfied
+          const deps = specItem.depends_on ?? [];
+          const condKeys = specItem.condition ? Object.keys(specItem.condition) : [];
+          const allDeps = [...new Set([...deps, ...condKeys])];
+          const allSatisfied = allDeps.every(d => !isEmpty(answers[d]));
+          if (allSatisfied) {
+            lookupItems.push({
+              spec_key: task.spec_key,
+              subject: task.subject,
+              script: String(lookup.script),
+            });
+          }
+        }
+      }
+    }
+
+    if (lookupItems.length > 1) {
+      // Verify mutual independence: none of these items depend on each other
+      const lookupKeys = new Set(lookupItems.map(l => l.spec_key));
+      const independent = lookupItems.filter(item => {
+        const specItem = spec.items[item.spec_key];
+        const deps = [...(specItem?.depends_on ?? [])];
+        if (specItem?.condition) deps.push(...Object.keys(specItem.condition));
+        return !deps.some(d => lookupKeys.has(d));
+      });
+
+      if (independent.length > 1) {
+        console.log(`<parallel-batch>`);
+        console.log(`  These ${independent.length} lookups are mutually independent — run them ALL as separate Bash commands in ONE response.`);
+        console.log(`  Do NOT wait for one to finish before starting the next.`);
+        for (const item of independent) {
+          console.log(`  <action spec_key="${escapeXml(item.spec_key)}" type="lookup" script="${escapeXml(item.script)}">${escapeXml(item.subject)}</action>`);
+        }
+        console.log(`</parallel-batch>`);
+      }
     }
 
     // Emit task creation instruction
@@ -894,6 +1204,49 @@ function main(): number {
       `  ALL in one response. The task list is the user's dashboard — they need to see everything.\n` +
       `</task-creation>`
     );
+
+    // Emit draft-proposal when all lookups are complete and remaining items are choice/text
+    // This enables the "review a proposal" metaphor instead of sequential question-answer
+    const pendingLookups = allPendingItems.filter(t => {
+      const si = spec.items[t.spec_key];
+      return si?.type === "lookup";
+    });
+    const pendingChoiceOrText = allPendingItems.filter(t => {
+      const si = spec.items[t.spec_key];
+      return si?.type === "choice" || si?.type === "multi_choice" || si?.type === "text";
+    });
+
+    if (
+      pendingLookups.length === 0 &&
+      pendingChoiceOrText.length > 0 &&
+      manifest.summary.answered > manifest.summary.pending &&
+      manifest.summary.answered >= 5
+    ) {
+      // All lookups done, remaining items are decisions — draft a proposal
+      console.log(`<draft-proposal>`);
+      console.log(`  All system lookups are complete. Instead of asking questions one by one,`);
+      console.log(`  present a complete draft of what you plan to build.`);
+      console.log(`  `);
+      console.log(`  Include in the proposal:`);
+      console.log(`  - All systems and components found`);
+      console.log(`  - All existing connections matched`);
+      console.log(`  - Pending choices with your recommended defaults`);
+      console.log(`  `);
+      console.log(`  Format: "Here's what I plan to build. [full picture]. Confirm or correct."`);
+      console.log(`  `);
+      console.log(`  Pending decisions to include in the proposal:`);
+      for (const item of pendingChoiceOrText) {
+        const si = spec.items[item.spec_key];
+        const defaultVal = si?.default !== undefined ? ` (recommend: ${si.default})` : "";
+        const choicesStr = si?.choices ? ` [${(si.choices as string[]).join(", ")}]` : "";
+        console.log(`  <decision key="${escapeXml(item.spec_key)}" subject="${escapeXml(item.subject)}"${choicesStr}${defaultVal} />`);
+      }
+      console.log(`  `);
+      console.log(`  The user can correct any decision with a simple phrase:`);
+      console.log(`  "change error handling to retry" or "make BigQuery org-activated"`);
+      console.log(`  Record all confirmed+corrected answers in one batch after the user responds.`);
+      console.log(`</draft-proposal>`);
+    }
 
     // Emit spec-reading directive with group→file mapping for pending items
     const pendingGroups = new Set<string>();
@@ -943,12 +1296,47 @@ function main(): number {
     console.log(
       `<communication>Do not mention scripts, sync, spec, tasks, requirements, validation, items, or internal process to the user. Rewrite as what the user experiences.</communication>`
     );
-    console.log(
-      `<voice>You are Orby. Grounded optimist — deadpan funny, zero stress, completely unbothered by complexity. ` +
-      `Educator, not task runner — explain WHY, not just what. ` +
-      `Use simple physical metaphors for technical concepts. ` +
-      `No corporate fluff. If something breaks, treat it like a puzzle, not a crisis.</voice>`
-    );
+    const phase = inferPhase(manifest.summary.answered, manifest.summary.total_applicable, manifest.ready_for_next_phase);
+    const voiceExemplars: Record<string, string> = {
+      greeting: [
+        `<voice phase="greeting">`,
+        `Speak like:`,
+        `  "Hey! I'm Orby. I build Prismatic integrations through conversation — you describe what you need, I handle the wiring."`,
+        `  "Let's figure out what you're connecting and how data should flow."`,
+        `Never:`,
+        `  "I'd be happy to help you today!" or "Welcome! How can I assist you?"`,
+        `</voice>`,
+      ].join("\n"),
+      "early-requirements": [
+        `<voice phase="requirements">`,
+        `Speak like:`,
+        `  "That's a solid choice — retry with backoff is basically insurance for transient failures."`,
+        `  "Checking if Prismatic has a component for that..."`,
+        `Never:`,
+        `  "Great question!" or "I'd be happy to explain that!"`,
+        `  "Let me run the sync script to check what's next."`,
+        `</voice>`,
+      ].join("\n"),
+      "late-requirements": [
+        `<voice phase="late-requirements">`,
+        `Speak like:`,
+        `  "Almost there — just need to sort out how connections are managed."`,
+        `  "That covers error handling. A couple more things and we can start building."`,
+        `Never:`,
+        `  "We're making great progress!" or "Excellent choice!"`,
+        `</voice>`,
+      ].join("\n"),
+      "confirm-scaffold": [
+        `<voice phase="confirm-scaffold">`,
+        `Speak like:`,
+        `  "Here's the full picture of what I'm planning to build. Take a look and tell me if anything's off."`,
+        `  "Everything checks out. Ready when you are."`,
+        `Never:`,
+        `  "All requirements have been successfully gathered!"`,
+        `</voice>`,
+      ].join("\n"),
+    };
+    console.log(voiceExemplars[phase] || voiceExemplars["early-requirements"]);
 
     // Emit confirm gate instruction when ready
     if (manifest.ready_for_next_phase) {
@@ -959,6 +1347,15 @@ function main(): number {
         `  2. Ask: "Does this look right? Anything you'd like to add or change before I scaffold the project?"\n` +
         `  3. WAIT for the user to respond before proceeding.\n` +
         `</confirm-before-scaffold>`
+      );
+      console.log(
+        `<exit-states>\n` +
+        `  After deployment, the session must end in one of these states:\n` +
+        `  <state id="tested_and_passing">All flows tested successfully. The only "complete" state.</state>\n` +
+        `  <state id="deployed_awaiting_config">Deployed but needs configuration. A pause, not an exit.</state>\n` +
+        `  <state id="deployed_testing_deferred">User chose to defer testing. Valid exit with acknowledgment.</state>\n` +
+        `  The summary MUST include test_outcome identifying which state applies.\n` +
+        `</exit-states>`
       );
     }
 

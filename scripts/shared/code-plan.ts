@@ -31,6 +31,52 @@ function isEmpty(value: unknown): boolean {
   );
 }
 
+function parseCookbook(content: string, answeredSections: Set<string>): { preamble: string; sections: Map<string, string> } {
+  const lines = content.split("\n");
+  const sections = new Map<string, string>();
+  let preambleLines: string[] = [];
+  let currentHeading = "";
+  let currentLines: string[] = [];
+  let foundFirstAnswerSection = false;
+
+  for (const line of lines) {
+    if (line.startsWith("## ")) {
+      const heading = line.replace(/^## /, "").trim();
+
+      if (currentHeading) {
+        if (foundFirstAnswerSection) {
+          sections.set(currentHeading, currentLines.join("\n"));
+        } else {
+          preambleLines.push(...currentLines);
+        }
+      }
+
+      // Check if this heading matches any answered cookbook_section
+      const isAnswerSection = answeredSections.has(heading);
+      if (isAnswerSection && !foundFirstAnswerSection) {
+        // Everything before this was preamble
+        preambleLines.push(...currentLines);
+        foundFirstAnswerSection = true;
+      }
+
+      currentHeading = heading;
+      currentLines = [line];
+    } else {
+      currentLines.push(line);
+    }
+  }
+  // Don't forget the last section
+  if (currentHeading) {
+    if (foundFirstAnswerSection) {
+      sections.set(currentHeading, currentLines.join("\n"));
+    } else {
+      preambleLines.push(...currentLines);
+    }
+  }
+
+  return { preamble: preambleLines.join("\n"), sections };
+}
+
 function main(): number {
   const args = process.argv.slice(2);
   let sessionName = "";
@@ -83,11 +129,52 @@ function main(): number {
     return 2;
   }
 
+  // Load and parse cookbook
+  const skillName = sessionType === "component" ? "component-patterns" : "integration-patterns";
+  const cookbookPath = join(getPluginRoot(), "skills", skillName, "references", "answer-to-code-cookbook.md");
+  let cookbookPreamble = "";
+  let cookbookSections = new Map<string, string>();
+  if (existsSync(cookbookPath)) {
+    const cookbookContent = readFileSync(cookbookPath, "utf-8");
+    const answeredSections = new Set<string>();
+    // Collect all cookbook_section values from answered items
+    for (const [id, item] of Object.entries(spec.items)) {
+      if (!isEmpty(answers[id])) {
+        const specItem = item as Record<string, unknown>;
+        if (specItem.cookbook_section) answeredSections.add(specItem.cookbook_section as string);
+      }
+    }
+    const parsed = parseCookbook(cookbookContent, answeredSections);
+    cookbookPreamble = parsed.preamble;
+    cookbookSections = parsed.sections;
+  }
+
+  // Size budget check: fall back to headings-only if inline content is too large
+  let totalInlineLines = cookbookPreamble.split("\n").length;
+  for (const [id, item] of Object.entries(spec.items)) {
+    if (!isEmpty(answers[id])) {
+      const specItem = item as Record<string, unknown>;
+      const cs = specItem.cookbook_section as string | undefined;
+      if (cs && cookbookSections.has(cs)) {
+        totalInlineLines += cookbookSections.get(cs)!.split("\n").length;
+      }
+    }
+  }
+  const useInline = totalInlineLines <= 3000;
+
   // Build manifest
   const covered: string[] = [];
   const uncovered: Array<{ key: string; value: string }> = [];
 
   console.log("<code-plan>");
+
+  // Always include cookbook preamble (import rules, default omission, critical types)
+  if (useInline && cookbookPreamble.trim()) {
+    const preambleLines = cookbookPreamble.split("\n").length;
+    console.log(`  <cookbook-preamble lines="${preambleLines}">`);
+    console.log(cookbookPreamble);
+    console.log(`  </cookbook-preamble>`);
+  }
 
   for (const [id, item] of Object.entries(spec.items)) {
     const value = answers[id];
@@ -114,7 +201,19 @@ function main(): number {
       covered.push(id);
       console.log(`  <answer key="${id}" value="${escapeXml(valueStr)}">`);
       if (hasCookbook) {
-        console.log(`    <cookbook>${escapeXml(cookbookSection!)}</cookbook>`);
+        if (useInline) {
+          const sectionContent = cookbookSections.get(cookbookSection!);
+          if (sectionContent) {
+            console.log(`    <cookbook-inline heading="${escapeXml(cookbookSection!)}">`);
+            console.log(sectionContent);
+            console.log(`    </cookbook-inline>`);
+          } else {
+            // Fallback: emit heading only if section not found
+            console.log(`    <cookbook>${escapeXml(cookbookSection!)}</cookbook>`);
+          }
+        } else {
+          console.log(`    <cookbook>${escapeXml(cookbookSection!)}</cookbook>`);
+        }
       }
       if (implications && typeof value === "string" && implications[value]) {
         const imp = implications[value].trim().split("\n")[0];
@@ -127,6 +226,126 @@ function main(): number {
       console.log(`  </answer>`);
     } else {
       uncovered.push({ key: id, value: valueStr });
+    }
+  }
+
+  // Emit per-connector summary for 3+ connector integrations
+  if (sessionType === "integration") {
+    const additionalSystems = answers.additional_systems;
+    if (additionalSystems) {
+      let systems: string[] = [];
+      if (Array.isArray(additionalSystems)) {
+        systems = additionalSystems.map(String);
+      } else if (typeof additionalSystems === "string") {
+        try { systems = JSON.parse(additionalSystems); } catch { /* ignore */ }
+      }
+      if (systems.length > 0) {
+        console.log(`  <additional-connectors count="${systems.length}">`);
+        console.log(`    Source (connectors[0]) and destination (connectors[1]) use standard patterns.`);
+        console.log(`    The following additional connectors need config page entries, imports, and flow integration:`);
+        for (let i = 0; i < systems.length; i++) {
+          const idx = i + 2;
+          const prefix = `connector_${idx}`;
+          const comp = answers[`${prefix}_component`];
+          const connType = answers[`${prefix}_connection`];
+          const compKey = comp && typeof comp === "object" ? (comp as Record<string, unknown>).key : String(comp ?? "none");
+          console.log(`    <connector index="${idx}" system="${escapeXml(systems[i])}" component="${escapeXml(String(compKey))}" connection="${escapeXml(String(connType ?? "unknown"))}" />`);
+        }
+        console.log(`    Each additional connector needs: componentRegistry import, configPage connection entry, flow action imports.`);
+        console.log(`  </additional-connectors>`);
+      }
+    }
+  }
+
+  // Emit per-connector connection code pattern guidance
+  // The code pattern depends on: connection strategy + whether an SCV exists
+  if (sessionType === "integration") {
+    const connectorPrefixes = ["source", "destination"];
+    // Add additional connectors
+    for (const key of Object.keys(answers)) {
+      const match = key.match(/^(connector_\d+)_system$/);
+      if (match) connectorPrefixes.push(match[1]);
+    }
+
+    const connectionPatterns: Array<{ prefix: string; system: string; strategy: string; pattern: string; stableKey: string; componentKey: string; connectionKey: string }> = [];
+
+    for (const prefix of connectorPrefixes) {
+      const strategy = answers[`${prefix}_connection`];
+      if (!strategy || strategy === "no_connection") continue;
+
+      const system = String(answers[`${prefix}_system`] ?? prefix);
+      const connExisting = answers[`${prefix}_connection_existing`];
+      const component = answers[`${prefix}_component`];
+      const connType = answers[`${prefix}_connection_type`];
+
+      const componentKey = component && typeof component === "object"
+        ? String((component as Record<string, unknown>).key ?? "")
+        : "";
+      const connectionKey = connType && typeof connType === "object"
+        ? String((connType as Record<string, unknown>).key ?? "")
+        : "";
+
+      // Determine if an SCV exists (connection_existing is a real object, not "none"/"solo_build_only")
+      const hasSCV = connExisting !== undefined
+        && connExisting !== null
+        && connExisting !== "none"
+        && connExisting !== "solo_build_only"
+        && typeof connExisting === "object";
+
+      let stableKey = "";
+      if (hasSCV && typeof connExisting === "object") {
+        stableKey = String((connExisting as Record<string, unknown>).stableKey ?? "");
+      }
+
+      let pattern: string;
+      if (strategy === "org_activated") {
+        if (hasSCV && stableKey) {
+          pattern = "organizationActivatedConnection";
+        } else {
+          // org_activated without SCV — should have been created, but fallback
+          pattern = "organizationActivatedConnection_NEEDS_SCV";
+        }
+      } else if (strategy === "customer_activated") {
+        if (hasSCV && stableKey) {
+          pattern = "customerActivatedConnection";
+        } else if (componentKey && connectionKey) {
+          pattern = "manifest_helper";
+        } else {
+          pattern = "connectionConfigVar_inline";
+        }
+      } else {
+        pattern = "unknown";
+      }
+
+      connectionPatterns.push({ prefix, system, strategy: String(strategy), pattern, stableKey, componentKey, connectionKey });
+    }
+
+    if (connectionPatterns.length > 0) {
+      console.log(`  <connection-patterns>`);
+      for (const cp of connectionPatterns) {
+        console.log(`    <connector prefix="${cp.prefix}" system="${escapeXml(cp.system)}" strategy="${cp.strategy}" pattern="${cp.pattern}">`);
+        if (cp.pattern === "customerActivatedConnection") {
+          console.log(`      Use: customerActivatedConnection({ stableKey: "${escapeXml(cp.stableKey)}" }) in configPages`);
+          console.log(`      The SCV exists — reference it by stableKey.`);
+        } else if (cp.pattern === "organizationActivatedConnection") {
+          console.log(`      Use: organizationActivatedConnection({ stableKey: "${escapeXml(cp.stableKey)}" }) in scopedConfigVars on integration()`);
+          console.log(`      Access in onExecution: context.configVars["${escapeXml(cp.system)} Connection"] as unknown as { fields: Record<string, string>; token?: { access_token: string } }`);
+        } else if (cp.pattern === "manifest_helper") {
+          console.log(`      Use: manifest helper from ./manifests/${escapeXml(cp.componentKey)}/connections/${escapeXml(cp.connectionKey)} in configPages`);
+          console.log(`      Import the helper and call it with a stableKey and input overrides.`);
+          console.log(`      For customer-visible OAuth: org provides clientId/clientSecret (permissionAndVisibilityType: "organization"), customer completes OAuth flow.`);
+          console.log(`      Example: ${cp.connectionKey}("${cp.prefix}-${cp.componentKey}-${cp.connectionKey}", { clientId: { value: "", permissionAndVisibilityType: "organization" }, ... })`);
+        } else if (cp.pattern === "connectionConfigVar_inline") {
+          console.log(`      Use: connectionConfigVar({ stableKey: "...", dataType: "connection", ... }) in configPages`);
+          console.log(`      No component manifest — define the connection inputs inline.`);
+        } else if (cp.pattern === "organizationActivatedConnection_NEEDS_SCV") {
+          console.log(`      WARNING: org_activated chosen but no SCV was created. The agent should have created one.`);
+          console.log(`      Create an SCV first with: prismatic-tools create-organization-connection`);
+          console.log(`      Then use: organizationActivatedConnection({ stableKey: "<created-stable-key>" }) in scopedConfigVars`);
+        }
+        console.log(`    </connector>`);
+      }
+      console.log(`  </connection-patterns>`);
     }
   }
 
@@ -143,11 +362,12 @@ function main(): number {
   }
 
   // Instructions
-  const skillName = sessionType === "component"
-    ? "component-patterns"
-    : "integration-patterns";
   console.log(`  <instructions>`);
-  console.log(`    For each <cookbook> heading: Grep for it in answer-to-code-cookbook.md and read the matching section.`);
+  if (useInline) {
+    console.log(`    Cookbook sections are included inline above — do NOT read the cookbook file separately.`);
+  } else {
+    console.log(`    Cookbook content exceeded size budget. Grep for each <cookbook> heading in answer-to-code-cookbook.md.`);
+  }
   console.log(`    For each <reference> file: Read it from the ${skillName} skill references/ directory.`);
   console.log(`    For each <api-research> file: Read it for API-specific endpoint details.`);
   console.log(`    Use <implication> text to understand the architectural decision for each answer.`);

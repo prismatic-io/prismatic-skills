@@ -74,6 +74,21 @@ Script?                  → Use shared/graphql.ts for custom queries,
 
 **Rule: NEVER create inline GraphQL clients** — always use `shared/graphql.ts` imports.
 
+## Common Operations Cheat Sheet
+
+These are the most frequently needed GraphQL operations. Use these exact queries — don't guess the field names.
+
+| Operation | Reference File | Query/Mutation Name |
+|-----------|---------------|-------------------|
+| Find test instance for an integration | `references/instances.md` → "Get Test (System) Instance" | `instances(integration: $id, isSystem: true)` |
+| Get execution result with logs | `references/execution-and-logs.md` → "Get Execution Result with Step Results" | `executionResult(id: $id)` |
+| Publish an integration version | `references/integrations.md` → "Mutation: Publish Integration" | `publishIntegration(input: { id: $id })` |
+| Set marketplace availability | `references/integrations.md` → "Mutation: Set Marketplace Availability" | `updateIntegrationMarketplaceConfiguration` |
+| Clear instance persisted state | `references/instances.md` → "Mutation: Clear Instance Persisted State" | `updateInstance(input: { id: $id, persistedData: "{}" })` |
+| Update config variables (safe) | `references/instances.md` → "Mutation: Update Instance Config Variables" | `updateInstanceConfigVariables` (NOT `updateInstance`) |
+
+Read the referenced file section for the full query with all fields. Do not reconstruct queries from memory.
+
 ## CLI Usage Rules
 
 1. **`prism` must be installed globally** (`npm install -g @prismatic-io/prism`) — never use `npx prism`

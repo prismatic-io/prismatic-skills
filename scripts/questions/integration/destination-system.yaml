@@ -1,4 +1,6 @@
 # Destination system — component, connection, credentials, API docs
+#
+# Connection flow mirrors source-system.yaml. See that file for the canonical ordering.
 
 destination_system:
   question: "What is the DESTINATION system name?"
@@ -55,13 +57,48 @@ destination_component:
     same_system_check: { not: "reuse" }
   agent_context: >
     Run the lookup script to search for components. If a component is found, record the
-    full component object. If NO component is found, record the value "none".
-    "none" tells downstream items that no component exists and triggers the API docs URL question.
-    Do NOT record an empty string — it will not be recognized as answered.
-    ALWAYS search for a destination component — the destination is where data is sent.
-    If no component exists, the flow will use direct HTTP calls (axios from Spectral SDK).
+    FULL component JSON object (the full object with key, label, connections array, etc.).
+    If NO component is found, present the situation to the user: "No Prismatic component
+    exists for [system]. I can research the API and build direct HTTP calls, or you could
+    build a custom component first. Which approach?" Record "none" only after the user
+    confirms. Do NOT record an empty string — it will not be recognized as answered.
   docs:
     - https://prismatic.io/docs/integrations/code-native/existing-components.md
+
+destination_connection_existing:
+  question: "Search for existing connections for the destination system."
+  type: lookup
+  inference: prohibited
+  scope: integration
+  lookup:
+    script: scripts/integrations/search-connections.ts
+    args: ["${destination_system}"]
+  depends_on: [destination_component]
+  condition:
+    destination_component: { not_empty: true }
+  agent_context: |
+    This search runs automatically after the component is found. The result determines next steps:
+
+    BRANCH A — Usable connection found (result is a connection object):
+      Record the full connection object as the answer.
+      The record-choices script will auto-infer destination_connection_type from the object.
+      It will also emit a <connection-found> directive telling you to present the
+      connection to the user: "I found an existing [type] connection for [system]: [name]. Use this one?"
+      - If user says YES: write destination_connection based on the connectionType field
+        (CUSTOMER → customer_activated, ORG → org_activated). DONE for this system.
+      - If user says NO: the destination_connection_type and destination_connection questions
+        will appear as pending. Proceed to ask them.
+
+    BRANCH B — Only build-only connections found:
+      Record "solo_build_only". The destination_connection_type and destination_connection
+      questions will appear as pending.
+      Build-only connections work for testing but CANNOT be used for production org_activated.
+
+    BRANCH C — No connections found:
+      Record "none". Proceed to destination_connection_type.
+  note: >
+    This search fires BEFORE the strategy choice. The result feeds into conditions
+    on destination_connection_type (only asked when "none" or "solo_build_only").
 
 destination_connection_type:
   question: "Which connection/auth type for the destination component?"
@@ -69,19 +106,17 @@ destination_connection_type:
   inference: prohibited
   scope: integration
   skippable: true
-  skip_if_empty: true
   lookup:
-    note: "Extract connection types from the destination_component search results. Present each connection option (e.g., OAuth2, API Key, Basic Auth) to the user."
+    note: "Extract connection types from the destination_component search results."
     source: destination_component.connections
   depends_on: [destination_component, destination_connection_existing]
   condition:
     destination_component: { not_empty: true }
     destination_connection_existing: { in: ["none", "solo_build_only"] }
   note: >
-    Store the FULL connection object from the lookup result (e.g.,
-    {"key":"oauth2","label":"Slack OAuth 2.0","auth_type":"OAuth2"}),
-    not just the key string. The key is needed for manifest helper imports
-    during code generation (e.g., slackOauth2 comes from connections/oauth2).
+    Skipped when an existing usable connection was found (Branch A) because the type
+    is auto-inferred. Only appears when no usable connections exist (Branches B and C).
+    Store the FULL connection object from the lookup result.
   agent_context: |
     <lookup-contract>
       This question is ONLY about which auth method. The NEXT question asks who manages the connection.
@@ -96,78 +131,42 @@ destination_connection:
   inference: prohibited
   scope: integration
   choices:
-    - org_activated
     - customer_activated
-    - manifest_based
+    - org_activated
     - no_connection
   depends_on: [destination_connection_type]
   condition:
     destination_connection_type: { not_empty: true }
-  note: >
-    Each choice produces different code:
-    - Organization-activated → organizationActivatedConnection() in scopedConfigVars
-    - Customer-activated → customerActivatedConnection() in configPages
-    - Create new → manifest connection helper (e.g., slackOauth2()) on configPage
-    - No connection → no connection config needed
-    WARNING: Build-only/demo connections cannot be used with organizationActivatedConnection().
   agent_context: |
     <present-as>
-      <option value="customer_activated" recommended="true">Customer-activated (reusable) — each customer authorizes their own account. Connection is managed centrally in Prismatic and reusable across integrations.</option>
-      <option value="org_activated">Org-activated (reusable) — your team configures one shared connection. All customer instances use it.</option>
-      <option value="manifest_based">Integration-specific — credentials embedded in this integration only. Not reusable. Fallback option.</option>
+      <option value="customer_activated" recommended="true">Customer-activated (reusable) — each customer authorizes their own account. Reusable across integrations.</option>
+      <option value="org_activated">Org-activated (reusable) — your team configures credentials. Can be per-customer or one shared connection.</option>
       <option value="no_connection">No auth needed.</option>
     </present-as>
-    Recommend customer_activated for most cases. The record-choices script will guide next steps.
+
+    If destination_connection_existing is "solo_build_only":
+      Explain that build-only connections exist for testing but cannot be used for production
+      org_activated deployments. Recommend customer_activated.
+
+    Recommend customer_activated for most cases.
+    Code pattern is determined automatically during code gen.
   implications:
     "customer_activated": >
-      Each customer authorizes their own account. Reusable across integrations. Most common
-      for SaaS destinations where each customer has their own credentials.
+      Each customer authorizes their own account. Reusable across integrations.
     "org_activated": >
-      One shared connection for all instances. Managed centrally in Prismatic admin. Reusable
-      across integrations. Cannot use build-only/demo connections.
-    "manifest_based": >
-      Integration-specific connection embedded in this integration's config page. Credentials
-      are baked into the build. Not reusable across integrations — use as a fallback.
+      One shared connection managed centrally. Cannot use build-only connections.
     "no_connection": >
       No auth required for the destination.
   on_answer:
-    org_activated: >
-      IMMEDIATELY run `prismatic-tools search-connections ${destination_system}` to find existing org connections.
-      Present results to the user and let them select one. Do not proceed to the next question
-      until a connection is selected. Build-only/demo connections cannot be used with
-      organizationActivatedConnection() — warn if only those exist.
     customer_activated: >
-      IMMEDIATELY run `prismatic-tools search-connections ${destination_system}` to find existing connections.
-      Present results to the user and let them select one. If none exist, offer to create one
-      with `create-organization-connection`.
-    manifest_based: >
-      The next question will ask about providing credentials. Prepare to run
-      `prismatic-tools get-credentials` if the user chooses to provide them now.
+      If no reusable connection exists yet, offer to create one with create-organization-connection.
+    org_activated: >
+      The next question (destination_org_connection_scope) asks about per-customer vs global.
+      After that, offer to create SCV if none exists.
+      WARNING: Build-only connections CANNOT be used with organizationActivatedConnection().
   docs:
     - https://prismatic.io/docs/integrations/connections.md
   cookbook_section: "Connection Strategy Code Paths"
-
-destination_connection_existing:
-  question: "Search for existing connections for the destination system."
-  type: lookup
-  inference: prohibited
-  scope: integration
-  lookup:
-    script: scripts/integrations/search-connections.ts
-    args: ["${destination_system}"]
-  depends_on: [destination_component]
-  condition:
-    destination_component: { not_empty: true }
-  agent_context: |
-    Search runs automatically after the component is found. Present results to the user:
-    - If usable connections found: "Found an existing [type] connection for [system]. Use it, or create a new one?"
-      If user picks one, infer destination_connection_type from the component's connections array
-      and destination_connection from the connectionType field. Skip type and strategy questions.
-    - If only build-only connections found: record "solo_build_only" and proceed to destination_connection_type.
-    - If no connections found: record "none" and proceed to destination_connection_type.
-  note: >
-    This search fires BEFORE the strategy choice. If the user picks an existing connection,
-    the strategy and type are inferred from the result. Build-only connections cannot be used for production.
 
 destination_org_connection_scope:
   question: "Should the org provide unique credentials per customer, or use one shared connection for all customers?"
@@ -180,31 +179,16 @@ destination_org_connection_scope:
     destination_connection: org_activated
   agent_context: |
     <present-as>
-      <option value="per_customer">Per-customer credentials — your team provides separate credentials for each customer. Each customer gets their own connection instance managed by your org.</option>
+      <option value="per_customer">Per-customer credentials — your team provides separate credentials for each customer.</option>
       <option value="global">One shared connection — a single set of credentials shared across all customer instances.</option>
     </present-as>
   implications:
     per_customer: >
       Creates an org-activated customer-scoped connection (SCV). Your team creates credentials
-      for each customer before deploying to them. Customers never see this connection.
+      for each customer before deploying to them.
     global: >
       Creates an org-activated org-scoped connection (SCV) with credentials stored directly
-      on the connection definition. No per-customer credentials needed. All instances share.
-
-destination_provide_credentials:
-  question: "Provide OAuth/API credentials for the destination system now?"
-  type: choice
-  inference: prohibited
-  scope: integration
-  choices:
-    - "yes"
-    - "skip"
-  depends_on: [destination_connection]
-  condition:
-    destination_connection: "manifest_based"
-  agent_context: >
-    Same as source credentials — providing them now means the integration works immediately
-    after deploy. Skip if you don't have them on hand, but you'll need to edit .env manually later.
+      on the connection definition. All instances share.
 
 destination_api_docs_url:
   question: "API documentation URL for the destination system"
@@ -217,5 +201,4 @@ destination_api_docs_url:
     destination_component: { empty: true }
   agent_context: >
     When no Prismatic component exists for the destination, we need API docs to generate
-    direct HTTP calls. The agent fetches this URL to discover endpoints, auth methods,
-    and request/response shapes.
+    direct HTTP calls.

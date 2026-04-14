@@ -15,7 +15,7 @@
  *   2 - Usage error
  */
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { getSessionDirectory } from "../shared/project-directory.js";
 
@@ -513,7 +513,54 @@ function main(): number {
   }
 
   const { gaps, notes, verified } = verify(projectDir, answers);
+
+  // Check for test payloads on webhook flows (soft note, not a hard gap)
+  // Only applies to webhook-triggered integrations — scheduled/polling/ai_agent don't send payloads
+  if (sessionType !== "component") {
+    const flatAnswers: Record<string, unknown> = { ...answers };
+    if (answers.flows && typeof answers.flows === "object") {
+      const flows = answers.flows as Record<string, Record<string, unknown>>;
+      const flowIds = Object.keys(flows);
+      if (flowIds.length === 1) {
+        Object.assign(flatAnswers, flows[flowIds[0]]);
+      }
+    }
+
+    const triggerType = typeof flatAnswers.trigger_type === "string" ? flatAnswers.trigger_type : "";
+    if (triggerType === "webhook") {
+      // Check for .spectral/flows/*/payloads/ or test-data/trigger-config.json
+      const spectralDir = join(projectDir, ".spectral", "flows");
+      const triggerConfig = join(projectDir, "test-data", "trigger-config.json");
+      let hasPayloads = false;
+
+      if (existsSync(spectralDir)) {
+        try {
+          for (const flowDir of readdirSync(spectralDir)) {
+            const payloadsDir = join(spectralDir, flowDir, "payloads");
+            if (existsSync(payloadsDir)) {
+              const files = readdirSync(payloadsDir).filter(f => f.endsWith(".json"));
+              if (files.length > 0) { hasPayloads = true; break; }
+            }
+          }
+        } catch { /* ignore */ }
+      }
+      if (!hasPayloads && existsSync(triggerConfig)) {
+        hasPayloads = true;
+      }
+
+      if (!hasPayloads) {
+        notes.push({
+          file: ".spectral/flows/",
+          message: "Webhook flow has no test payload. Generate .spectral/flows/<flow-key>/payloads/sample-payload.json with { headers: {}, data: <sample>, contentType: \"application/json\" }. Without it, test-integration will fire the flow with an empty body.",
+        });
+      }
+    }
+  }
+
   console.log(formatOutput(gaps, notes, verified));
+
+  const resultPath = join(projectDir, "verify-code-result.json");
+  writeFileSync(resultPath, JSON.stringify({ verified: gaps.length === 0, gaps: gaps.length, timestamp: Date.now() }, null, 2));
 
   return gaps.length > 0 ? 1 : 0;
 }

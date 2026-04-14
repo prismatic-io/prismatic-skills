@@ -178,6 +178,75 @@ mutation deleteInstance($id: ID!) {
 }
 ```
 
+## Query: Get Test (System) Instance
+
+The test instance is auto-created when an integration is imported. Use `isSystem: true` to find it.
+
+```graphql
+query getTestInstance($integrationId: ID!) {
+  instances(integration: $integrationId, isSystem: true) {
+    nodes {
+      id
+      name
+      enabled
+      needsDeploy
+      configState
+      configVariables {
+        nodes {
+          id
+          key
+          value
+          status
+          requiredConfigVariable {
+            key
+            dataType
+          }
+        }
+      }
+      flowConfigs {
+        nodes {
+          id
+          flow { id name stableKey }
+          webhookUrl
+        }
+      }
+    }
+  }
+}
+```
+
+The designer URL for the test instance: `https://app.prismatic.io/designer/<instance-id>`
+
+## Mutation: Clear Instance Persisted State
+
+Resets `crossFlowState` or per-flow `instanceState`. Useful for re-running a full backfill after fixing polling logic.
+
+```graphql
+# Clear cross-flow state
+mutation clearCrossFlowState($instanceId: ID!) {
+  updateInstance(input: {
+    id: $instanceId
+    persistedData: "{}"
+  }) {
+    instance { id }
+    errors { field messages }
+  }
+}
+```
+
+For per-flow state, update each flow config:
+```graphql
+mutation clearFlowState($flowConfigId: ID!) {
+  updateInstanceFlowConfig(input: {
+    id: $flowConfigId
+    persistedData: "{}"
+  }) {
+    instanceFlowConfig { id }
+    errors { field messages }
+  }
+}
+```
+
 ## Instance Config Variable Types
 
 ```graphql

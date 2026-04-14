@@ -1,0 +1,138 @@
+# connector-template.yaml — Template for additional connectors (beyond source/destination)
+#
+# This template defines the spec items for a single connector system.
+# It is NOT loaded directly via $include — instead, update-tasks.ts reads this
+# template and dynamically expands items for each additional connector.
+#
+# Variables (substituted at expansion time):
+#   {PREFIX}  — e.g., "connector_2", "connector_3"
+#   {SYSTEM}  — e.g., "Slack", "BigQuery" (the system name from the connectors array)
+#   {INDEX}   — e.g., 2, 3 (zero-based connector index)
+#
+# Source (connectors[0]) and destination (connectors[1]) use the existing
+# source-system.yaml and destination-system.yaml files. This template is only
+# used for connectors[2] and beyond.
+
+"{PREFIX}_system":
+  question: "What is the {SYSTEM} system name?"
+  type: text
+  inference: allowed
+  scope: integration
+  agent_context: >
+    This identifies an additional system involved in the integration.
+    Name the specific product (e.g., "Slack", "BigQuery"), not a generic category.
+
+"{PREFIX}_component":
+  question: "Search for existing Prismatic components for {SYSTEM}."
+  type: lookup
+  inference: prohibited
+  scope: integration
+  skippable: true
+  lookup:
+    script: scripts/integrations/find-components.ts
+    args: ["${{{PREFIX}_system}}"]
+  depends_on: ["{PREFIX}_system"]
+  agent_context: >
+    Run the lookup script to search for components. If a component is found, record the
+    full component object. If NO component is found, record the value "none".
+  docs:
+    - https://prismatic.io/docs/integrations/code-native/existing-components.md
+
+"{PREFIX}_connection_existing":
+  question: "Search for existing connections for {SYSTEM}."
+  type: lookup
+  inference: prohibited
+  scope: integration
+  lookup:
+    script: scripts/integrations/search-connections.ts
+    args: ["${{{PREFIX}_system}}"]
+  depends_on: ["{PREFIX}_component"]
+  condition:
+    "{PREFIX}_component": { not_empty: true }
+  agent_context: |
+    Search runs automatically after the component is found. Present results to the user:
+    - If usable connections found: let user pick one or create new.
+    - If only build-only: record "solo_build_only" and proceed to connection_type.
+    - If none found: record "none" and proceed to connection_type.
+
+"{PREFIX}_connection_type":
+  question: "Which connection/auth type for {SYSTEM}?"
+  type: lookup
+  inference: prohibited
+  scope: integration
+  skippable: true
+  skip_if_empty: true
+  lookup:
+    note: "Extract connection types from the {PREFIX}_component search results."
+    source: "{PREFIX}_component.connections"
+  depends_on: ["{PREFIX}_component", "{PREFIX}_connection_existing"]
+  condition:
+    "{PREFIX}_component": { not_empty: true }
+    "{PREFIX}_connection_existing": { in: ["none", "solo_build_only"] }
+  agent_context: |
+    <lookup-contract>
+      Extract connection options from the {PREFIX}_component answer's `connections` array.
+      Present each one to the user with its label and auth_type.
+      Write the FULL connection JSON object — not a string label.
+    </lookup-contract>
+
+"{PREFIX}_connection":
+  question: "How should the {SYSTEM} connection be managed?"
+  type: choice
+  inference: prohibited
+  scope: integration
+  choices:
+    - customer_activated
+    - org_activated
+    - no_connection
+  depends_on: ["{PREFIX}_connection_type"]
+  condition:
+    "{PREFIX}_connection_type": { not_empty: true }
+  agent_context: |
+    <present-as>
+      <option value="customer_activated" recommended="true">Customer-activated (reusable) — each customer provides their own credentials.</option>
+      <option value="org_activated">Org-activated (reusable) — your team provides credentials.</option>
+      <option value="no_connection">No auth needed.</option>
+    </present-as>
+    Code pattern is determined automatically during code gen.
+  implications:
+    "customer_activated": >
+      Each customer authorizes their own account. Reusable across integrations.
+    "org_activated": >
+      One shared connection managed centrally. Cannot use build-only connections.
+    "no_connection": >
+      No authentication required.
+  on_answer:
+    customer_activated: >
+      If no reusable connection exists, offer to create one with create-organization-connection.
+    org_activated: >
+      Ask about scope (per-customer vs global). If no reusable connection exists, offer to create one.
+      Build-only connections CANNOT be used with organizationActivatedConnection().
+  cookbook_section: "Connection Strategy Code Paths"
+
+"{PREFIX}_org_connection_scope":
+  question: "Unique credentials per customer, or one shared connection for {SYSTEM}?"
+  type: choice
+  choices: [per_customer, global]
+  inference: prohibited
+  scope: integration
+  depends_on: ["{PREFIX}_connection"]
+  condition:
+    "{PREFIX}_connection": org_activated
+  implications:
+    per_customer: >
+      Creates an org-activated customer-scoped connection (SCV).
+    global: >
+      Creates an org-activated org-scoped connection (SCV) shared across all instances.
+
+"{PREFIX}_api_docs_url":
+  question: "API documentation URL for {SYSTEM}"
+  type: text
+  inference: allowed
+  scope: integration
+  validate: "^https?://"
+  depends_on: ["{PREFIX}_component"]
+  condition:
+    "{PREFIX}_component": { empty: true }
+  agent_context: >
+    When no Prismatic component exists, we need API docs for direct HTTP calls.

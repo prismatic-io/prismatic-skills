@@ -20,6 +20,7 @@ import {
   createWriteStream,
 } from "node:fs";
 import { join, resolve, basename, relative } from "node:path";
+import { tmpdir } from "node:os";
 import { createGzip } from "node:zlib";
 import { spawnSync } from "node:child_process";
 
@@ -53,7 +54,7 @@ function walkDir(
 
     // Check if any parent path component is excluded
     const relPath = relative(baseDir, fullPath);
-    const parts = relPath.split("/");
+    const parts = relPath.split(/[/\\]/);
     if (parts.some((p) => excluded.includes(p))) continue;
 
     try {
@@ -100,7 +101,8 @@ function createPackage(projectDir: string, versionName?: string): number {
     packageName = `${projectName}-${timestamp}.zip`;
   }
 
-  const outputsDir = "/mnt/user-data/outputs";
+  const outputsDir = process.env.PRISMATIC_OUTPUT_DIR
+    || join(process.env.HOME || process.env.USERPROFILE || tmpdir(), "prismatic-outputs");
   mkdirSync(outputsDir, { recursive: true });
   const outputPath = join(outputsDir, packageName);
 

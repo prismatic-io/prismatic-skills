@@ -248,20 +248,61 @@ function main(): number {
   }
 
   // Validation for connection-type questions (must be full JSON objects)
+  // Includes dynamically-expanded connector_N_connection_type keys
   const connectionTypeQuestions = [
     "source_connection_type",
     "destination_connection_type",
+    ...Object.keys(batch).filter(k => /^connector_\d+_connection_type$/.test(k)),
   ];
 
   // Connection strategy questions require search-connections to be run first
+  // Includes dynamically-expanded connector_N_connection keys
   const connectionStrategyQuestions = [
     "source_connection",
     "destination_connection",
+    ...Object.keys(batch).filter(k => /^connector_\d+_connection$/.test(k)),
   ];
 
   const written: string[] = [];
   const onAnswerActions: string[] = [];
   let hasValidationErrors = false;
+
+  // Gate: component fallback requires user confirmation (integrations only)
+  // When writing *_component with a key that doesn't match the system name (e.g., http for dacra),
+  // reject unless --confirmed flag is present.
+  const isConfirmed = process.argv.includes("--confirmed");
+  if (sessionType !== "component" && !isConfirmed) {
+    const componentKeys = Object.keys(batch).filter(k =>
+      /^(source|destination|connector_\d+)_component$/.test(k)
+    );
+    for (const key of componentKeys) {
+      const val = batch[key];
+      if (!val || typeof val !== "object") continue;
+      if (val === "none" || (typeof val === "string" && val === "none")) continue;
+
+      const prefix = key.replace(/_component$/, "");
+      const systemKey = `${prefix}_system`;
+      const systemName = String(batch[systemKey] || answers[systemKey] || "").toLowerCase();
+      const componentKey = String((val as Record<string, unknown>).key || "").toLowerCase();
+
+      if (systemName && componentKey && !componentKey.includes(systemName) && !systemName.includes(componentKey)) {
+        console.log(
+          `0 answers written. ${key} was NOT recorded.\n\n` +
+          `<component-fallback-confirmation system="${systemName}" component="${componentKey}" blocking="true">\n` +
+          `  No dedicated Prismatic component exists for "${systemName}".\n` +
+          `  You selected "${componentKey}" as a generic fallback.\n` +
+          `  Present this choice to the user BEFORE recording:\n` +
+          `  "No Prismatic component exists for ${systemName}. Options:\n` +
+          `    1. Use the ${componentKey} component with direct API calls (works now)\n` +
+          `    2. Build a custom ${systemName} component first (reusable, more structured)"\n` +
+          `  After the user confirms, re-run with --confirmed:\n` +
+          `    prismatic-tools record-choices --session ${sessionName} --type ${sessionType} --confirmed ${key}='${JSON.stringify(val)}'\n` +
+          `</component-fallback-confirmation>`
+        );
+        process.exit(0);
+      }
+    }
+  }
 
   // Gate: connection strategy answers require prior connection search (integrations only)
   if (sessionType !== "component") {
@@ -271,7 +312,14 @@ function main(): number {
         const value = typeof rawValue === "string" ? rawValue : JSON.stringify(rawValue);
         // Gate: any connection strategy requires searching for existing connections first
         if (value !== "no_connection") {
-          const system = key.startsWith("source") ? "source" : "destination";
+          // Extract prefix: source_, destination_, or connector_N_
+          let system: string;
+          const connectorMatch = key.match(/^(connector_\d+)_connection$/);
+          if (connectorMatch) {
+            system = connectorMatch[1];
+          } else {
+            system = key.startsWith("source") ? "source" : "destination";
+          }
           const rawSystem = batch[`${system}_system`] || answers[`${system}_system`] || system;
           const systemName = typeof rawSystem === "string" ? rawSystem : (rawSystem as Record<string, unknown>)?.source as string || (rawSystem as Record<string, unknown>)?.name as string || system;
           const existingKey = `${system}_connection_existing`;
@@ -294,16 +342,16 @@ function main(): number {
             process.exit(0);
           }
 
-          // Check if existing value is "none" or "solo_build_only" (only build-only connections found)
+          // Check if existing value is "none" or "solo_build_only"
+          // ALLOW the write — but emit post-write guidance about SCV creation
           const existingStr = typeof existingValue === "string" ? existingValue : JSON.stringify(existingValue ?? "");
           const noneOrBuildOnly = existingStr === "none" || existingStr === "solo_build_only";
 
-          if (noneOrBuildOnly && !value.includes("manifest_based") && value !== "no_connection") {
-            // No usable connections found — present options, then create via script or fall back
+          if (noneOrBuildOnly && value !== "no_connection") {
+            // Strategy written, but no usable SCV exists yet. Build post-write guidance.
             const connType = value === "customer_activated" ? "customer-activated" : value === "org_activated" ? "org-activated" : value;
             const hasBuildOnly = existingStr === "solo_build_only";
 
-            // Try to get the connection key from the stored connection type answer
             const connTypeKey = `${system}_connection_type`;
             const connTypeValue = batch[connTypeKey] || answers[connTypeKey];
             let componentKey = "";
@@ -311,7 +359,6 @@ function main(): number {
             if (connTypeValue && typeof connTypeValue === "object") {
               const obj = connTypeValue as Record<string, unknown>;
               connectionKey = (obj.key as string) ?? "";
-              // Extract component key from parent
               const compKey = `${system}_component`;
               const compValue = batch[compKey] || answers[compKey];
               if (compValue && typeof compValue === "object") {
@@ -324,7 +371,6 @@ function main(): number {
               ? `${sessionPrefix}${componentKey}-${connectionKey}`
               : `${sessionPrefix}${systemName.toLowerCase()}-oauth2`;
 
-            // Determine strategy from the connection answer + org scope follow-up
             let strategy = "customer-activated";
             if (value === "org_activated") {
               const scopeKey = `${system}_org_connection_scope`;
@@ -338,48 +384,22 @@ function main(): number {
                 `--name "${systemName} ${connType}" --stable-key ${stableKey} --strategy ${strategy} --skip-test-connection`
               : "";
 
-            console.log(
-              `0 answers written. ${key} was NOT recorded.\n\n` +
-              `<connection-creation-required blocking="true" system="${systemName}" strategy="${value}"` +
+            // Queue this as a post-write action (NOT a rejection)
+            onAnswerActions.push(
+              `<create-scv-recommended system="${systemName}" strategy="${value}"` +
               (hasBuildOnly ? ` build-only-available="true"` : ``) + `>\n` +
-              `  No existing reusable ${connType} connections found for ${systemName}.\n` +
+              `  No reusable ${connType} connection exists for ${systemName}.\n` +
               (hasBuildOnly
-                ? `  Build-only connections were found — these work for testing but not production.\n`
+                ? `  Build-only connections exist for testing but cannot be used for production org_activated.\n`
                 : ``) +
-              `  Present these options:\n` +
-              `    Option 1: "Create reusable connection" (Recommended) — creates a ${connType} connection in the org.\n` +
-              `    Option 2: "Use integration-specific connection" — credentials configured post-deploy.\n` +
-              (hasBuildOnly
-                ? `    Option 3: "Use build-only for testing" — use the existing build-only connection for the test instance now. You'll still need to create a real connection before deploying to customers.\n`
-                : ``) +
-              `  <on-choice value="create">\n` +
+              `  Offer to create one:\n` +
               (createCmd
-                ? `    Run this command to create the connection:\n` +
-                  `    ${createCmd}\n`
-                : `    Request Orby to create the connection:\n` +
-                  `    <orby-request>Create a ${connType} connection for ${systemName} using component ${componentKey || systemName.toLowerCase()} connection ${connectionKey || "oauth2"}</orby-request>\n`) +
-              `    WAIT for the connection to be created.\n` +
-              `    Then record: ${key}=${value}\n` +
-              `    Also record: ${system}_connection_existing with the stableKey from the created connection.\n` +
-              `  </on-choice>\n` +
-              `  <on-choice value="integration-specific">\n` +
-              `    Record: ${key}=manifest_based\n` +
-              `    The user will configure OAuth credentials in Prismatic admin post-deploy.\n` +
-              `  </on-choice>\n` +
-              (hasBuildOnly
-                ? `  <on-choice value="build-only-testing">\n` +
-                  `    Record: ${key}=manifest_based\n` +
-                  `    The integration will use a manifest-based connection on the config page.\n` +
-                  `    The build-only connection in the org can be used for the test instance in the designer.\n` +
-                  `    Before deploying to customers, a real ${connType} connection must be created.\n` +
-                  `  </on-choice>\n`
-                : ``) +
-              `  Do NOT ask for credentials. Do NOT paste credentials in chat.\n` +
-              `  Do NOT fabricate connection_existing objects. They must come from actual creation results.\n` +
-              `  Do NOT retry this command until the user has chosen and the action is complete.\n` +
-              `</connection-creation-required>`
+                ? `    ${createCmd}\n`
+                : `    <orby-request>Create a ${connType} connection for ${systemName}</orby-request>\n`) +
+              `  If the user declines, the connection will be configured post-deploy in admin UI.\n` +
+              `</create-scv-recommended>`
             );
-            process.exit(0);
+            // Do NOT exit — let the write proceed
           }
         }
       }
@@ -403,6 +423,54 @@ function main(): number {
         `    <step>THEN write the remaining answers using research findings</step>\n` +
         `  </steps>\n` +
         `</api-docs-url-must-be-alone>`
+      );
+      process.exit(0);
+    }
+  }
+
+  // Gate: reject large inference batches without --confirmed flag.
+  // When the agent batch-writes 4+ inference-allowed items early in a session,
+  // it's dumping inferences without presenting them to the user first.
+  // Force the agent to present first, get confirmation, then re-run with --confirmed.
+  if (!isConfirmed && spec) {
+    // Count existing answers (excluding metadata keys)
+    const metaKeys = new Set(["name", "session", "type", "flows", "phase_gate", "additional_systems"]);
+    const existingCount = Object.keys(target).filter(k => !metaKeys.has(k)).length;
+
+    // Count inference-allowed items in this batch (exclude lookups, flow_definitions, connection keys)
+    const noGateKeys = new Set([
+      "flow_definitions", "flow_count", "systems", "source_system", "destination_system",
+      "additional_systems", "phase_gate",
+    ]);
+    const connectionPattern = /_(connection|connection_type|connection_existing|org_connection_scope)$/;
+
+    let inferenceCount = 0;
+    const inferredItems: Array<{ key: string; value: string }> = [];
+    for (const [key, val] of Object.entries(batch)) {
+      if (noGateKeys.has(key)) continue;
+      if (connectionPattern.test(key)) continue;
+      const specItem = spec.items[key];
+      if (!specItem) continue;
+      if (specItem.inference === "prohibited") continue;
+      if ((specItem as Record<string, unknown>).type === "lookup") continue;
+      inferenceCount++;
+      inferredItems.push({ key, value: typeof val === "string" ? val : JSON.stringify(val) });
+    }
+
+    if (inferenceCount >= 4 && existingCount < 8) {
+      console.log(
+        `0 answers written. Batch was HELD for user confirmation.\n\n` +
+        `<confirm-inferences-before-writing count="${inferenceCount}">\n` +
+        `  You are batch-writing ${inferenceCount} inferred values. Present these to the user FIRST.\n` +
+        `  Show what you inferred, why (cite the user's words), and the architectural impact.\n` +
+        `  WAIT for the user to confirm or correct before writing.\n` +
+        `  \n` +
+        `  Inferred values:\n` +
+        inferredItems.map(i => `    ${i.key} = ${i.value}`).join("\n") + `\n` +
+        `  \n` +
+        `  After the user confirms, re-run this exact command with --confirmed:\n` +
+        `    prismatic-tools record-choices --session ${sessionName} --type ${sessionType} --confirmed ${Object.entries(batch).map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`).join(" ")}\n` +
+        `</confirm-inferences-before-writing>`
       );
       process.exit(0);
     }
@@ -465,6 +533,63 @@ function main(): number {
 
     target[questionId] = answer;
     written.push(questionId);
+
+    // When *_connection_existing is written with a rich connection object:
+    // - Auto-infer connection_type (data extraction, not a user decision)
+    // - Do NOT auto-infer connection strategy — that's a user decision. Emit a directive instead.
+    const existingMatch = questionId.match(/^(source|destination|connector_\d+)_connection_existing$/);
+    if (existingMatch && sessionType !== "component" && answer && typeof answer === "object") {
+      const prefix = existingMatch[1];
+      const conn = answer as Record<string, unknown>;
+      const connectionType = conn.connectionType as string | undefined;
+      const managedBy = conn.managedBy as string | undefined;
+      const stableKey = conn.stableKey as string | undefined;
+      const connectionName = conn.name as string | undefined;
+
+      // Auto-infer connection_type from the component's connections array (data, not a decision)
+      const connectionKey = conn.connectionKey as string | undefined;
+      if (connectionKey && !target[`${prefix}_connection_type`]) {
+        const compAnswer = target[`${prefix}_component`] || answers[`${prefix}_component`];
+        if (compAnswer && typeof compAnswer === "object") {
+          const comp = compAnswer as Record<string, unknown>;
+          const connections = comp.connections as Array<Record<string, unknown>> | undefined;
+          if (connections) {
+            const match = connections.find(c => c.key === connectionKey);
+            if (match) {
+              target[`${prefix}_connection_type`] = match;
+              written.push(`${prefix}_connection_type`);
+              console.log(`   Auto-inferred: ${prefix}_connection_type from existing connection (key: ${connectionKey})`);
+            }
+          }
+        }
+      }
+
+      // Determine what the existing connection tells us — but DON'T auto-write the strategy
+      let detectedStrategy = "";
+      if (connectionType === "CUSTOMER" || managedBy === "CUSTOMER") {
+        detectedStrategy = "customer_activated";
+      } else if (connectionType === "ORG" || managedBy === "ORGANIZATION") {
+        detectedStrategy = "org_activated";
+      }
+
+      // Emit a directive: present this connection to the user and let them decide
+      const systemKey = `${prefix}_system`;
+      const systemName = typeof (target[systemKey] || answers[systemKey]) === "string"
+        ? (target[systemKey] || answers[systemKey]) as string
+        : prefix;
+
+      if (detectedStrategy && !target[`${prefix}_connection`]) {
+        onAnswerActions.push(
+          `<connection-found system="${systemName}" prefix="${prefix}" blocking="true">\n` +
+          `  Found existing connection: "${connectionName || stableKey || "unknown"}" (${detectedStrategy})\n` +
+          `  Present this to the user: "I found an existing ${detectedStrategy.replace("_", "-")} connection for ${systemName}: ${connectionName || stableKey}. Use this one?"\n` +
+          `  <on-yes>Record: ${prefix}_connection=${detectedStrategy}</on-yes>\n` +
+          `  <on-no>Ask what connection strategy the user wants instead</on-no>\n` +
+          `  Do NOT auto-select. The user must confirm.\n` +
+          `</connection-found>`
+        );
+      }
+    }
 
     if (connectionTypeQuestions.includes(questionId)) {
       if (typeof answer === "object" && answer !== null) {

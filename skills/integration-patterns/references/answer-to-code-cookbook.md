@@ -386,55 +386,69 @@ export const myFlow = flow({
 
 | Strategy | When to use | Who manages auth | User sees |
 |----------|-------------|-----------------|-----------|
-| Organization-activated | Org owns one shared account (e.g., internal Slack workspace) | Org admin, once | Nothing — connection is invisible |
-| Customer-activated | Each customer brings their own account (e.g., customer's Salesforce) | Each customer, per-instance | "Connect your Salesforce" button |
-| Manifest-based (config page) | You provide OAuth app credentials, customer authorizes | Org provides app creds, customer authorizes | OAuth button on config page |
+| Customer-activated | Each customer brings their own account (e.g., customer's Salesforce) | Each customer, per-instance | "Authorize" button in config wizard |
+| Org-activated | Org owns the account (e.g., internal Slack workspace, shared API key) | Org admin | Nothing — connection is invisible to customers |
 | No connection | Public API, webhook-only (source sends data to you) | N/A | Nothing |
 
 **Common patterns:**
 - Source is webhook → "No connection" (CRM pushes data to your endpoint)
-- Destination is your internal tool → "Organization-activated" (you own the account)
-- Destination is customer's tool → "Customer-activated" or "Manifest-based"
-- Building a marketplace integration → "Manifest-based" (you register the OAuth app, customer authorizes)
+- Destination is your internal tool → "Org-activated" (you own the account)
+- Destination is customer's tool → "Customer-activated"
+
+**Code pattern is automatic — the agent does not ask about this.**
+During code gen, the pattern depends on context:
+- Component manifest exists + customer_activated → `customerActivatedConnection()` if SCV exists, or manifest helper (e.g., `slackOauth2()`) if creating inline
+- Component manifest exists + org_activated → `organizationActivatedConnection()` in scopedConfigVars
+- No component manifest → `connectionConfigVar()` with inline inputs on configPages
 
 ---
 
-## Connection Strategy
+## Connection Strategy Code Paths
 
-### Build-only connections CANNOT be used with `organizationActivatedConnection`
+The `code-plan` output includes a `<connection-patterns>` block that tells you exactly which
+code pattern to use for each connector. Follow it — do not guess.
 
-If the component search returns a connection with "build only" or "demo" in its description,
-that connection is for local testing only. It CANNOT be referenced as a `scopedConfigVar` with
-`organizationActivatedConnection({ stableKey: "..." })`.
+### Pattern 1: `customerActivatedConnection()` — SCV exists
 
-**If the user says "use existing connection" but only build-only connections exist:**
-Tell the user no production org-activated connections were found, and create the connection
-directly on a config page using manifest helpers instead. Example:
+Use when strategy is `customer_activated` AND a reusable SCV was found or created.
+The SCV is a prerequisite — `customerActivatedConnection()` is purely a reference by stableKey.
 
 ```typescript
-// WRONG — will fail on deploy with:
-//   "Required Config Var 'X' cannot reference build-only connection container 'slack-demo'"
-export const scopedConfigVars = {
-  "Slack Connection": organizationActivatedConnection({ stableKey: "slack-demo" }),
-};
+// configPages.ts
+import { configPage, customerActivatedConnection } from "@prismatic-io/spectral";
 
-// CORRECT — define the connection on a config page with manifest helpers
-// Always include scopes — without them, the OAuth token has no API permissions
 export const configPages = {
-  "Slack Connection": configPage({
+  Connections: configPage({
     elements: {
-      "Slack Connection": slackOauth2("slack-connection", {
+      "Salesforce Connection": customerActivatedConnection({
+        stableKey: "acme-sfdc-connection",  // must match an existing SCV in the org
+      }),
+    },
+  }),
+};
+```
+
+### Pattern 2: Manifest helper — No SCV, component manifest exists
+
+Use when strategy is `customer_activated` AND no SCV exists AND a component manifest is available.
+The manifest generates a helper function (e.g., `slackOauth2()`) that creates an integration-specific
+connection via `connectionConfigVar()` under the hood.
+
+```typescript
+// configPages.ts
+import { configPage } from "@prismatic-io/spectral";
+import { slackOauth2 } from "./manifests/slack/connections/oauth2";
+
+export const configPages = {
+  Connections: configPage({
+    elements: {
+      "Slack Connection": slackOauth2("my-slack-connection", {
         clientId: {
-          value: "",
+          value: "",  // org provides via Prismatic admin post-deploy
           permissionAndVisibilityType: "organization",
           visibleToOrgDeployer: false,
         },
         clientSecret: {
-          value: "",
-          permissionAndVisibilityType: "organization",
-          visibleToOrgDeployer: false,
-        },
-        signingSecret: {
           value: "",
           permissionAndVisibilityType: "organization",
           visibleToOrgDeployer: false,
@@ -450,26 +464,82 @@ export const configPages = {
 };
 ```
 
-### When `organizationActivatedConnection` IS valid
+The first argument is the stableKey. Each input can set `permissionAndVisibilityType`:
+- `"organization"` — org provides, hidden from customer
+- `"customer"` — customer provides during instance setup
+- `"embedded"` — set programmatically, hidden from everyone
 
-Only use it when the component search returns a connection that is NOT build-only:
-- Has a real org-level stableKey
-- Description does NOT say "build only" or "demo"
+For OAuth: org provides clientId/clientSecret (organization), customer completes the OAuth flow.
+
+### Pattern 3: `connectionConfigVar()` — No SCV, no component manifest
+
+Use when strategy is `customer_activated` AND no SCV exists AND no component manifest
+(direct HTTP integration). Define the connection inputs inline.
 
 ```typescript
+// configPages.ts
+import { configPage, connectionConfigVar, OAuth2Type } from "@prismatic-io/spectral";
+
+export const configPages = {
+  Connections: configPage({
+    elements: {
+      "API Connection": connectionConfigVar({
+        stableKey: "api-connection",
+        dataType: "connection",
+        oauth2Type: OAuth2Type.AuthorizationCode,
+        inputs: {
+          authorizeUrl: { label: "Authorize URL", default: "https://api.example.com/oauth/authorize", type: "string", shown: false },
+          tokenUrl: { label: "Token URL", default: "https://api.example.com/oauth/token", type: "string", shown: false },
+          clientId: { label: "Client ID", type: "string", shown: false, default: process.env.CLIENT_ID },
+          clientSecret: { label: "Client Secret", type: "password", shown: false, default: process.env.CLIENT_SECRET },
+          scopes: { label: "Scopes", type: "string", shown: false, default: "read write" },
+        },
+      }),
+    },
+  }),
+};
+```
+
+### Pattern 4: `organizationActivatedConnection()` — Org-managed
+
+Use when strategy is `org_activated` AND a real (non-build-only) SCV exists.
+Goes in `scopedConfigVars` on the integration definition — NOT on configPages.
+The customer never sees this connection.
+
+```typescript
+// index.ts
 import { integration, organizationActivatedConnection } from "@prismatic-io/spectral";
 
 export const scopedConfigVars = {
-  "Slack Connection": organizationActivatedConnection({
-    stableKey: "slack-production",  // a real org-activated connection
+  "Internal API Key": organizationActivatedConnection({
+    stableKey: "internal-api-key",  // must match a real org-activated SCV
   }),
 };
 
 export default integration({
+  name: "My Integration",
   // ...
   scopedConfigVars,
 });
 ```
+
+Access in onExecution — scopedConfigVars are merged into `context.configVars` at runtime
+but not in the ConfigVars type. Use a typed cast:
+```typescript
+const conn = context.configVars["Internal API Key"] as unknown as {
+  fields: Record<string, string>;
+  token?: { access_token: string };
+};
+```
+
+### Build-only connections
+
+Build-only connections (`managedBy: "SYSTEM"`) are platform-provided OAuth apps for development.
+They CANNOT be referenced by `organizationActivatedConnection()` or `customerActivatedConnection()`.
+Deploy will fail with: "Required Config Var 'X' cannot reference build-only connection container"
+
+If only build-only connections exist and the user chose org_activated, the agent should have
+warned during requirements and suggested customer_activated instead.
 
 ---
 
@@ -638,17 +708,34 @@ export default integration({
 
 ## Component Action Calls (in onExecution)
 
-### Accessing config vars
+### Accessing config vars (configPages connections)
 ```typescript
+// Connections defined in configPages are fully typed
 const connection = context.configVars["Slack Connection"];
 const channel = context.configVars["Slack Channel"];
 const apiKey = context.configVars["API Key"];
 ```
 
+### Accessing org-activated connections (scopedConfigVars)
+```typescript
+// Org-activated connections are in scopedConfigVars on the integration definition.
+// They're available at runtime via context.configVars but NOT in the ConfigVars type
+// (which only covers configPages). Use a typed cast:
+const slackConnection = context.configVars["Slack Connection"] as unknown as {
+  fields: Record<string, string>;
+  token?: { access_token: string };
+};
+// Then access fields normally:
+const token = slackConnection.token?.access_token;
+```
+
 ### Accessing connection fields
 ```typescript
+// For configPages connections (customer-activated):
 const signingSecret = context.configVars["Slack Connection"].fields.signingSecret;
 const accessToken = context.configVars["Slack Connection"].token?.access_token;
+
+// For org-activated connections (scopedConfigVars) — use the cast pattern above.
 ```
 
 ### Calling component actions (manifest import + .perform() pattern)

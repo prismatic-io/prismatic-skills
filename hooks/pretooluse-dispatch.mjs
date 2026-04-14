@@ -149,7 +149,7 @@ if (command.startsWith(PREFIX)) {
       hookEventName: "PreToolUse",
       permissionDecision: "allow",
       updatedInput: {
-        command: `cat "${tmpFile}"`,
+        command: `${process.platform === "win32" ? "type" : "cat"} "${tmpFile}"`,
       },
     },
   };
