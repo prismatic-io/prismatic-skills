@@ -1,0 +1,24 @@
+{
+  "name": "prismatic-skills-dev",
+  "private": true,
+  "description": "Dev tooling for the prismatic-skills Claude Code plugin. The plugin's own version lives in plugin/.claude-plugin/plugin.json.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p plugin/scripts/tsconfig.json",
+    "lint": "biome lint .",
+    "lint-fix": "biome lint --write --unsafe .",
+    "format": "bun run lint-fix && biome format --write .",
+    "check-format": "biome format ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.12",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "@xmldom/xmldom": "^0.8.10"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
