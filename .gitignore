@@ -1,6 +1,8 @@
-__pycache__
-*.pyc
-node_modules/
 .DS_Store
+node_modules/
 dist/
+lib/
 .prismatic/
+
+# mise / bun local caches
+.mise.local.toml

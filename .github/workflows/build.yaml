@@ -1,0 +1,12 @@
+name: Build
+
+on: [push]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v4
+      - run: bun install --frozen-lockfile
+      - run: mise run validate
