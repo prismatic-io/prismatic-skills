@@ -26,15 +26,15 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadSpec } from "../shared/load-spec.js";
-import {
-  getSessionDirectory,
-  getPluginRoot,
-  ensureSessionDirectory,
-} from "../shared/project-directory.js";
+import { getPluginRoot, ensureSessionDirectory } from "../shared/project-directory.js";
 
 /** Escape a string for safe use in XML attributes and text content. */
 function escapeXml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -206,18 +206,22 @@ function validateSchema(schema: IntegrationSchema): string[] {
     }
     if (t.mappings !== undefined && !Array.isArray(t.mappings)) {
       errors.push(
-        `data_transformations[${i}].mappings must be an array, got ${typeof t.mappings}: ${String(t.mappings).slice(0, 100)}`
+        `data_transformations[${i}].mappings must be an array, got ${typeof t.mappings}: ${String(t.mappings).slice(0, 100)}`,
       );
     }
     if (t.functions !== undefined && !Array.isArray(t.functions)) {
       errors.push(
-        `data_transformations[${i}].functions must be an array, got ${typeof t.functions}: ${String(t.functions).slice(0, 100)}`
+        `data_transformations[${i}].functions must be an array, got ${typeof t.functions}: ${String(t.functions).slice(0, 100)}`,
       );
     }
   }
 
   const apiProfiles = schema.api_profiles;
-  if (apiProfiles !== undefined && apiProfiles !== null && (typeof apiProfiles !== "object" || Array.isArray(apiProfiles))) {
+  if (
+    apiProfiles !== undefined &&
+    apiProfiles !== null &&
+    (typeof apiProfiles !== "object" || Array.isArray(apiProfiles))
+  ) {
     errors.push(`api_profiles must be an object, got ${typeof apiProfiles}`);
   }
 
@@ -242,7 +246,7 @@ function validateSchema(schema: IntegrationSchema): string[] {
  */
 function getSpecChoices(
   specItems: Record<string, Record<string, unknown>>,
-  itemId: string
+  itemId: string,
 ): string[] | null {
   const item = specItems[itemId];
   if (!item) return null;
@@ -259,7 +263,7 @@ function getSpecChoices(
 function validateChoice(
   specItems: Record<string, Record<string, unknown>>,
   itemId: string,
-  value: string
+  value: string,
 ): string | null {
   const choices = getSpecChoices(specItems, itemId);
   if (choices === null) return value; // not a choice item, accept as-is
@@ -279,7 +283,7 @@ const ERROR_STRATEGY_MAP: Record<string, string> = {
 
 function generateAnswers(
   schema: IntegrationSchema,
-  specItems: Record<string, Record<string, unknown>>
+  specItems: Record<string, Record<string, unknown>>,
 ): Record<string, string | string[]> {
   const answers: Record<string, string | string[]> = {};
   const skipped: Array<{ key: string; value: string; reason: string }> = [];
@@ -307,7 +311,7 @@ function generateAnswers(
   // trigger_type <- flows[0].trigger.type
   const flows = schema.flows ?? [];
   if (flows.length > 0) {
-    const trigger = flows[0]!.trigger ?? {};
+    const trigger = flows[0]?.trigger ?? {};
     const triggerType = trigger.type ?? "";
     if (triggerType) {
       setAnswer("trigger_type", triggerType);
@@ -357,8 +361,8 @@ function generateAnswers(
 
   // additional_systems <- any systems beyond source and destination (3+ connector integrations)
   const additionalSystems = systems
-    .filter(s => s.role !== "source" && s.role !== "destination")
-    .map(s => s.name ?? "")
+    .filter((s) => s.role !== "source" && s.role !== "destination")
+    .map((s) => s.name ?? "")
     .filter(Boolean);
   if (additionalSystems.length > 0) {
     setAnswer("additional_systems", JSON.stringify(additionalSystems));
@@ -396,21 +400,25 @@ function generateAnswers(
         transformParts.push(`  - Function: ${funcName} (${funcType})`);
         if (funcType === "Scripting" && func.script_content) {
           const scriptLines = func.script_content.split("\n");
-          transformParts.push(`    Script (${func.script_language ?? "groovy"}, ${scriptLines.length} lines):`);
+          transformParts.push(
+            `    Script (${func.script_language ?? "groovy"}, ${scriptLines.length} lines):`,
+          );
           transformParts.push("    ```");
           const MAX_SCRIPT_LINES = 80;
           for (const line of scriptLines.slice(0, MAX_SCRIPT_LINES)) {
             transformParts.push(`    ${line}`);
           }
           if (scriptLines.length > MAX_SCRIPT_LINES) {
-            transformParts.push(`    ... (${scriptLines.length - MAX_SCRIPT_LINES} more lines — full source in migration-schema.json)`);
+            transformParts.push(
+              `    ... (${scriptLines.length - MAX_SCRIPT_LINES} more lines — full source in migration-schema.json)`,
+            );
           }
           transformParts.push("    ```");
           if (func.inputs?.length) {
-            transformParts.push(`    Inputs: ${func.inputs.map(i => i.name).join(", ")}`);
+            transformParts.push(`    Inputs: ${func.inputs.map((i) => i.name).join(", ")}`);
           }
           if (func.outputs?.length) {
-            transformParts.push(`    Outputs: ${func.outputs.map(o => o.name).join(", ")}`);
+            transformParts.push(`    Outputs: ${func.outputs.map((o) => o.name).join(", ")}`);
           }
         }
       }
@@ -433,8 +441,8 @@ function generateAnswers(
         unmapped.push(s);
       }
     }
-    if (mapped.length >= 1) {
-      setAnswer("error_handler_type", mapped[0]!);
+    if (mapped.length >= 1 && mapped[0]) {
+      setAnswer("error_handler_type", mapped[0]);
     }
     // Include unmapped strategies in additional_requirements so they're visible
     if (unmapped.length > 0) {
@@ -448,8 +456,12 @@ function generateAnswers(
 
   // Unmapped error strategies (e.g., "notify", "log") that don't have spec choice equivalents
   if (unmappedStrategies.length > 0) {
-    additionalParts.push(`Additional error handling strategies from source platform: ${unmappedStrategies.join(", ")}`);
-    additionalParts.push("These do not map to Prismatic's built-in error handling choices and may need custom implementation.");
+    additionalParts.push(
+      `Additional error handling strategies from source platform: ${unmappedStrategies.join(", ")}`,
+    );
+    additionalParts.push(
+      "These do not map to Prismatic's built-in error handling choices and may need custom implementation.",
+    );
   }
 
   // migration_notes
@@ -518,7 +530,7 @@ function generateAnswers(
         const topLevel = bodyStructure.top_level_fields ?? [];
         if (topLevel.length > 0) {
           additionalParts.push(
-            `    Request body top-level fields (siblings, NOT nested inside each other): ${topLevel.join(", ")}`
+            `    Request body top-level fields (siblings, NOT nested inside each other): ${topLevel.join(", ")}`,
           );
         }
         const nestingMap = bodyStructure.nesting ?? {};
@@ -560,7 +572,7 @@ function generateAnswers(
   if (scripts.length > 0) {
     additionalParts.push("GROOVY SCRIPTS FOR TRANSLATION:");
     additionalParts.push(
-      "The following scripts must be translated to TypeScript utility functions."
+      "The following scripts must be translated to TypeScript utility functions.",
     );
     for (const s of scripts) {
       const category = s.category ?? "unknown";
@@ -575,10 +587,10 @@ function generateAnswers(
       additionalParts.push(s.script_content ?? "");
       additionalParts.push("```");
       if (s.inputs?.length) {
-        additionalParts.push(`Inputs: ${s.inputs.map(i => i.name).join(", ")}`);
+        additionalParts.push(`Inputs: ${s.inputs.map((i) => i.name).join(", ")}`);
       }
       if (s.outputs?.length) {
-        additionalParts.push(`Outputs: ${s.outputs.map(o => o.name).join(", ")}`);
+        additionalParts.push(`Outputs: ${s.outputs.map((o) => o.name).join(", ")}`);
       }
     }
   }
@@ -625,9 +637,11 @@ function main(): number {
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--session" && i + 1 < args.length) {
-      sessionName = args[i + 1]; i++;
+      sessionName = args[i + 1];
+      i++;
     } else if (args[i] === "--schema" && i + 1 < args.length) {
-      schemaFile = args[i + 1]; i++;
+      schemaFile = args[i + 1];
+      i++;
     } else if (!args[i].startsWith("-")) {
       positional.push(args[i]);
     }
@@ -679,31 +693,33 @@ function main(): number {
   // Write to session directory
   const sessionDir = ensureSessionDirectory(sessionName, "integrations");
   const outputPath = join(sessionDir, "requirements.json");
-  writeFileSync(outputPath, JSON.stringify(answers, null, 2) + "\n", "utf-8");
+  writeFileSync(outputPath, `${JSON.stringify(answers, null, 2)}\n`, "utf-8");
 
   // Report to stderr
   const count = Object.keys(answers).length;
   console.error(`Generated requirements with ${count} pre-populated answers:`);
   for (const [key, value] of Object.entries(answers)) {
-    const preview = String(value).length > 80
-      ? String(value).slice(0, 80) + "..."
-      : String(value);
+    const preview = String(value).length > 80 ? `${String(value).slice(0, 80)}...` : String(value);
     console.error(`  ${key}: ${preview}`);
   }
 
   // Output comprehensive XML directives for agent consumption
   const answeredKeys = Object.keys(answers);
   const pendingItems = [
-    "source_component", "destination_component",
-    "source_connection_existing", "destination_connection_existing",
-    "source_connection_type", "destination_connection_type",
-    "source_connection", "destination_connection",
+    "source_component",
+    "destination_component",
+    "source_connection_existing",
+    "destination_connection_existing",
+    "source_connection_type",
+    "destination_connection_type",
+    "source_connection",
+    "destination_connection",
   ];
 
   // Add pending items for additional connectors (connector_2, connector_3, etc.)
   const extraSystems = (schema.systems ?? [])
-    .filter(s => s.role !== "source" && s.role !== "destination")
-    .map(s => s.name ?? "")
+    .filter((s) => s.role !== "source" && s.role !== "destination")
+    .map((s) => s.name ?? "")
     .filter(Boolean);
   for (let i = 0; i < extraSystems.length; i++) {
     const prefix = `connector_${i + 2}`;
@@ -734,7 +750,7 @@ function main(): number {
   console.log(`    Present them to the user for confirmation BEFORE proceeding.`);
   for (const key of answeredKeys) {
     const val = String(answers[key]);
-    const preview = val.length > 60 ? val.slice(0, 60) + "..." : val;
+    const preview = val.length > 60 ? `${val.slice(0, 60)}...` : val;
     console.log(`    <answer key="${escapeXml(key)}" preview="${escapeXml(preview)}" />`);
   }
   console.log(`  </extracted-answers>`);
@@ -744,14 +760,18 @@ function main(): number {
   for (const key of pendingItems) {
     console.log(`    <pending key="${key}" />`);
   }
-  console.log(`    Run prismatic-tools update-tasks --session ${sessionName} --actionable to see the full task list.`);
+  console.log(
+    `    Run prismatic-tools update-tasks --session ${sessionName} --actionable to see the full task list.`,
+  );
   console.log(`  </requires-live-discovery>`);
 
   if (systems.length > 0) {
     console.log(`  <connection-guidance>`);
     console.log(`    The migration schema identified these systems and auth patterns:`);
     for (const sys of systems) {
-      console.log(`    <system name="${escapeXml(sys.name)}" role="${escapeXml(sys.role)}"${sys.auth ? ` auth="${escapeXml(sys.auth)}"` : ""} />`);
+      console.log(
+        `    <system name="${escapeXml(sys.name)}" role="${escapeXml(sys.role)}"${sys.auth ? ` auth="${escapeXml(sys.auth)}"` : ""} />`,
+      );
     }
     console.log(`    These are advisory — search for Prismatic components live to confirm.`);
     console.log(`  </connection-guidance>`);
@@ -759,8 +779,12 @@ function main(): number {
 
   if (scriptCount > 0) {
     console.log(`  <script-translation-required count="${scriptCount}">`);
-    console.log(`    ${scriptCount} script(s) must be translated from Groovy to TypeScript during code generation.`);
-    console.log(`    Full source is in migration-schema.json — code-plan will deliver it as <migration-context>.`);
+    console.log(
+      `    ${scriptCount} script(s) must be translated from Groovy to TypeScript during code generation.`,
+    );
+    console.log(
+      `    Full source is in migration-schema.json — code-plan will deliver it as <migration-context>.`,
+    );
     console.log(`  </script-translation-required>`);
   }
 
@@ -773,16 +797,24 @@ function main(): number {
 
   console.log(`  <voice phase="migration-requirements">`);
   console.log(`    Speak like:`);
-  console.log(`    "The export shows you're connecting ${escapeXml(systems.map(s => s.name).join(" and "))}. Let me find the Prismatic connectors and set up the connections."`);
-  console.log(`    "Most of the integration design is clear from the export — just a few things to confirm."`);
+  console.log(
+    `    "The export shows you're connecting ${escapeXml(systems.map((s) => s.name).join(" and "))}. Let me find the Prismatic connectors and set up the connections."`,
+  );
+  console.log(
+    `    "Most of the integration design is clear from the export — just a few things to confirm."`,
+  );
   console.log(`    Never:`);
-  console.log(`    "Let me see what I can work out from your description" (the schema already extracted it)`);
+  console.log(
+    `    "Let me see what I can work out from your description" (the schema already extracted it)`,
+  );
   console.log(`  </voice>`);
 
   console.log(`  <confirmation-gate>`);
   console.log(`    Present the extracted answers to the user and WAIT for confirmation.`);
   console.log(`    THEN run update-tasks to see remaining items.`);
-  console.log(`    Do NOT skip to scaffolding — component search and connection setup still required.`);
+  console.log(
+    `    Do NOT skip to scaffolding — component search and connection setup still required.`,
+  );
   console.log(`  </confirmation-gate>`);
   console.log(`</migration-pre-population>`);
 

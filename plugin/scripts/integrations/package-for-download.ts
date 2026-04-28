@@ -12,16 +12,9 @@
  *   2 - Error: Zip creation failed
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  statSync,
-  readdirSync,
-  createWriteStream,
-} from "node:fs";
+import { mkdirSync, statSync, readdirSync } from "node:fs";
 import { join, resolve, basename, relative } from "node:path";
 import { tmpdir } from "node:os";
-import { createGzip } from "node:zlib";
 import { spawnSync } from "node:child_process";
 
 const EXCLUDED_PATTERNS = [
@@ -33,11 +26,7 @@ const EXCLUDED_PATTERNS = [
   "components",
 ];
 
-function walkDir(
-  dir: string,
-  baseDir: string,
-  excluded: string[]
-): string[] {
+function walkDir(dir: string, baseDir: string, excluded: string[]): string[] {
   const results: string[] = [];
 
   let entries: string[];
@@ -101,8 +90,9 @@ function createPackage(projectDir: string, versionName?: string): number {
     packageName = `${projectName}-${timestamp}.zip`;
   }
 
-  const outputsDir = process.env.PRISMATIC_OUTPUT_DIR
-    || join(process.env.HOME || process.env.USERPROFILE || tmpdir(), "prismatic-outputs");
+  const outputsDir =
+    process.env.PRISMATIC_OUTPUT_DIR ||
+    join(process.env.HOME || process.env.USERPROFILE || tmpdir(), "prismatic-outputs");
   mkdirSync(outputsDir, { recursive: true });
   const outputPath = join(outputsDir, packageName);
 
@@ -124,27 +114,19 @@ function createPackage(projectDir: string, versionName?: string): number {
     const relFiles = files.map((f) => relative(parentDir, f));
 
     // Use system zip command
-    const result = spawnSync(
-      "zip",
-      ["-r", outputPath, ...relFiles],
-      {
-        cwd: parentDir,
-        encoding: "utf-8",
-        timeout: 60000,
-      }
-    );
+    const result = spawnSync("zip", ["-r", outputPath, ...relFiles], {
+      cwd: parentDir,
+      encoding: "utf-8",
+      timeout: 60000,
+    });
 
     if (result.status !== 0) {
       // Fallback: try tar.gz if zip is not available
       const tarPath = outputPath.replace(".zip", ".tar.gz");
-      const tarResult = spawnSync(
-        "tar",
-        ["-czf", tarPath, "-C", parentDir, ...relFiles],
-        {
-          encoding: "utf-8",
-          timeout: 60000,
-        }
-      );
+      const tarResult = spawnSync("tar", ["-czf", tarPath, "-C", parentDir, ...relFiles], {
+        encoding: "utf-8",
+        timeout: 60000,
+      });
 
       if (tarResult.status !== 0) {
         console.log("Error creating package");
@@ -160,7 +142,7 @@ function createPackage(projectDir: string, versionName?: string): number {
       console.log("");
       console.log(`Files included: ${files.length}`);
       console.log(
-        `Package size: ${sizeMb >= 1 ? `${sizeMb.toFixed(2)} MB` : `${sizeKb.toFixed(2)} KB`}`
+        `Package size: ${sizeMb >= 1 ? `${sizeMb.toFixed(2)} MB` : `${sizeKb.toFixed(2)} KB`}`,
       );
       console.log("");
       console.log(`Download location: ${tarPath}`);
@@ -175,7 +157,7 @@ function createPackage(projectDir: string, versionName?: string): number {
     console.log("");
     console.log(`Files included: ${files.length}`);
     console.log(
-      `Package size: ${sizeMb >= 1 ? `${sizeMb.toFixed(2)} MB` : `${sizeKb.toFixed(2)} KB`}`
+      `Package size: ${sizeMb >= 1 ? `${sizeMb.toFixed(2)} MB` : `${sizeKb.toFixed(2)} KB`}`,
     );
     console.log("");
     console.log(`Download location: ${outputPath}`);
@@ -209,9 +191,7 @@ function createPackage(projectDir: string, versionName?: string): number {
 function main(): number {
   if (process.argv.length < 3) {
     console.log("No project directory provided");
-    console.log(
-      "Usage: npx tsx package-for-download.ts <project-directory> [version-name]"
-    );
+    console.log("Usage: npx tsx package-for-download.ts <project-directory> [version-name]");
     return 1;
   }
 

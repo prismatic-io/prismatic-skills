@@ -13,12 +13,8 @@
 import { existsSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { ensureAuthenticated, GraphQLError } from "../shared/graphql.js";
-import {
-  isAuthError,
-  isNetworkError,
-  runPrismQuery,
-} from "../shared/prism-retry.js";
+import { ensureAuthenticated } from "../shared/graphql.js";
+import { isAuthError, isNetworkError, runPrismQuery } from "../shared/prism-retry.js";
 
 function checkPrismCli(): [boolean | null, string] {
   try {
@@ -57,13 +53,10 @@ function checkNetworkAndAuth(): [boolean | null, string] {
       return [true, "Network & Auth: Connected and authenticated"];
     }
 
-    const errorText = (result.stderr || "") + " " + (result.stdout || "");
+    const errorText = `${result.stderr || ""} ${result.stdout || ""}`;
 
     if (isNetworkError(errorText)) {
-      return [
-        false,
-        "Network: Cannot reach *.prismatic.io (check firewall/proxy)",
-      ];
+      return [false, "Network: Cannot reach *.prismatic.io (check firewall/proxy)"];
     }
 
     if (isAuthError(errorText)) {
@@ -201,9 +194,7 @@ function troubleshoot(projectDir: string | null): number {
       console.log("  - Search components: npx tsx find-components.ts <term>");
     }
   } else if (issues === 0) {
-    console.log(
-      `All critical checks passed, but ${warnings} warning(s) found.`
-    );
+    console.log(`All critical checks passed, but ${warnings} warning(s) found.`);
     console.log("");
     console.log("Review the warnings above and address if needed.");
   } else {

@@ -77,12 +77,21 @@ interface EnrichedConnection {
 
 function listConnectionsApi(): ConnectionNode[] {
   const data = graphql(LIST_CONNECTIONS_QUERY, {}) as Record<string, unknown>;
-  const nodes = ((data.scopedConfigVariables as Record<string, unknown>)?.nodes ?? []) as ConnectionNode[];
+  const nodes = ((data.scopedConfigVariables as Record<string, unknown>)?.nodes ??
+    []) as ConnectionNode[];
   return nodes;
 }
 
-function listAllComponentsApi(): Record<string, { label: string; description: string; category: string }> {
-  const allComponents: Array<{ key: string; label: string; description: string; category: string }> = [];
+function listAllComponentsApi(): Record<
+  string,
+  { label: string; description: string; category: string }
+> {
+  const allComponents: Array<{
+    key: string;
+    label: string;
+    description: string;
+    category: string;
+  }> = [];
   let cursor: string | undefined;
 
   while (true) {
@@ -114,7 +123,7 @@ function listAllComponentsApi(): Record<string, { label: string; description: st
 
 function enrichConnections(
   connections: ConnectionNode[],
-  componentLabels: Record<string, { label: string; description: string; category: string }>
+  componentLabels: Record<string, { label: string; description: string; category: string }>,
 ): EnrichedConnection[] {
   return connections.map((conn) => {
     const componentKey = conn.connection?.component?.key ?? "";
@@ -123,7 +132,8 @@ function enrichConnections(
     const variableScope = conn.variableScope ?? "UNKNOWN";
     const connDescription = conn.description ?? "";
     const stableKey = conn.stableKey ?? "";
-    const baseLabel = componentInfo.label || componentKey.charAt(0).toUpperCase() + componentKey.slice(1);
+    const baseLabel =
+      componentInfo.label || componentKey.charAt(0).toUpperCase() + componentKey.slice(1);
 
     let connectionType: string;
     if (managedBy === "SYSTEM") {
@@ -156,7 +166,10 @@ function enrichConnections(
   });
 }
 
-function filterConnections(connections: EnrichedConnection[], keyword?: string): EnrichedConnection[] {
+function filterConnections(
+  connections: EnrichedConnection[],
+  keyword?: string,
+): EnrichedConnection[] {
   if (!keyword) return connections;
   const kw = keyword.toLowerCase();
   return connections.filter(
@@ -164,7 +177,7 @@ function filterConnections(connections: EnrichedConnection[], keyword?: string):
       c.label.toLowerCase().includes(kw) ||
       c.component.toLowerCase().includes(kw) ||
       c.connectionDescription.toLowerCase().includes(kw) ||
-      c.category.toLowerCase().includes(kw)
+      c.category.toLowerCase().includes(kw),
   );
 }
 

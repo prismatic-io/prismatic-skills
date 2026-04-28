@@ -13,7 +13,7 @@
  *   4 - Error: Manifest installation failed
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, renameSync, unlinkSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, rmSync, renameSync, unlinkSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { mkdtempSync } from "node:fs";
@@ -75,7 +75,7 @@ function removeTestFiles(projectPath: string): void {
       }
     }
 
-    writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+    writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
   }
 }
 
@@ -126,7 +126,7 @@ function scaffoldProject(name: string): string | null {
       if (!existsSync(envPath)) {
         writeFileSync(
           envPath,
-          "# Environment variables for local development\n# This file is required by webpack but can remain empty for non-OAuth builds\n"
+          "# Environment variables for local development\n# This file is required by webpack but can remain empty for non-OAuth builds\n",
         );
       }
 
@@ -178,7 +178,11 @@ function installManifest(component: string, projectPath: string, isPrivate = fal
   });
 }
 
-function installAllManifests(components: string[], projectPath: string, privateComponents: Set<string> = new Set()): boolean {
+function installAllManifests(
+  components: string[],
+  projectPath: string,
+  privateComponents: Set<string> = new Set(),
+): boolean {
   if (components.length === 0) return true;
 
   console.log(`Installing ${components.length} component manifest(s)...`);
@@ -186,15 +190,13 @@ function installAllManifests(components: string[], projectPath: string, privateC
 
   let allSuccess = true;
   for (const component of components) {
-    if (!installManifest(component, projectPath, privateComponents.has(component))) allSuccess = false;
+    if (!installManifest(component, projectPath, privateComponents.has(component)))
+      allSuccess = false;
   }
   return allSuccess;
 }
 
-function writeCredentialsToEnv(
-  credentials: Record<string, string>,
-  projectPath: string
-): boolean {
+function writeCredentialsToEnv(credentials: Record<string, string>, projectPath: string): boolean {
   return timedStep("Write Credentials", () => {
     if (Object.keys(credentials).length === 0) return true;
 
@@ -217,7 +219,7 @@ function writeCredentialsToEnv(
         existingLines.push(`${key}=${value}`);
       }
 
-      writeFileSync(envPath, existingLines.join("\n") + "\n");
+      writeFileSync(envPath, `${existingLines.join("\n")}\n`);
 
       for (const key of Object.keys(credentials)) {
         console.log(`   ${key}=****`);
@@ -278,10 +280,18 @@ function parseArgs(args: string[]): {
   let i = 0;
   while (i < args.length) {
     if (args[i] === "--components" && i + 1 < args.length) {
-      components = args[i + 1].split(",").map((c) => c.trim()).filter(Boolean);
+      components = args[i + 1]
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean);
       i += 2;
     } else if (args[i] === "--private-components" && i + 1 < args.length) {
-      privateComponents = new Set(args[i + 1].split(",").map((c) => c.trim()).filter(Boolean));
+      privateComponents = new Set(
+        args[i + 1]
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean),
+      );
       i += 2;
     } else if (args[i] === "--credentials" && i + 1 < args.length) {
       try {
@@ -320,12 +330,14 @@ function main(): number {
     console.log("Missing integration name");
     console.log("");
     console.log(
-      "Usage: npx tsx scaffold-project.ts <INTEGRATION_NAME> [--components <comp1,comp2,...>] [--credentials '<json>']"
+      "Usage: npx tsx scaffold-project.ts <INTEGRATION_NAME> [--components <comp1,comp2,...>] [--credentials '<json>']",
     );
     return 1;
   }
 
-  const { name, components, privateComponents, credentials, sessionName, sessionType } = parseArgs(process.argv.slice(2));
+  const { name, components, privateComponents, credentials, sessionName, sessionType } = parseArgs(
+    process.argv.slice(2),
+  );
 
   if (!name) {
     console.log("Missing integration name");
@@ -339,7 +351,10 @@ function main(): number {
   }
 
   if (sessionName) {
-    const sessionDir = getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations");
+    const sessionDir = getSessionDirectory(
+      sessionName,
+      sessionType === "component" ? "components" : "integrations",
+    );
     const reqPath = join(sessionDir, "requirements.json");
     if (existsSync(reqPath)) {
       const reqs = JSON.parse(readFileSync(reqPath, "utf-8"));
@@ -347,7 +362,9 @@ function main(): number {
         console.log("Requirements not yet confirmed by the user.");
         console.log("");
         console.log("Before scaffolding, present a summary of all decisions to the user.");
-        console.log("After confirmation, write: prismatic-tools record-choices --session " + sessionName + " phase_gate=confirmed");
+        console.log(
+          `After confirmation, write: prismatic-tools record-choices --session ${sessionName} phase_gate=confirmed`,
+        );
         return 0;
       }
     }
@@ -363,16 +380,19 @@ function main(): number {
   // Create .gitignore if missing
   const gitignorePath = join(projectPath, ".gitignore");
   if (!existsSync(gitignorePath)) {
-    writeFileSync(gitignorePath, [
-      "node_modules/",
-      "dist/",
-      ".env",
-      ".env.*",
-      "!.env.testing",
-      ".DS_Store",
-      ".spectral/prism.json",
-      "",
-    ].join("\n"));
+    writeFileSync(
+      gitignorePath,
+      [
+        "node_modules/",
+        "dist/",
+        ".env",
+        ".env.*",
+        "!.env.testing",
+        ".DS_Store",
+        ".spectral/prism.json",
+        "",
+      ].join("\n"),
+    );
     console.log("Created .gitignore");
   }
 
@@ -401,7 +421,8 @@ function main(): number {
   console.log("");
   console.log(`Project: ${projectPath}`);
   if (components.length > 0) console.log(`Manifests: ${components.join(", ")}`);
-  if (Object.keys(credentials).length > 0) console.log(`Credentials: ${Object.keys(credentials).length} written to .env`);
+  if (Object.keys(credentials).length > 0)
+    console.log(`Credentials: ${Object.keys(credentials).length} written to .env`);
   console.log("");
   console.log("Next: Phase 3 - Generate Code");
 

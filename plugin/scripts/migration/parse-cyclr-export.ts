@@ -384,11 +384,9 @@ function extractSteps(data: CyclrExport): ParsedStep[] {
 
       const auth = ac.ConnectorAuthentication;
       if (auth) {
-        stepData.account_connector.auth_type =
-          AUTH_TYPE_MAP[auth.AuthType as number] ?? "unknown";
+        stepData.account_connector.auth_type = AUTH_TYPE_MAP[auth.AuthType as number] ?? "unknown";
         if (auth.OAuth2Type) {
-          stepData.account_connector.oauth2_type =
-            OAUTH2_TYPE_MAP[auth.OAuth2Type] ?? "unknown";
+          stepData.account_connector.oauth2_type = OAUTH2_TYPE_MAP[auth.OAuth2Type] ?? "unknown";
         }
         if (auth.AuthoriseUrl) {
           stepData.account_connector.authorize_url = auth.AuthoriseUrl;
@@ -538,14 +536,12 @@ function buildExecutionOrder(data: CyclrExport): ExecutionOrderEntry[] {
 
   // Kahn's algorithm for topological sort
   // Start with nodes that have no incoming edges
-  const queue: string[] = [...allStepIds]
-    .filter((sid) => (inDegree[sid] ?? 0) === 0)
-    .sort();
+  const queue: string[] = [...allStepIds].filter((sid) => (inDegree[sid] ?? 0) === 0).sort();
 
   const order: string[] = [];
 
   while (queue.length > 0) {
-    const node = queue.shift()!;
+    const node = queue.shift() as string;
     order.push(node);
     for (const neighbor of (graph[node] ?? []).slice().sort()) {
       inDegree[neighbor] -= 1;
@@ -557,9 +553,9 @@ function buildExecutionOrder(data: CyclrExport): ExecutionOrderEntry[] {
 
   // Check for cycles — if not all nodes were visited, the graph has cycles
   if (order.length < Object.keys(stepIds).length) {
-    const missing = Object.keys(stepIds).filter(id => !order.includes(id));
+    const missing = Object.keys(stepIds).filter((id) => !order.includes(id));
     process.stderr.write(
-      `Warning: Cyclic dependency detected — ${missing.length} step(s) excluded from execution order: ${missing.map(id => stepIds[id] ?? id).join(", ")}\n`
+      `Warning: Cyclic dependency detected — ${missing.length} step(s) excluded from execution order: ${missing.map((id) => stepIds[id] ?? id).join(", ")}\n`,
     );
   }
 
@@ -575,7 +571,7 @@ function resolveReference(
   fieldLookup: Record<string, Record<string, string>>,
   stepNames: Record<string, string>,
 ): ResolvedReference {
-  if (!value || !value.includes(",")) {
+  if (!value?.includes(",")) {
     return { resolved: false };
   }
 
@@ -588,7 +584,7 @@ function resolveReference(
     return { resolved: false };
   }
 
-  const sourceField = (fieldLookup[sourceStepId] ?? {})[fieldId] ?? "";
+  const sourceField = fieldLookup[sourceStepId]?.[fieldId] ?? "";
   const result: ResolvedReference = {
     resolved: true,
     source_step_id: sourceStepId,
@@ -621,11 +617,13 @@ function resolveDataFlow(data: CyclrExport): DataFlowEntry[] {
     }
 
     // Alternate format: Method.Fields.Response with SystemField as key
-    const altResp = (step.Method as Record<string, unknown>)?.Fields as Record<string, unknown[]> | undefined;
+    const altResp = (step.Method as Record<string, unknown>)?.Fields as
+      | Record<string, unknown[]>
+      | undefined;
     if (altResp?.Response) {
       for (const f of altResp.Response as Array<Record<string, unknown>>) {
-        const systemField = f.SystemField as string ?? "";
-        const connField = f.ConnectorField as string ?? "";
+        const systemField = (f.SystemField as string) ?? "";
+        const connField = (f.ConnectorField as string) ?? "";
         if (systemField) {
           fieldMap[systemField] = connField || systemField;
         }
@@ -734,7 +732,8 @@ function parseCyclrFile(filepath: string): ParsedCycle | null {
     return null;
   }
 
-  const name = data.Name ?? (basename(filepath).split("_").slice(0, -1).join("_") || basename(filepath));
+  const name =
+    data.Name ?? (basename(filepath).split("_").slice(0, -1).join("_") || basename(filepath));
   const metadata = extractCycleMetadata(data);
   const steps = extractSteps(data);
   const edges: ParsedEdge[] = (data.Edges ?? []).map((e) => ({
@@ -814,9 +813,7 @@ function parseCyclrExport(exportPath: string): ParsedOutput {
     }
 
     if (!data.Steps && !data.VersionedCycle) {
-      process.stderr.write(
-        `Skipping ${filepath}: does not appear to be a Cyclr export\n`,
-      );
+      process.stderr.write(`Skipping ${filepath}: does not appear to be a Cyclr export\n`);
       continue;
     }
 
@@ -935,12 +932,8 @@ function main(): void {
   const args = argv.filter((a) => !a.startsWith("--"));
 
   if (args.length !== 1) {
-    process.stderr.write(
-      "Usage: npx tsx parse-cyclr-export.ts <export-path> [--summary]\n",
-    );
-    process.stderr.write(
-      "\nInput: Path to a single Cyclr JSON file or directory of JSON files\n",
-    );
+    process.stderr.write("Usage: npx tsx parse-cyclr-export.ts <export-path> [--summary]\n");
+    process.stderr.write("\nInput: Path to a single Cyclr JSON file or directory of JSON files\n");
     process.exit(2);
   }
 
@@ -955,9 +948,9 @@ function main(): void {
 
   if (summaryMode) {
     const summary = generateSummary(result);
-    process.stdout.write(JSON.stringify(summary, null, 2) + "\n");
+    process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
   } else {
-    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   }
 }
 

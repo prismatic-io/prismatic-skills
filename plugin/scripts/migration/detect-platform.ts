@@ -39,8 +39,8 @@ function main(): number {
     const stat = statSync(exportPath);
     if (stat.isDirectory()) {
       files = readdirSync(exportPath)
-        .filter(f => !f.startsWith(".") && (f.endsWith(".xml") || f.endsWith(".json")))
-        .map(f => join(exportPath, f));
+        .filter((f) => !f.startsWith(".") && (f.endsWith(".xml") || f.endsWith(".json")))
+        .map((f) => join(exportPath, f));
     } else {
       files = [exportPath];
     }
@@ -90,15 +90,13 @@ function main(): number {
           // Not valid JSON, continue checking
         }
       }
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   const result: DetectionResult = {
     platform,
     file_count: files.length,
-    files: files.map(f => basename(f)),
+    files: files.map((f) => basename(f)),
     confidence,
   };
 

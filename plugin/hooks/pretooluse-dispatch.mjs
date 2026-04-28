@@ -65,11 +65,18 @@ if (command.startsWith(PREFIX)) {
 
   // Reject chained commands — each prismatic-tools call must be a separate Bash command
   if (toolArgs.includes("&&") || toolArgs.includes("; prismatic")) {
-    deny("Cannot chain multiple prismatic-tools calls in one command. Run each as a separate Bash command.");
+    deny(
+      "Cannot chain multiple prismatic-tools calls in one command. Run each as a separate Bash command.",
+    );
   }
   // Reject newline-separated commands (agent sometimes puts multiple calls on separate lines)
-  if (command.includes("\n") && command.split("\n").filter(l => l.trim().startsWith("prismatic-tools")).length > 1) {
-    deny("Cannot put multiple prismatic-tools calls on separate lines in one Bash command. Run each as a separate Bash command.");
+  if (
+    command.includes("\n") &&
+    command.split("\n").filter((l) => l.trim().startsWith("prismatic-tools")).length > 1
+  ) {
+    deny(
+      "Cannot put multiple prismatic-tools calls on separate lines in one Bash command. Run each as a separate Bash command.",
+    );
   }
 
   // Load manifest
@@ -86,12 +93,10 @@ if (command.startsWith(PREFIX)) {
   if (!entry) {
     const explicitReason = manifest.explicit?.[toolName];
     if (explicitReason) {
-      deny(
-        `'${toolName}' requires explicit invocation via npx tsx. Reason: ${explicitReason}`
-      );
+      deny(`'${toolName}' requires explicit invocation via npx tsx. Reason: ${explicitReason}`);
     }
     deny(
-      `Unknown synthetic tool: '${toolName}'. Use prismatic-tools <name> where name is a registered synthetic tool.`
+      `Unknown synthetic tool: '${toolName}'. Use prismatic-tools <name> where name is a registered synthetic tool.`,
     );
   }
 
@@ -131,14 +136,16 @@ if (command.startsWith(PREFIX)) {
   const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
 
   // Write result to temp file with plain header, rewrite command to cat it
-  const pluginManifest = JSON.parse(readFileSync(join(PLUGIN_ROOT, ".claude-plugin", "plugin.json"), "utf8"));
+  const pluginManifest = JSON.parse(
+    readFileSync(join(PLUGIN_ROOT, ".claude-plugin", "plugin.json"), "utf8"),
+  );
   const version = pluginManifest.version || "N/A";
   const desc = entry.desc || "";
 
   // Title Case the tool name: "update-tasks" → "Update Tasks"
   const titleCase = toolName
     .split("-")
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 
   const header =

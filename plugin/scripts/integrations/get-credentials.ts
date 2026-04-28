@@ -130,9 +130,7 @@ function formatLabel(inp: ConnectionInput, componentKey: string): string {
   if (label) {
     baseLabel = label;
   } else {
-    baseLabel = key
-      .replace(/([a-z])([A-Z])/g, "$1 $2")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    baseLabel = key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
   const prefix = extractPrefixFromComponentKey(componentKey);
@@ -147,7 +145,7 @@ function formatLabel(inp: ConnectionInput, componentKey: string): string {
 
 function generateCredentialPrompts(
   componentKey: string,
-  connection: { inputs?: ConnectionInput[] }
+  connection: { inputs?: ConnectionInput[] },
 ): CredentialPrompt[] {
   const inputs = connection.inputs ?? [];
   const prefix = extractPrefixFromComponentKey(componentKey);
@@ -175,9 +173,7 @@ function generateCredentialPrompts(
 
 function main(): number {
   if (process.argv.length < 4) {
-    console.error(
-      "Usage: npx tsx get-credential-prompts.ts <component_key> '<connection_json>'"
-    );
+    console.error("Usage: npx tsx get-credential-prompts.ts <component_key> '<connection_json>'");
     console.log("[]");
     return 1;
   }

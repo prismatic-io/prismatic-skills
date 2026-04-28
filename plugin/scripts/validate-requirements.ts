@@ -102,7 +102,7 @@ function isSemanticEmpty(value: unknown): boolean {
   return isEmpty(value) || value === "none";
 }
 
-function resolveVariable(answers: Answers, varPath: string): unknown {
+function _resolveVariable(answers: Answers, varPath: string): unknown {
   const parts = varPath.split(".");
   let current: unknown = answers;
   for (const part of parts) {
@@ -167,8 +167,6 @@ function evaluateCondition(condition: Record<string, unknown>, answers: Answers)
       if ("contains" in cond) {
         if (!Array.isArray(actual) || !actual.includes(cond.contains)) return false;
       }
-
-      continue;
     }
   }
   return true;
@@ -236,14 +234,22 @@ function main(): number {
   if (!sessionName && positional.length < 2) {
     console.error(
       "Usage: npx tsx validate-requirements.ts <spec.yaml> <answers.json>\n" +
-      "       npx tsx validate-requirements.ts --session <name> [--type component|integration]"
+        "       npx tsx validate-requirements.ts --session <name> [--type component|integration]",
     );
     return 2;
   }
 
   if (sessionName) {
-    specFile = join(getPluginRoot(), "scripts", "questions", sessionType === "component" ? "component.yaml" : "integration.yaml");
-    answersFile = join(getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"), "requirements.json");
+    specFile = join(
+      getPluginRoot(),
+      "scripts",
+      "questions",
+      sessionType === "component" ? "component.yaml" : "integration.yaml",
+    );
+    answersFile = join(
+      getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"),
+      "requirements.json",
+    );
   } else {
     specFile = positional[0];
     answersFile = positional[1];
@@ -252,7 +258,7 @@ function main(): number {
   // Load spec (resolves $include directives for domain files)
   let spec: Spec;
   try {
-    spec = loadSpec(specFile) as Spec;
+    spec = loadSpec(specFile) as unknown as Spec;
   } catch (e) {
     console.error(`Failed to load spec: ${e}`);
     return 2;
@@ -277,9 +283,7 @@ function main(): number {
     !Array.isArray(answers.flows) &&
     Object.keys(answers.flows as Record<string, unknown>).length > 0;
 
-  const flowIds = isMultiFlow
-    ? Object.keys(answers.flows as Record<string, unknown>)
-    : [];
+  const flowIds = isMultiFlow ? Object.keys(answers.flows as Record<string, unknown>) : [];
 
   // ---------------------------------------------------------------------------
   // Validate items — integration-scoped once, flow-scoped per flow
@@ -301,7 +305,7 @@ function main(): number {
     id: string,
     item: SpecItem,
     effectiveAnswers: Answers,
-    flowLabel?: string
+    flowLabel?: string,
   ): void {
     const [applicable, reason] = isApplicable(item, effectiveAnswers);
 
@@ -373,7 +377,8 @@ function main(): number {
     if (scope === "flow" && isMultiFlow) {
       // Validate once per flow — merge integration + flow answers
       for (const flowId of flowIds) {
-        const flowAnswers = (answers.flows as Record<string, Record<string, unknown>>)[flowId] ?? {};
+        const flowAnswers =
+          (answers.flows as Record<string, Record<string, unknown>>)[flowId] ?? {};
         const merged: Answers = { ...answers, ...flowAnswers };
         // Remove `flows` key from merged to avoid confusion
         delete merged.flows;
@@ -386,9 +391,17 @@ function main(): number {
   }
 
   // Check required items
-  function checkRequired(reqId: string, reason: string, effectiveAnswers: Answers, flowLabel?: string): void {
+  function checkRequired(
+    reqId: string,
+    reason: string,
+    effectiveAnswers: Answers,
+    flowLabel?: string,
+  ): void {
     const dedupeKey = flowLabel ? `${reqId}::${flowLabel}` : reqId;
-    if (isEmpty(effectiveAnswers[reqId]) && !missing.some((m) => (m.flow ? `${m.id}::${m.flow}` : m.id) === dedupeKey)) {
+    if (
+      isEmpty(effectiveAnswers[reqId]) &&
+      !missing.some((m) => (m.flow ? `${m.id}::${m.flow}` : m.id) === dedupeKey)
+    ) {
       const item = spec.items[reqId];
       if (item) {
         missing.push({
@@ -409,7 +422,8 @@ function main(): number {
 
     if (scope === "flow" && isMultiFlow) {
       for (const flowId of flowIds) {
-        const flowAnswers = (answers.flows as Record<string, Record<string, unknown>>)[flowId] ?? {};
+        const flowAnswers =
+          (answers.flows as Record<string, Record<string, unknown>>)[flowId] ?? {};
         const merged: Answers = { ...answers, ...flowAnswers };
         delete merged.flows;
         checkRequired(reqId, "required, not answered", merged, flowId);
@@ -427,7 +441,8 @@ function main(): number {
 
       if (scope === "flow" && isMultiFlow) {
         for (const flowId of flowIds) {
-          const flowAnswers = (answers.flows as Record<string, Record<string, unknown>>)[flowId] ?? {};
+          const flowAnswers =
+            (answers.flows as Record<string, Record<string, unknown>>)[flowId] ?? {};
           const merged: Answers = { ...answers, ...flowAnswers };
           delete merged.flows;
           if (evaluateCondition(conditional.condition, merged)) {

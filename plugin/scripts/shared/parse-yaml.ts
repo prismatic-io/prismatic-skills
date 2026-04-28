@@ -27,7 +27,7 @@ interface ParseResult {
   nextLine: number;
 }
 
-function parseBlock(lines: string[], start: number, minIndent: number): ParseResult {
+function parseBlock(lines: string[], start: number, _minIndent: number): ParseResult {
   // Determine if this block is a map or array
   let i = start;
   i = skipEmpty(lines, i);
@@ -60,14 +60,26 @@ function parseMap(lines: string[], start: number, blockIndent: number): ParseRes
     if (trimmed.startsWith("- ")) break; // array at same level
 
     const colonIdx = findUnquotedColon(trimmed);
-    if (colonIdx === -1) { i++; continue; }
+    if (colonIdx === -1) {
+      i++;
+      continue;
+    }
 
-    const key = trimmed.slice(0, colonIdx).trim().replace(/^["']|["']$/g, "");
+    const key = trimmed
+      .slice(0, colonIdx)
+      .trim()
+      .replace(/^["']|["']$/g, "");
     const afterColon = trimmed.slice(colonIdx + 1).trim();
 
-    if (afterColon === "" || afterColon === "|" || afterColon === ">" ||
-        afterColon === "|-" || afterColon === ">-" ||
-        afterColon === "|+" || afterColon === ">+") {
+    if (
+      afterColon === "" ||
+      afterColon === "|" ||
+      afterColon === ">" ||
+      afterColon === "|-" ||
+      afterColon === ">-" ||
+      afterColon === "|+" ||
+      afterColon === ">+"
+    ) {
       // Block scalar or nested structure
       if (afterColon === "|" || afterColon === "|-" || afterColon === "|+") {
         const block = readBlockScalar(lines, i + 1, indent);
@@ -141,7 +153,10 @@ function parseArray(lines: string[], start: number, blockIndent: number): ParseR
     } else if (itemContent.includes(": ") || itemContent.includes(":\n")) {
       // Array item that starts a map: - key: value
       // Reconstruct as a map starting at deeper indent
-      const subLines = [" ".repeat(indent + 2) + itemContent, ...collectSubBlock(lines, i + 1, indent + 2)];
+      const subLines = [
+        " ".repeat(indent + 2) + itemContent,
+        ...collectSubBlock(lines, i + 1, indent + 2),
+      ];
       const sub = parseMap(subLines, 0, indent + 2);
       arr.push(sub.value);
       i = i + 1 + (sub.nextLine > 0 ? collectSubBlock(lines, i + 1, indent + 2).length : 0);
@@ -159,20 +174,35 @@ function collectSubBlock(lines: string[], start: number, minIndent: number): str
   let i = start;
   while (i < lines.length) {
     const line = lines[i];
-    if (line.trim() === "" || line.trim().startsWith("#")) { result.push(line); i++; continue; }
-    if (getIndent(line) >= minIndent) { result.push(line); i++; } else break;
+    if (line.trim() === "" || line.trim().startsWith("#")) {
+      result.push(line);
+      i++;
+      continue;
+    }
+    if (getIndent(line) >= minIndent) {
+      result.push(line);
+      i++;
+    } else break;
   }
   return result;
 }
 
-function readBlockScalar(lines: string[], start: number, parentIndent: number): { text: string; nextLine: number } {
+function readBlockScalar(
+  lines: string[],
+  start: number,
+  _parentIndent: number,
+): { text: string; nextLine: number } {
   const collected: string[] = [];
   let i = start;
   let blockIndent = -1;
 
   while (i < lines.length) {
     const line = lines[i];
-    if (line.trim() === "") { collected.push(""); i++; continue; }
+    if (line.trim() === "") {
+      collected.push("");
+      i++;
+      continue;
+    }
     const indent = getIndent(line);
     if (blockIndent === -1) blockIndent = indent;
     if (indent < blockIndent) break;
@@ -183,10 +213,14 @@ function readBlockScalar(lines: string[], start: number, parentIndent: number): 
   // Trim trailing empty lines
   while (collected.length > 0 && collected[collected.length - 1] === "") collected.pop();
 
-  return { text: collected.join("\n") + "\n", nextLine: i };
+  return { text: `${collected.join("\n")}\n`, nextLine: i };
 }
 
-function readFoldedScalar(lines: string[], start: number, parentIndent: number): { text: string; nextLine: number } {
+function readFoldedScalar(
+  lines: string[],
+  start: number,
+  _parentIndent: number,
+): { text: string; nextLine: number } {
   const paragraphs: string[] = [];
   let currentPara: string[] = [];
   let i = start;
@@ -215,7 +249,7 @@ function readFoldedScalar(lines: string[], start: number, parentIndent: number):
   // Trim trailing empty entries
   while (paragraphs.length > 0 && paragraphs[paragraphs.length - 1] === "") paragraphs.pop();
 
-  return { text: paragraphs.join("\n") + "\n", nextLine: i };
+  return { text: `${paragraphs.join("\n")}\n`, nextLine: i };
 }
 
 function parseInlineValue(raw: string): YamlValue {
@@ -252,7 +286,7 @@ function parseInlineValue(raw: string): YamlValue {
 function parseFlowSequence(raw: string): YamlValue[] {
   const inner = raw.slice(1, -1).trim();
   if (inner === "") return [];
-  return splitFlowItems(inner).map(item => parseInlineValue(item.trim()));
+  return splitFlowItems(inner).map((item) => parseInlineValue(item.trim()));
 }
 
 function parseFlowMapping(raw: string): { [key: string]: YamlValue } {
@@ -262,7 +296,10 @@ function parseFlowMapping(raw: string): { [key: string]: YamlValue } {
   for (const pair of splitFlowItems(inner)) {
     const colonIdx = pair.indexOf(":");
     if (colonIdx === -1) continue;
-    const key = pair.slice(0, colonIdx).trim().replace(/^["']|["']$/g, "");
+    const key = pair
+      .slice(0, colonIdx)
+      .trim()
+      .replace(/^["']|["']$/g, "");
     const val = pair.slice(colonIdx + 1).trim();
     map[key] = parseInlineValue(val);
   }
@@ -313,7 +350,11 @@ function findUnquotedColon(s: string): number {
       depth++;
     } else if (ch === "]" || ch === "}") {
       depth--;
-    } else if (ch === ":" && depth === 0 && (i + 1 >= s.length || s[i + 1] === " " || s[i + 1] === "\n")) {
+    } else if (
+      ch === ":" &&
+      depth === 0 &&
+      (i + 1 >= s.length || s[i + 1] === " " || s[i + 1] === "\n")
+    ) {
       return i;
     }
   }
@@ -345,7 +386,10 @@ function skipEmpty(lines: string[], start: number): number {
   let i = start;
   while (i < lines.length) {
     const trimmed = lines[i].trim();
-    if (trimmed === "" || trimmed.startsWith("#")) { i++; continue; }
+    if (trimmed === "" || trimmed.startsWith("#")) {
+      i++;
+      continue;
+    }
     break;
   }
   return i;

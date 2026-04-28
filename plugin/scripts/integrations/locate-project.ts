@@ -82,9 +82,7 @@ function extractFlows(dir: string): { structure: "single-file" | "directory"; fl
   if (existsSync(join(flowsDir, "index.ts"))) {
     // Multi-flow directory structure
     const flows: FlowInfo[] = [];
-    const files = readdirSync(flowsDir).filter(
-      (f) => f.endsWith(".ts") && f !== "index.ts"
-    );
+    const files = readdirSync(flowsDir).filter((f) => f.endsWith(".ts") && f !== "index.ts");
 
     for (const file of files) {
       const content = readFileSync(join(flowsDir, file), "utf-8");
@@ -128,8 +126,7 @@ function extractComponents(dir: string): string[] {
 
   // Match import patterns like: import slackManifest from "./manifests/slack"
   const importRe = /import\s+\w+\s+from\s+["']\.\/manifests\/([^"'/]+)["']/g;
-  let match;
-  while ((match = importRe.exec(content)) !== null) {
+  for (const match of content.matchAll(importRe)) {
     components.push(match[1]);
   }
 
@@ -146,20 +143,19 @@ function extractConfigPages(dir: string): { pages: string[]; connections: string
 
   // Match config page keys
   const pageRe = /["']([^"']+)["']\s*:\s*configPage\s*\(/g;
-  let match;
-  while ((match = pageRe.exec(content)) !== null) {
+  for (const match of content.matchAll(pageRe)) {
     pages.push(match[1]);
   }
 
   // Match connection config vars
   const connRe = /connectionConfigVar\s*\(\s*\{[^}]*key\s*:\s*["']([^"']+)["']/g;
-  while ((match = connRe.exec(content)) !== null) {
+  for (const match of content.matchAll(connRe)) {
     connections.push(match[1]);
   }
 
   // Also check for manifest connection helpers
   const manifestConnRe = /["']([^"']+)["']\s*:\s*\w+(?:Oauth2|ApiKey|Basic)\s*\(/g;
-  while ((match = manifestConnRe.exec(content)) !== null) {
+  for (const match of content.matchAll(manifestConnRe)) {
     connections.push(match[1]);
   }
 

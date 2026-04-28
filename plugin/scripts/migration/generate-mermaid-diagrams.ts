@@ -63,7 +63,7 @@ const MONITORING_PREFIXES = ["[OTEL]", "[Monitoring]", "[MONITORING]"];
 
 function isMonitoringProcess(name: string): boolean {
   const trimmed = name.trim();
-  return MONITORING_PREFIXES.some(prefix => trimmed.startsWith(prefix));
+  return MONITORING_PREFIXES.some((prefix) => trimmed.startsWith(prefix));
 }
 
 // ── Slug helper ────────────────────────────────────────────────────────
@@ -81,7 +81,7 @@ function slugify(name: string): string {
 
 function resolveComponentName(
   componentId: string,
-  components: Record<string, { name?: string }>
+  components: Record<string, { name?: string }>,
 ): string {
   if (!componentId || !(componentId in components)) return "";
   return components[componentId]?.name ?? "";
@@ -89,10 +89,7 @@ function resolveComponentName(
 
 // ── Label resolution ───────────────────────────────────────────────────
 
-function resolveLabel(
-  shape: Shape,
-  components: Record<string, { name?: string }>
-): string {
+function resolveLabel(shape: Shape, components: Record<string, { name?: string }>): string {
   const shapeType = shape.type;
   const label = shape.label ?? "";
   const config = shape.config ?? {};
@@ -168,7 +165,7 @@ function mermaidNode(shapeName: string, label: string, shapeType: string): strin
 
 function generateProcessDiagram(
   process: ProcessEntry,
-  components: Record<string, { name?: string }>
+  components: Record<string, { name?: string }>,
 ): string {
   const shapes = process.shapes ?? [];
   if (shapes.length === 0) return "";
@@ -238,7 +235,7 @@ function generateDiagrams(parsedData: ParsedExport, outputDir: string): string[]
     const diagram = generateProcessDiagram(proc, components);
     if (!diagram) continue;
 
-    writeFileSync(filepath, diagram + "\n", "utf-8");
+    writeFileSync(filepath, `${diagram}\n`, "utf-8");
     generatedFiles.push(filepath);
 
     combinedSections.push(`## ${procName}\n\n\`\`\`mermaid\n${diagram}\n\`\`\`\n`);
@@ -272,13 +269,11 @@ function generateDiagrams(parsedData: ParsedExport, outputDir: string): string[]
 
 function main(): number {
   if (process.argv.length < 3) {
-    console.error(
-      "Usage: generate-mermaid-diagrams <parsed-export.json> [output-dir]"
-    );
+    console.error("Usage: generate-mermaid-diagrams <parsed-export.json> [output-dir]");
     return 1;
   }
 
-  const inputPath = process.argv[2]!;
+  const inputPath = process.argv[2] as string;
   // Default output dir: diagrams/ alongside the input file
   const outputDir = process.argv[3] || join(dirname(inputPath), "diagrams");
 

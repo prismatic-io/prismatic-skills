@@ -53,9 +53,9 @@ function calculateBackoff(
   attempt: number,
   baseDelay = 1.0,
   maxDelay = 10.0,
-  jitter = true
+  jitter = true,
 ): number {
-  let delay = baseDelay * Math.pow(2, attempt);
+  let delay = baseDelay * 2 ** attempt;
   delay = Math.min(delay, maxDelay);
   if (jitter) {
     delay *= 0.5 + Math.random() * 0.5;
@@ -85,7 +85,7 @@ export function runPrismCommand(
     showRetryFeedback?: boolean;
     timeout?: number;
     cwd?: string;
-  } = {}
+  } = {},
 ): PrismResult {
   const {
     maxAttempts = 5,
@@ -125,9 +125,7 @@ export function runPrismCommand(
 
     if (showRetryFeedback) {
       const delay = calculateBackoff(attempt, baseDelay, maxDelay);
-      console.error(
-        `Retrying (${attempt + 1}/${maxAttempts}) in ${delay.toFixed(1)}s...`
-      );
+      console.error(`Retrying (${attempt + 1}/${maxAttempts}) in ${delay.toFixed(1)}s...`);
       sleep(delay);
     }
   }
@@ -139,10 +137,7 @@ export function runPrismCommand(
   };
 }
 
-export function runPrismQuery(
-  command: string[],
-  timeout = 30
-): PrismResult {
+export function runPrismQuery(command: string[], timeout = 30): PrismResult {
   return runPrismCommand(command, {
     maxAttempts: 5,
     baseDelay: 1.0,
@@ -153,7 +148,7 @@ export function runPrismQuery(
 
 export function runPrismMutation(
   command: string[],
-  options: { timeout?: number; cwd?: string } = {}
+  options: { timeout?: number; cwd?: string } = {},
 ): PrismResult {
   const { timeout = 60, cwd } = options;
   return runPrismCommand(command, {
@@ -167,7 +162,7 @@ export function runPrismMutation(
 
 export function runPrismDownload(
   command: string[],
-  options: { timeout?: number; cwd?: string } = {}
+  options: { timeout?: number; cwd?: string } = {},
 ): PrismResult {
   const { timeout = 120, cwd } = options;
   return runPrismCommand(command, {

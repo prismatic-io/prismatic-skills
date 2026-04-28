@@ -49,19 +49,21 @@ function checkPrismInstalled(): string | null {
         console.log(`Prism CLI installed: ${version}`);
         return version;
       }
-    } catch { /* not installed */ }
+    } catch {
+      /* not installed */
+    }
     return null;
   });
 }
 
-function installPrism(): boolean {
+function _installPrism(): boolean {
   return timedStep("Install Prism CLI", () => {
     console.log("Installing Prism CLI...");
     try {
       const result = spawnSync(
         "npm",
         ["install", "-g", "--no-audit", "--no-fund", "--no-update-notifier", "@prismatic-io/prism"],
-        { encoding: "utf-8", timeout: 120000 }
+        { encoding: "utf-8", timeout: 120000 },
       );
       if (result.status === 0) {
         const verify = spawnSync("prism", ["--version"], {
@@ -139,7 +141,9 @@ function main(): number {
   }
 
   if (!name || !workflowType || !["component", "integration"].includes(workflowType)) {
-    console.error("Usage: npx tsx prerequisites.ts <name> --type <component|integration> [--existing <dir>]");
+    console.error(
+      "Usage: npx tsx prerequisites.ts <name> --type <component|integration> [--existing <dir>]",
+    );
     return 1;
   }
 
@@ -261,7 +265,9 @@ function main(): number {
     }
     console.log("");
     console.log("Next: Run requirements gathering");
-    console.log(`   prismatic-tools update-tasks --session ${name} --type ${workflowType} --actionable`);
+    console.log(
+      `   prismatic-tools update-tasks --session ${name} --type ${workflowType} --actionable`,
+    );
     console.log("");
     console.log("--- Setup Data (JSON) ---");
     console.log(JSON.stringify(output, null, 2));

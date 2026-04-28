@@ -9,10 +9,20 @@ const input = JSON.parse(readFileSync(0, "utf-8"));
 const command = input?.tool_input?.command ?? "";
 
 if (command.includes("scaffold-project.ts")) {
-  const out = { hookSpecificOutput: { permissionDecision: "ask", permissionDecisionReason: "Scaffolding creates project files on disk." } };
+  const out = {
+    hookSpecificOutput: {
+      permissionDecision: "ask",
+      permissionDecisionReason: "Scaffolding creates project files on disk.",
+    },
+  };
   process.stdout.write(JSON.stringify(out));
 } else if (command.includes("deploy-integration.ts")) {
-  const out = { hookSpecificOutput: { permissionDecision: "ask", permissionDecisionReason: "Deploying pushes code to the Prismatic platform." } };
+  const out = {
+    hookSpecificOutput: {
+      permissionDecision: "ask",
+      permissionDecisionReason: "Deploying pushes code to the Prismatic platform.",
+    },
+  };
   process.stdout.write(JSON.stringify(out));
 }
 // No output + exit 0 = allow (passthrough for all other commands)

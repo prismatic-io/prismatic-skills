@@ -27,7 +27,7 @@ function publishComponent(componentDir: string): string | null {
         cwd: componentDir,
         encoding: "utf-8",
         timeout: 120000,
-      }
+      },
     );
 
     if (result.status !== 0) {
