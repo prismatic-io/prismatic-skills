@@ -30,15 +30,19 @@ import { createRequire } from "node:module";
 // When invoked via `npx --package=@xmldom/xmldom`, npx adds its temp node_modules/.bin
 // to PATH. We derive the node_modules path from that and use createRequire to load from it.
 function resolveNpxPackage(moduleName: string): unknown {
-  try { return require(moduleName); } catch { /* not in local node_modules */ }
+  try {
+    return require(moduleName);
+  } catch {
+    /* not in local node_modules */
+  }
 
   const npxBin = (process.env.PATH || "")
     .split(process.platform === "win32" ? ";" : ":")
-    .find(p => p.includes("_npx") && p.endsWith(".bin"));
+    .find((p) => p.includes("_npx") && p.endsWith(".bin"));
 
   if (!npxBin) {
     throw new Error(
-      `Cannot find ${moduleName}. Run via: npx --package=${moduleName} npx tsx <script>`
+      `Cannot find ${moduleName}. Run via: npx --package=${moduleName} npx tsx <script>`,
     );
   }
 
@@ -348,14 +352,17 @@ interface SummaryOutput {
   platform: string;
   source_directory: string;
   counts: OutputSummary;
-  processes: Record<string, {
-    name: string;
-    shape_count: number;
-    shape_types: Record<string, number>;
-    is_monitoring: boolean;
-    has_connection_overrides: boolean;
-    has_property_overrides: boolean;
-  }>;
+  processes: Record<
+    string,
+    {
+      name: string;
+      shape_count: number;
+      shape_types: Record<string, number>;
+      is_monitoring: boolean;
+      has_connection_overrides: boolean;
+      has_property_overrides: boolean;
+    }
+  >;
   systems: {
     id: string;
     name: string;
@@ -370,11 +377,14 @@ interface SummaryOutput {
     has_response_profile: boolean;
     has_request_profile: boolean;
   }[];
-  profiles_overview: Record<string, {
-    name: string;
-    type: string;
-    field_count: number;
-  }>;
+  profiles_overview: Record<
+    string,
+    {
+      name: string;
+      type: string;
+      field_count: number;
+    }
+  >;
   transform_maps_overview: {
     id: string;
     name: string;
@@ -518,7 +528,9 @@ function parseComponentFile(filepath: string): ParsedComponent | null {
     // DOMParser doesn't throw on malformed XML — check for parse errors
     const parseErrors = doc.getElementsByTagName("parsererror");
     if (parseErrors.length > 0) {
-      console.error(`Warning: XML parse error in ${filepath}: ${parseErrors[0]?.textContent ?? "unknown error"}`);
+      console.error(
+        `Warning: XML parse error in ${filepath}: ${parseErrors[0]?.textContent ?? "unknown error"}`,
+      );
       return null;
     }
   } catch (e) {
@@ -755,9 +767,7 @@ function parseShapeConfig(shapeElem: Element, shapeType: string): ShapeConfig {
 // Process parsing
 // ---------------------------------------------------------------------------
 
-function parseProcess(
-  root: Element,
-): Omit<ProcessData, "name"> | null {
+function parseProcess(root: Element): Omit<ProcessData, "name"> | null {
   // Try <object><process>
   let processElem: Element | null = null;
   const objElem = getChild(root, "object");
@@ -793,7 +803,8 @@ function parseProcess(
       const children = overridesRoot.childNodes;
       for (let i = 0; i < children.length; i++) {
         const node = children[i];
-        if (node.nodeType === 1) { // ELEMENT_NODE
+        if (node.nodeType === 1) {
+          // ELEMENT_NODE
           const el = node as Element;
           if (el.tagName === "Overrides" || el.tagName.endsWith(":Overrides")) {
             overridesElem = el;
@@ -828,10 +839,7 @@ function parseProcess(
           "OverrideableDefinedProcessPropertyComponent",
         )) {
           const props: ProcessPropertyOverride["properties"] = [];
-          for (const val of getChildArray(
-            comp,
-            "OverrideableDefinedProcessPropertyValue",
-          )) {
+          for (const val of getChildArray(comp, "OverrideableDefinedProcessPropertyValue")) {
             props.push({
               key: getAttr(val, "key"),
               name: getAttr(val, "name"),
@@ -875,9 +883,7 @@ function parseProcess(
 // Connector settings
 // ---------------------------------------------------------------------------
 
-function parseConnectorSettings(
-  root: Element,
-): Record<string, unknown> | null {
+function parseConnectorSettings(root: Element): Record<string, unknown> | null {
   const obj = getChild(root, "object");
   if (!obj) return null;
 
@@ -920,9 +926,7 @@ function parseConnectorSettings(
 // Transform map
 // ---------------------------------------------------------------------------
 
-function parseTransformMap(
-  root: Element,
-): Omit<TransformMap, "name"> | null {
+function parseTransformMap(root: Element): Omit<TransformMap, "name"> | null {
   const obj = getChild(root, "object");
   if (!obj) return null;
 
@@ -1067,10 +1071,7 @@ function parseTransformMap(
 // Profile
 // ---------------------------------------------------------------------------
 
-function parseProfile(
-  root: Element,
-  compType: string,
-): Omit<Profile, "name"> | null {
+function parseProfile(root: Element, compType: string): Omit<Profile, "name"> | null {
   const obj = getChild(root, "object");
   if (!obj) return null;
 
@@ -1117,9 +1118,7 @@ function parseProfile(
 // Cross reference
 // ---------------------------------------------------------------------------
 
-function parseCrossReference(
-  root: Element,
-): Omit<CrossReference, "name"> | null {
+function parseCrossReference(root: Element): Omit<CrossReference, "name"> | null {
   const obj = getChild(root, "object");
   if (!obj) return null;
 
@@ -1142,9 +1141,7 @@ function parseCrossReference(
 // Process properties
 // ---------------------------------------------------------------------------
 
-function parseProcessProperties(
-  root: Element,
-): Omit<ProcessProperties, "name"> | null {
+function parseProcessProperties(root: Element): Omit<ProcessProperties, "name"> | null {
   const obj = getChild(root, "object");
   if (!obj) return null;
 
@@ -1172,9 +1169,7 @@ function parseProcessProperties(
 // Connector action (operation)
 // ---------------------------------------------------------------------------
 
-function parseConnectorAction(
-  root: Element,
-): Record<string, unknown> | null {
+function parseConnectorAction(root: Element): Record<string, unknown> | null {
   const obj = getChild(root, "object");
   if (!obj) return null;
 
@@ -1199,10 +1194,7 @@ function parseConnectorAction(
   for (const actionType of httpActionTypes) {
     const action = getChild(config, actionType);
     if (action) {
-      const methodFallback = actionType
-        .replace("Http", "")
-        .replace("Action", "")
-        .toUpperCase();
+      const methodFallback = actionType.replace("Http", "").replace("Action", "").toUpperCase();
       result.method = getAttr(action, "methodType", methodFallback);
       result.response_profile = getAttr(action, "responseProfile");
       result.request_profile = getAttr(action, "requestProfile");
@@ -1292,9 +1284,7 @@ function parseConnectorAction(
 // Scripting
 // ---------------------------------------------------------------------------
 
-function parseScripting(
-  root: Element,
-): Record<string, unknown> | null {
+function parseScripting(root: Element): Record<string, unknown> | null {
   const obj = getChild(root, "object");
   if (!obj) return null;
 
@@ -1342,9 +1332,7 @@ function parseScripting(
 // Transform function (user-defined function)
 // ---------------------------------------------------------------------------
 
-function parseTransformFunction(
-  root: Element,
-): Record<string, unknown> | null {
+function parseTransformFunction(root: Element): Record<string, unknown> | null {
   const obj = getChild(root, "object");
   if (!obj) return null;
 
@@ -1448,9 +1436,7 @@ function parseTransformFunction(
 // Document cache
 // ---------------------------------------------------------------------------
 
-function parseDocumentCache(
-  root: Element,
-): Omit<DocumentCache, "name"> | null {
+function parseDocumentCache(root: Element): Omit<DocumentCache, "name"> | null {
   const obj = getChild(root, "object");
   if (!obj) return null;
 
@@ -1679,7 +1665,7 @@ function generateSummary(fullOutput: FullOutput): SummaryOutput {
       id: cid,
       name,
       auth_type: authType,
-      url_pattern: url.length > 50 ? url.slice(0, 50) + "..." : url,
+      url_pattern: url.length > 50 ? `${url.slice(0, 50)}...` : url,
     });
   }
 
@@ -1689,9 +1675,7 @@ function generateSummary(fullOutput: FullOutput): SummaryOutput {
     const method = (action.method as string) ?? "";
     const pathElements = (action.path_elements as PathElement[]) ?? [];
     const path =
-      pathElements.length > 0
-        ? "/" + pathElements.map((e) => e.name ?? "").join("/")
-        : "UNKNOWN";
+      pathElements.length > 0 ? `/${pathElements.map((e) => e.name ?? "").join("/")}` : "UNKNOWN";
     summary.endpoints.push({
       id: aid,
       name,
@@ -1772,9 +1756,7 @@ function main(): number {
   const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 
   if (args.length !== 1) {
-    console.error(
-      "Usage: npx tsx parse-boomi-export.ts <export-directory> [--summary]",
-    );
+    console.error("Usage: npx tsx parse-boomi-export.ts <export-directory> [--summary]");
     return 2;
   }
 

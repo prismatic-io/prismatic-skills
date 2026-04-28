@@ -66,7 +66,7 @@ function buildIntegration(projectDir: string): number {
     console.log("Code verification has not been run yet.");
     console.log("");
     console.log("Run verify-code before building to confirm generated code matches requirements:");
-    console.log("  prismatic-tools verify-code " + projectDir + " --session <name>");
+    console.log(`  prismatic-tools verify-code ${projectDir} --session <name>`);
     return 0;
   }
 

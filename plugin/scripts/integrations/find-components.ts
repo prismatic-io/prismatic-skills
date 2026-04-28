@@ -73,9 +73,11 @@ interface ComponentNode {
 }
 
 function searchComponentsApi(searchTerm: string): ComponentNode[] {
-  const filterQuery = JSON.stringify(
-    ["or", ["in", "key", searchTerm], ["in", "label", searchTerm]]
-  );
+  const filterQuery = JSON.stringify([
+    "or",
+    ["in", "key", searchTerm],
+    ["in", "label", searchTerm],
+  ]);
 
   const allComponents: ComponentNode[] = [];
   let cursor: string | undefined;
@@ -104,7 +106,8 @@ function inferAuthType(key: string, label: string): string {
   if (kl.includes("oauth2") || ll.includes("oauth2")) return "OAuth2";
   if (kl.includes("oauth") || ll.includes("oauth")) return "OAuth";
   if (kl.includes("apikey") || ll.includes("api key") || kl.includes("api_key")) return "API Key";
-  if (kl.includes("apitoken") || ll.includes("api token") || kl.includes("api_token")) return "API Token";
+  if (kl.includes("apitoken") || ll.includes("api token") || kl.includes("api_token"))
+    return "API Token";
   if (kl.includes("basic") || ll.includes("basic")) return "Basic Auth";
   if (kl.includes("bearer") || ll.includes("bearer")) return "Bearer Token";
   if (kl.includes("webhook") || ll.includes("webhook")) return "Webhook";

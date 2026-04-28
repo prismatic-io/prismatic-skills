@@ -37,17 +37,11 @@ export function getSkillDirectory(): string {
   return getPluginRoot();
 }
 
-export function getSessionDirectory(
-  name: string,
-  sessionType = "components"
-): string {
+export function getSessionDirectory(name: string, sessionType = "components"): string {
   return join(getProjectRoot(), ".prismatic", "sessions", sessionType, name);
 }
 
-export function ensureSessionDirectory(
-  name: string,
-  sessionType = "components"
-): string {
+export function ensureSessionDirectory(name: string, sessionType = "components"): string {
   const sessionDir = getSessionDirectory(name, sessionType);
   mkdirSync(sessionDir, { recursive: true });
   return sessionDir;

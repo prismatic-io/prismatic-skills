@@ -184,7 +184,7 @@ function buildMappings(answers: Record<string, unknown>): VerifyMapping[] {
       value: "scheduled",
       target: "flows",
       pattern: /schedule\s*:\s*\{/,
-      fix: "Add `schedule: { value: \"...\" }` to the flow definition for scheduled execution.",
+      fix: 'Add `schedule: { value: "..." }` to the flow definition for scheduled execution.',
     });
   }
 
@@ -195,7 +195,7 @@ function buildMappings(answers: Record<string, unknown>): VerifyMapping[] {
       value: "polling",
       target: "flows",
       pattern: /schedule\s*:\s*\{/,
-      fix: "Polling flows require a `schedule: { value: \"...\" }` to set the poll interval.",
+      fix: 'Polling flows require a `schedule: { value: "..." }` to set the poll interval.',
     });
   }
 
@@ -315,7 +315,7 @@ function readFileContent(projectDir: string, relativePath: string): string | nul
 
 function verify(
   projectDir: string,
-  answers: Record<string, unknown>
+  answers: Record<string, unknown>,
 ): { gaps: Gap[]; notes: Note[]; verified: number } {
   // Handle per-flow answers: merge root + first flow for single-flow compat
   const flatAnswers: Record<string, unknown> = { ...answers };
@@ -429,7 +429,7 @@ function formatOutput(gaps: Gap[], notes: Note[], verified: number): string {
   const byFile = new Map<string, Gap[]>();
   for (const g of gaps) {
     if (!byFile.has(g.file)) byFile.set(g.file, []);
-    byFile.get(g.file)!.push(g);
+    byFile.get(g.file)?.push(g);
   }
 
   let xml = `<verify-codegen status="gaps-found">\n`;
@@ -479,14 +479,22 @@ function main(): number {
 
   if (positional.length < 1 || (!sessionName && positional.length < 2)) {
     console.error(
-      "Usage: prismatic-tools verify-code <project-dir> --session <name> [--type component|integration]"
+      "Usage: prismatic-tools verify-code <project-dir> --session <name> [--type component|integration]",
     );
     return 2;
   }
 
   const projectDir = resolve(positional[0]);
   const requirementsPath = sessionName
-    ? resolve(join(getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"), "requirements.json"))
+    ? resolve(
+        join(
+          getSessionDirectory(
+            sessionName,
+            sessionType === "component" ? "components" : "integrations",
+          ),
+          "requirements.json",
+        ),
+      )
     : resolve(positional[1]);
 
   try {
@@ -526,7 +534,8 @@ function main(): number {
       }
     }
 
-    const triggerType = typeof flatAnswers.trigger_type === "string" ? flatAnswers.trigger_type : "";
+    const triggerType =
+      typeof flatAnswers.trigger_type === "string" ? flatAnswers.trigger_type : "";
     if (triggerType === "webhook") {
       // Check for .spectral/flows/*/payloads/ or test-data/trigger-config.json
       const spectralDir = join(projectDir, ".spectral", "flows");
@@ -538,11 +547,16 @@ function main(): number {
           for (const flowDir of readdirSync(spectralDir)) {
             const payloadsDir = join(spectralDir, flowDir, "payloads");
             if (existsSync(payloadsDir)) {
-              const files = readdirSync(payloadsDir).filter(f => f.endsWith(".json"));
-              if (files.length > 0) { hasPayloads = true; break; }
+              const files = readdirSync(payloadsDir).filter((f) => f.endsWith(".json"));
+              if (files.length > 0) {
+                hasPayloads = true;
+                break;
+              }
             }
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
       if (!hasPayloads && existsSync(triggerConfig)) {
         hasPayloads = true;
@@ -551,7 +565,8 @@ function main(): number {
       if (!hasPayloads) {
         notes.push({
           file: ".spectral/flows/",
-          message: "Webhook flow has no test payload. Generate .spectral/flows/<flow-key>/payloads/sample-payload.json with { headers: {}, data: <sample>, contentType: \"application/json\" }. Without it, test-integration will fire the flow with an empty body.",
+          message:
+            'Webhook flow has no test payload. Generate .spectral/flows/<flow-key>/payloads/sample-payload.json with { headers: {}, data: <sample>, contentType: "application/json" }. Without it, test-integration will fire the flow with an empty body.',
         });
       }
     }
@@ -560,7 +575,14 @@ function main(): number {
   console.log(formatOutput(gaps, notes, verified));
 
   const resultPath = join(projectDir, "verify-code-result.json");
-  writeFileSync(resultPath, JSON.stringify({ verified: gaps.length === 0, gaps: gaps.length, timestamp: Date.now() }, null, 2));
+  writeFileSync(
+    resultPath,
+    JSON.stringify(
+      { verified: gaps.length === 0, gaps: gaps.length, timestamp: Date.now() },
+      null,
+      2,
+    ),
+  );
 
   return gaps.length > 0 ? 1 : 0;
 }

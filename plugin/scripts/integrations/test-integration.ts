@@ -29,7 +29,7 @@ interface TriggerMetadata {
 
 function loadTriggerMetadata(
   integrationDir: string | null,
-  flowStableKey: string | null
+  flowStableKey: string | null,
 ): TriggerMetadata {
   const result: TriggerMetadata = {
     needs_payload: false,
@@ -47,9 +47,7 @@ function loadTriggerMetadata(
     const flows = metadata.flows;
 
     if (!flows || typeof flows !== "object" || Array.isArray(flows)) {
-      console.log(
-        `Warning: Invalid trigger-config.json: 'flows' must be an object/dict`
-      );
+      console.log(`Warning: Invalid trigger-config.json: 'flows' must be an object/dict`);
       return result;
     }
 
@@ -89,7 +87,7 @@ function loadTriggerMetadata(
         }
       } else {
         console.log(
-          `Warning: No test payload found in .spectral/flows/${flowIdentifier}/payloads/ or test-data/${flowIdentifier}/`
+          `Warning: No test payload found in .spectral/flows/${flowIdentifier}/payloads/ or test-data/${flowIdentifier}/`,
         );
       }
     }
@@ -109,7 +107,7 @@ function loadTriggerMetadata(
  */
 function findExistingPayloadFile(
   integrationDir: string,
-  flowKey: string
+  flowKey: string,
 ): { path: string; contentType?: string } | null {
   // Check .spectral/flows/<flowKey>/payloads/ first (VS Code extension location)
   const spectralDir = join(integrationDir, ".spectral", "flows", flowKey, "payloads");
@@ -163,15 +161,8 @@ interface FlowInfo {
 function listFlows(integrationId: string): FlowInfo[] {
   try {
     const result = runPrismQuery(
-      [
-        "prism",
-        "integrations:flows:list",
-        integrationId,
-        "--extended",
-        "--output",
-        "json",
-      ],
-      30
+      ["prism", "integrations:flows:list", integrationId, "--extended", "--output", "json"],
+      30,
     );
 
     if (result.returncode === 0 && result.stdout) {
@@ -189,7 +180,7 @@ function testSingleFlow(
   flowName: string,
   testUrl: string,
   payloadFile?: string | null,
-  contentType?: string | null
+  contentType?: string | null,
 ): boolean {
   console.log(`Testing flow: ${flowName}`);
   if (payloadFile) {
@@ -236,9 +227,7 @@ function testSingleFlow(
       console.log("");
       return true;
     } else {
-      console.log(
-        `Flow '${flowName}' failed with exit code ${result.status}`
-      );
+      console.log(`Flow '${flowName}' failed with exit code ${result.status}`);
       if (result.error) console.log(`Error: ${result.error.message}`);
       console.log("");
       return false;
@@ -254,7 +243,7 @@ function testIntegration(
   specificFlow: string | null,
   payloadFile: string | null,
   contentType: string | null,
-  integrationDir: string | null
+  integrationDir: string | null,
 ): number {
   // Validate integration ID format (base64 decoding to "Integration:{uuid}")
   try {
@@ -296,20 +285,20 @@ function testIntegration(
   try {
     const configResult = runPrismQuery(
       ["prism", "integrations:flows:list", integrationId, "--output", "json"],
-      15
+      15,
     );
     if (configResult.returncode === 0 && configResult.stdout) {
       const flowsData = JSON.parse(configResult.stdout);
       const flows = Array.isArray(flowsData) ? flowsData : [];
       const hasUnconfigured = flows.some(
-        (f: Record<string, unknown>) => f.configState === "NEEDS_CONFIGURATION"
+        (f: Record<string, unknown>) => f.configState === "NEEDS_CONFIGURATION",
       );
       if (hasUnconfigured) {
         console.log("WARNING: Integration has unconfigured connections.");
         console.log("Live testing may fail until connections are configured.");
         console.log("");
         console.log("To configure connections:");
-        console.log("  prism integrations:open " + integrationId);
+        console.log(`  prism integrations:open ${integrationId}`);
         console.log("");
         console.log("Proceeding with test attempt anyway...");
         console.log("");
@@ -328,9 +317,7 @@ function testIntegration(
       detectedPayload = requirements.sample_payload;
       detectedContentType = requirements.content_type;
       if (detectedPayload) {
-        console.log(
-          `Loaded trigger metadata: webhook expecting ${detectedContentType}`
-        );
+        console.log(`Loaded trigger metadata: webhook expecting ${detectedContentType}`);
         console.log(`   Generated test payload: ${detectedPayload}`);
         console.log("");
       }
@@ -371,7 +358,7 @@ function testIntegration(
       specificFlow,
       matchingFlow.testUrl,
       finalPayload,
-      finalContentType
+      finalContentType,
     );
     if (success) {
       console.log("");
@@ -425,9 +412,7 @@ function testIntegration(
         fp = requirements.sample_payload;
         fct = requirements.content_type;
         if (fp) {
-          console.log(
-            `Loaded trigger metadata: webhook expecting ${fct}`
-          );
+          console.log(`Loaded trigger metadata: webhook expecting ${fct}`);
           console.log(`   Generated test payload: ${fp}`);
           console.log("");
         }
@@ -489,8 +474,8 @@ function testIntegration(
   console.log("=".repeat(60));
   console.log("TEST RESULTS");
   console.log("=".repeat(60));
-  const passed = results.filter(r => r.success).length;
-  const failed = results.filter(r => !r.success).length;
+  const passed = results.filter((r) => r.success).length;
+  const failed = results.filter((r) => !r.success).length;
   for (const r of results) {
     console.log(`  ${r.success ? "PASS" : "FAIL"}  ${r.name}`);
   }
@@ -505,7 +490,7 @@ function main(): number {
     console.log("No integration ID provided");
     console.log("");
     console.log(
-      "Usage: npx tsx test-integration.ts <integration-id> [flow-name] [--payload <file>] [--content-type <type>] [--integration-dir <dir>]"
+      "Usage: npx tsx test-integration.ts <integration-id> [flow-name] [--payload <file>] [--content-type <type>] [--integration-dir <dir>]",
     );
     return 1;
   }
@@ -532,13 +517,7 @@ function main(): number {
     i++;
   }
 
-  return testIntegration(
-    integrationId,
-    specificFlow,
-    payloadFile,
-    contentType,
-    integrationDir
-  );
+  return testIntegration(integrationId, specificFlow, payloadFile, contentType, integrationDir);
 }
 
 process.exit(main());

@@ -152,15 +152,18 @@ interface ScopedConfigVar {
 
 function findConnection(
   componentKey: string,
-  connectionKey: string
+  connectionKey: string,
 ): { connection: ConnectionDef | null; error: string | null } {
   try {
     const data = graphql(FIND_CONNECTION_QUERY, { key: componentKey }) as Record<string, unknown>;
-    const components = ((data.components as Record<string, unknown>)?.nodes ?? []) as Array<Record<string, unknown>>;
+    const components = ((data.components as Record<string, unknown>)?.nodes ?? []) as Array<
+      Record<string, unknown>
+    >;
 
     for (const component of components) {
       if (component.key === componentKey) {
-        const connections = ((component.connections as Record<string, unknown>)?.nodes ?? []) as ConnectionDef[];
+        const connections = ((component.connections as Record<string, unknown>)?.nodes ??
+          []) as ConnectionDef[];
         for (const conn of connections) {
           if (conn.key === connectionKey) {
             return { connection: conn, error: null };
@@ -183,7 +186,8 @@ function findConnection(
 function checkExistingScopedConfigVariable(stableKey: string): ScopedConfigVar | null {
   try {
     const data = graphql(CHECK_EXISTING_QUERY, { stableKey }) as Record<string, unknown>;
-    const configs = ((data.scopedConfigVariables as Record<string, unknown>)?.nodes ?? []) as ScopedConfigVar[];
+    const configs = ((data.scopedConfigVariables as Record<string, unknown>)?.nodes ??
+      []) as ScopedConfigVar[];
     for (const config of configs) {
       if (config.stableKey === stableKey) return config;
     }
@@ -195,8 +199,14 @@ function checkExistingScopedConfigVariable(stableKey: string): ScopedConfigVar |
 
 // Inputs that the org provides for OAuth connections (not customer-provided)
 const ORG_MANAGED_INPUTS = [
-  "authorizeUrl", "tokenUrl", "clientId", "clientSecret",
-  "scopes", "refreshUrl", "revokeUrl", "audience",
+  "authorizeUrl",
+  "tokenUrl",
+  "clientId",
+  "clientSecret",
+  "scopes",
+  "refreshUrl",
+  "revokeUrl",
+  "audience",
 ];
 
 function createScopedConfigVariable(
@@ -204,7 +214,7 @@ function createScopedConfigVariable(
   name: string,
   stableKey: string,
   strategy: ConnectionStrategy,
-  description?: string
+  description?: string,
 ): { result: Record<string, unknown> | null; error: string | null } {
   const variableScope = strategy === "org-activated-global" ? "org" : "customer";
   const managedBy = strategy === "customer-activated" ? "customer" : "org";
@@ -243,7 +253,9 @@ function createScopedConfigVariable(
     const data = graphql(CREATE_SCOPED_MUTATION, variables, 60) as Record<string, unknown>;
     const mutationResult = (data.createScopedConfigVariable ?? {}) as Record<string, unknown>;
 
-    const errors = mutationResult.errors as Array<{ field: string; messages: string[] }> | undefined;
+    const errors = mutationResult.errors as
+      | Array<{ field: string; messages: string[] }>
+      | undefined;
     if (errors?.length) {
       const msgs = errors.map((e) => `${e.field}: ${e.messages.join(", ")}`);
       return { result: null, error: msgs.join("; ") };
@@ -257,7 +269,7 @@ function createScopedConfigVariable(
 }
 
 function findExistingTestCustomerConfigVariable(
-  scopedConfigVar: ScopedConfigVar
+  scopedConfigVar: ScopedConfigVar,
 ): { id: string } | null {
   const customerVars = scopedConfigVar.customerConfigVariables?.nodes ?? [];
   for (const v of customerVars) {
@@ -268,7 +280,7 @@ function findExistingTestCustomerConfigVariable(
 
 function createCustomerConfigVariable(
   scopedConfigVarId: string,
-  fieldValues?: Record<string, string>
+  fieldValues?: Record<string, string>,
 ): { result: Record<string, unknown> | null; error: string | null } {
   const inputs: Array<{ name: string; type: string; value: string }> = [];
   if (fieldValues) {
@@ -290,13 +302,18 @@ function createCustomerConfigVariable(
     const data = graphql(CREATE_CUSTOMER_MUTATION, variables, 60) as Record<string, unknown>;
     const mutationResult = (data.createCustomerConfigVariable ?? {}) as Record<string, unknown>;
 
-    const errors = mutationResult.errors as Array<{ field: string; messages: string[] }> | undefined;
+    const errors = mutationResult.errors as
+      | Array<{ field: string; messages: string[] }>
+      | undefined;
     if (errors?.length) {
       const msgs = errors.map((e) => `${e.field}: ${e.messages.join(", ")}`);
       return { result: null, error: msgs.join("; ") };
     }
 
-    return { result: mutationResult.customerConfigVariable as Record<string, unknown>, error: null };
+    return {
+      result: mutationResult.customerConfigVariable as Record<string, unknown>,
+      error: null,
+    };
   } catch (e) {
     if (e instanceof GraphQLError) return { result: null, error: e.message };
     return { result: null, error: String(e) };
@@ -354,7 +371,15 @@ function parseArgs(args: string[]): {
     i++;
   }
 
-  return { componentKey, connectionKey, name, credentials, stableKey, strategy, skipTestConnection };
+  return {
+    componentKey,
+    connectionKey,
+    name,
+    credentials,
+    stableKey,
+    strategy,
+    skipTestConnection,
+  };
 }
 
 function main(): number {
@@ -362,7 +387,7 @@ function main(): number {
 
   if (!parsed.componentKey || !parsed.connectionKey || !parsed.name) {
     console.error(
-      "Usage: npx tsx create-organization-connection.ts --component-key <key> --connection-key <key> --name <name> [--strategy <customer-activated|org-activated-customer|org-activated-global>] [--credentials '<json>']"
+      "Usage: npx tsx create-organization-connection.ts --component-key <key> --connection-key <key> --name <name> [--strategy <customer-activated|org-activated-customer|org-activated-global>] [--credentials '<json>']",
     );
     return 1;
   }
@@ -402,27 +427,22 @@ function main(): number {
 
   if (existingScoped) {
     console.log(
-      `Scoped config variable already exists: ${existingScoped.key} (ID: ${existingScoped.id})`
+      `Scoped config variable already exists: ${existingScoped.key} (ID: ${existingScoped.id})`,
     );
     scopedConfigVar = existingScoped as unknown as Record<string, unknown>;
     scopedVarExisted = true;
 
     const existingTest = findExistingTestCustomerConfigVariable(existingScoped);
     if (existingTest) {
-      console.log(
-        `Test customer config variable already exists: ${existingTest.id}`
-      );
+      console.log(`Test customer config variable already exists: ${existingTest.id}`);
       customerConfigVar = existingTest as unknown as Record<string, unknown>;
       customerVarExisted = true;
     }
   } else {
     console.log(
-      `Finding connection '${parsed.connectionKey}' in component '${parsed.componentKey}'...`
+      `Finding connection '${parsed.connectionKey}' in component '${parsed.componentKey}'...`,
     );
-    const { connection, error } = findConnection(
-      parsed.componentKey,
-      parsed.connectionKey
-    );
+    const { connection, error } = findConnection(parsed.componentKey, parsed.connectionKey);
 
     if (error || !connection) {
       console.log(`Error: ${error}`);
@@ -436,7 +456,7 @@ function main(): number {
       connection,
       parsed.name,
       stableKey,
-      parsed.strategy
+      parsed.strategy,
     );
 
     if (createResult.error || !createResult.result) {
@@ -459,7 +479,7 @@ function main(): number {
       console.log("Creating test customer config variable...");
       const { result, error } = createCustomerConfigVariable(
         scopedConfigVar.id as string,
-        fieldValues
+        fieldValues,
       );
 
       if (error || !result) {
@@ -497,26 +517,28 @@ function main(): number {
   if (parsed.strategy === "customer-activated") {
     console.log(`  customerActivatedConnection({ stableKey: "${stableKey}" })  // in configPages`);
   } else {
-    console.log(`  organizationActivatedConnection({ stableKey: "${stableKey}" })  // in scopedConfigVars`);
+    console.log(
+      `  organizationActivatedConnection({ stableKey: "${stableKey}" })  // in scopedConfigVars`,
+    );
   }
 
   if (!customerConfigVar) {
     console.log(
       `\n<action-required blocking="true" type="test-credentials">\n` +
-      `  Connection created but no test credentials configured.\n` +
-      `  You MUST ask the user before proceeding. Do NOT skip this step.\n` +
-      `  <ask-user>\n` +
-      `    "Want to provide test credentials now so we can verify the connection works\n` +
-      `    during development? Or skip — customers will provide their own during instance setup."\n` +
-      `  </ask-user>\n` +
-      `  <on-yes>\n` +
-      `    Collect the required credential values from the user, then re-run this command\n` +
-      `    with the credential values to create a test customer config variable.\n` +
-      `  </on-yes>\n` +
-      `  <on-no>\n` +
-      `    Record the connection and continue. Testing will require real customer credentials later.\n` +
-      `  </on-no>\n` +
-      `</action-required>`
+        `  Connection created but no test credentials configured.\n` +
+        `  You MUST ask the user before proceeding. Do NOT skip this step.\n` +
+        `  <ask-user>\n` +
+        `    "Want to provide test credentials now so we can verify the connection works\n` +
+        `    during development? Or skip — customers will provide their own during instance setup."\n` +
+        `  </ask-user>\n` +
+        `  <on-yes>\n` +
+        `    Collect the required credential values from the user, then re-run this command\n` +
+        `    with the credential values to create a test customer config variable.\n` +
+        `  </on-yes>\n` +
+        `  <on-no>\n` +
+        `    Record the connection and continue. Testing will require real customer credentials later.\n` +
+        `  </on-no>\n` +
+        `</action-required>`,
     );
   }
 

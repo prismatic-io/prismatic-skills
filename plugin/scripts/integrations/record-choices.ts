@@ -44,8 +44,8 @@ function main(): number {
 
   if (args.length < 1) {
     console.log(
-      'Usage: npx tsx record-choices.ts <answers-file> [--flow <flow-id>] \'<json-object>\'\n' +
-      '       npx tsx record-choices.ts --session <name> [--type component|integration] key=value [--flow <flow-id>]'
+      "Usage: npx tsx record-choices.ts <answers-file> [--flow <flow-id>] '<json-object>'\n" +
+        "       npx tsx record-choices.ts --session <name> [--type component|integration] key=value [--flow <flow-id>]",
     );
     return 1;
   }
@@ -115,7 +115,10 @@ function main(): number {
   // Resolve answersFile: --session takes priority, then first positional arg
   let answersFile: string;
   if (sessionName) {
-    answersFile = join(getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"), "requirements.json");
+    answersFile = join(
+      getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"),
+      "requirements.json",
+    );
     // First positional (if any) becomes batchRaw
     if (positional.length > 0 && !positional[0].includes("=")) {
       batchRaw = positional[0];
@@ -137,7 +140,10 @@ function main(): number {
     batch = {};
     for (const [key, val] of kvPairs) {
       // Auto-parse JSON values (objects and arrays)
-      if ((val.startsWith("{") && val.endsWith("}")) || (val.startsWith("[") && val.endsWith("]"))) {
+      if (
+        (val.startsWith("{") && val.endsWith("}")) ||
+        (val.startsWith("[") && val.endsWith("]"))
+      ) {
         try {
           batch[key] = JSON.parse(val);
           continue;
@@ -163,7 +169,9 @@ function main(): number {
       try {
         batchRaw = readFileSync(0, "utf-8").trim();
       } catch {
-        console.error("No input provided (use key=value pairs, --input-file, inline JSON, or stdin)");
+        console.error(
+          "No input provided (use key=value pairs, --input-file, inline JSON, or stdin)",
+        );
         return 1;
       }
       if (!batchRaw) {
@@ -212,7 +220,12 @@ function main(): number {
 
   // When flow_definitions is written, bootstrap the flows object and copy all properties
   // (integrations only — components don't have flows)
-  if (sessionType !== "component" && batch.flow_definitions && Array.isArray(batch.flow_definitions) && !flowId) {
+  if (
+    sessionType !== "component" &&
+    batch.flow_definitions &&
+    Array.isArray(batch.flow_definitions) &&
+    !flowId
+  ) {
     if (!answers.flows || typeof answers.flows !== "object") {
       answers.flows = {};
     }
@@ -252,7 +265,7 @@ function main(): number {
   const connectionTypeQuestions = [
     "source_connection_type",
     "destination_connection_type",
-    ...Object.keys(batch).filter(k => /^connector_\d+_connection_type$/.test(k)),
+    ...Object.keys(batch).filter((k) => /^connector_\d+_connection_type$/.test(k)),
   ];
 
   // Connection strategy questions require search-connections to be run first
@@ -260,44 +273,48 @@ function main(): number {
   const connectionStrategyQuestions = [
     "source_connection",
     "destination_connection",
-    ...Object.keys(batch).filter(k => /^connector_\d+_connection$/.test(k)),
+    ...Object.keys(batch).filter((k) => /^connector_\d+_connection$/.test(k)),
   ];
 
   const written: string[] = [];
   const onAnswerActions: string[] = [];
-  let hasValidationErrors = false;
+  const _hasValidationErrors = false;
 
   // Gate: component fallback requires user confirmation (integrations only)
   // When writing *_component with a key that doesn't match the system name (e.g., http for dacra),
   // reject unless --confirmed flag is present.
   const isConfirmed = process.argv.includes("--confirmed");
   if (sessionType !== "component" && !isConfirmed) {
-    const componentKeys = Object.keys(batch).filter(k =>
-      /^(source|destination|connector_\d+)_component$/.test(k)
+    const componentKeys = Object.keys(batch).filter((k) =>
+      /^(source|destination|connector_\d+)_component$/.test(k),
     );
     for (const key of componentKeys) {
       const val = batch[key];
       if (!val || typeof val !== "object") continue;
-      if (val === "none" || (typeof val === "string" && val === "none")) continue;
 
       const prefix = key.replace(/_component$/, "");
       const systemKey = `${prefix}_system`;
       const systemName = String(batch[systemKey] || answers[systemKey] || "").toLowerCase();
       const componentKey = String((val as Record<string, unknown>).key || "").toLowerCase();
 
-      if (systemName && componentKey && !componentKey.includes(systemName) && !systemName.includes(componentKey)) {
+      if (
+        systemName &&
+        componentKey &&
+        !componentKey.includes(systemName) &&
+        !systemName.includes(componentKey)
+      ) {
         console.log(
           `0 answers written. ${key} was NOT recorded.\n\n` +
-          `<component-fallback-confirmation system="${systemName}" component="${componentKey}" blocking="true">\n` +
-          `  No dedicated Prismatic component exists for "${systemName}".\n` +
-          `  You selected "${componentKey}" as a generic fallback.\n` +
-          `  Present this choice to the user BEFORE recording:\n` +
-          `  "No Prismatic component exists for ${systemName}. Options:\n` +
-          `    1. Use the ${componentKey} component with direct API calls (works now)\n` +
-          `    2. Build a custom ${systemName} component first (reusable, more structured)"\n` +
-          `  After the user confirms, re-run with --confirmed:\n` +
-          `    prismatic-tools record-choices --session ${sessionName} --type ${sessionType} --confirmed ${key}='${JSON.stringify(val)}'\n` +
-          `</component-fallback-confirmation>`
+            `<component-fallback-confirmation system="${systemName}" component="${componentKey}" blocking="true">\n` +
+            `  No dedicated Prismatic component exists for "${systemName}".\n` +
+            `  You selected "${componentKey}" as a generic fallback.\n` +
+            `  Present this choice to the user BEFORE recording:\n` +
+            `  "No Prismatic component exists for ${systemName}. Options:\n` +
+            `    1. Use the ${componentKey} component with direct API calls (works now)\n` +
+            `    2. Build a custom ${systemName} component first (reusable, more structured)"\n` +
+            `  After the user confirms, re-run with --confirmed:\n` +
+            `    prismatic-tools record-choices --session ${sessionName} --type ${sessionType} --confirmed ${key}='${JSON.stringify(val)}'\n` +
+            `</component-fallback-confirmation>`,
         );
         process.exit(0);
       }
@@ -321,7 +338,12 @@ function main(): number {
             system = key.startsWith("source") ? "source" : "destination";
           }
           const rawSystem = batch[`${system}_system`] || answers[`${system}_system`] || system;
-          const systemName = typeof rawSystem === "string" ? rawSystem : (rawSystem as Record<string, unknown>)?.source as string || (rawSystem as Record<string, unknown>)?.name as string || system;
+          const systemName =
+            typeof rawSystem === "string"
+              ? rawSystem
+              : ((rawSystem as Record<string, unknown>)?.source as string) ||
+                ((rawSystem as Record<string, unknown>)?.name as string) ||
+                system;
           const existingKey = `${system}_connection_existing`;
           const existingValue = batch[existingKey] || answers[existingKey];
 
@@ -329,27 +351,33 @@ function main(): number {
             // No search done yet — block and redirect
             console.log(
               `0 answers written. ${key} was NOT recorded.\n\n` +
-              `<connection-required key="${key}" value="${value}" system="${systemName}">\n` +
-              `  ${key} was rejected because connection search has not been done yet.\n` +
-              `  <steps>\n` +
-              `    <step>Run: prismatic-tools search-connections ${systemName}</step>\n` +
-              `    <step>Present results to the user — recommend reusable connections (customer-activated)</step>\n` +
-              `    <step>Record the selected connection as ${existingKey}</step>\n` +
-              `    <step>Then re-run this command to record ${key}</step>\n` +
-              `  </steps>\n` +
-              `</connection-required>`
+                `<connection-required key="${key}" value="${value}" system="${systemName}">\n` +
+                `  ${key} was rejected because connection search has not been done yet.\n` +
+                `  <steps>\n` +
+                `    <step>Run: prismatic-tools search-connections ${systemName}</step>\n` +
+                `    <step>Present results to the user — recommend reusable connections (customer-activated)</step>\n` +
+                `    <step>Record the selected connection as ${existingKey}</step>\n` +
+                `    <step>Then re-run this command to record ${key}</step>\n` +
+                `  </steps>\n` +
+                `</connection-required>`,
             );
             process.exit(0);
           }
 
           // Check if existing value is "none" or "solo_build_only"
           // ALLOW the write — but emit post-write guidance about SCV creation
-          const existingStr = typeof existingValue === "string" ? existingValue : JSON.stringify(existingValue ?? "");
+          const existingStr =
+            typeof existingValue === "string" ? existingValue : JSON.stringify(existingValue ?? "");
           const noneOrBuildOnly = existingStr === "none" || existingStr === "solo_build_only";
 
           if (noneOrBuildOnly && value !== "no_connection") {
             // Strategy written, but no usable SCV exists yet. Build post-write guidance.
-            const connType = value === "customer_activated" ? "customer-activated" : value === "org_activated" ? "org-activated" : value;
+            const connType =
+              value === "customer_activated"
+                ? "customer-activated"
+                : value === "org_activated"
+                  ? "org-activated"
+                  : value;
             const hasBuildOnly = existingStr === "solo_build_only";
 
             const connTypeKey = `${system}_connection_type`;
@@ -367,37 +395,41 @@ function main(): number {
             }
 
             const sessionPrefix = sessionName ? `${sessionName}-` : "";
-            const stableKey = componentKey && connectionKey
-              ? `${sessionPrefix}${componentKey}-${connectionKey}`
-              : `${sessionPrefix}${systemName.toLowerCase()}-oauth2`;
+            const stableKey =
+              componentKey && connectionKey
+                ? `${sessionPrefix}${componentKey}-${connectionKey}`
+                : `${sessionPrefix}${systemName.toLowerCase()}-oauth2`;
 
             let strategy = "customer-activated";
             if (value === "org_activated") {
               const scopeKey = `${system}_org_connection_scope`;
               const scopeValue = batch[scopeKey] || answers[scopeKey];
-              strategy = scopeValue === "global" ? "org-activated-global" : "org-activated-customer";
+              strategy =
+                scopeValue === "global" ? "org-activated-global" : "org-activated-customer";
             }
 
-            const createCmd = componentKey && connectionKey
-              ? `prismatic-tools create-organization-connection ` +
-                `--component-key ${componentKey} --connection-key ${connectionKey} ` +
-                `--name "${systemName} ${connType}" --stable-key ${stableKey} --strategy ${strategy} --skip-test-connection`
-              : "";
+            const createCmd =
+              componentKey && connectionKey
+                ? `prismatic-tools create-organization-connection ` +
+                  `--component-key ${componentKey} --connection-key ${connectionKey} ` +
+                  `--name "${systemName} ${connType}" --stable-key ${stableKey} --strategy ${strategy} --skip-test-connection`
+                : "";
 
             // Queue this as a post-write action (NOT a rejection)
             onAnswerActions.push(
               `<create-scv-recommended system="${systemName}" strategy="${value}"` +
-              (hasBuildOnly ? ` build-only-available="true"` : ``) + `>\n` +
-              `  No reusable ${connType} connection exists for ${systemName}.\n` +
-              (hasBuildOnly
-                ? `  Build-only connections exist for testing but cannot be used for production org_activated.\n`
-                : ``) +
-              `  Offer to create one:\n` +
-              (createCmd
-                ? `    ${createCmd}\n`
-                : `    <orby-request>Create a ${connType} connection for ${systemName}</orby-request>\n`) +
-              `  If the user declines, the connection will be configured post-deploy in admin UI.\n` +
-              `</create-scv-recommended>`
+                (hasBuildOnly ? ` build-only-available="true"` : ``) +
+                `>\n` +
+                `  No reusable ${connType} connection exists for ${systemName}.\n` +
+                (hasBuildOnly
+                  ? `  Build-only connections exist for testing but cannot be used for production org_activated.\n`
+                  : ``) +
+                `  Offer to create one:\n` +
+                (createCmd
+                  ? `    ${createCmd}\n`
+                  : `    <orby-request>Create a ${connType} connection for ${systemName}</orby-request>\n`) +
+                `  If the user declines, the connection will be configured post-deploy in admin UI.\n` +
+                `</create-scv-recommended>`,
             );
             // Do NOT exit — let the write proceed
           }
@@ -408,21 +440,21 @@ function main(): number {
 
   // Gate: api_docs_url must be written alone for components — it triggers research
   if (sessionType === "component" && batch.api_docs_url !== undefined) {
-    const otherKeys = Object.keys(batch).filter(k => k !== "api_docs_url");
+    const otherKeys = Object.keys(batch).filter((k) => k !== "api_docs_url");
     if (otherKeys.length > 0) {
       console.log(
         `0 answers written. Batch was REJECTED.\n\n` +
-        `<api-docs-url-must-be-alone>\n` +
-        `  api_docs_url cannot be batch-written with other answers.\n` +
-        `  It triggers API research that must complete BEFORE writing:\n` +
-        `  ${otherKeys.join(", ")}\n` +
-        `  <steps>\n` +
-        `    <step>Write api_docs_url ALONE: prismatic-tools record-choices --session <name> --type component api_docs_url=<url></step>\n` +
-        `    <step>Spawn external-api-researcher with the URL</step>\n` +
-        `    <step>WAIT for research to complete</step>\n` +
-        `    <step>THEN write the remaining answers using research findings</step>\n` +
-        `  </steps>\n` +
-        `</api-docs-url-must-be-alone>`
+          `<api-docs-url-must-be-alone>\n` +
+          `  api_docs_url cannot be batch-written with other answers.\n` +
+          `  It triggers API research that must complete BEFORE writing:\n` +
+          `  ${otherKeys.join(", ")}\n` +
+          `  <steps>\n` +
+          `    <step>Write api_docs_url ALONE: prismatic-tools record-choices --session <name> --type component api_docs_url=<url></step>\n` +
+          `    <step>Spawn external-api-researcher with the URL</step>\n` +
+          `    <step>WAIT for research to complete</step>\n` +
+          `    <step>THEN write the remaining answers using research findings</step>\n` +
+          `  </steps>\n` +
+          `</api-docs-url-must-be-alone>`,
       );
       process.exit(0);
     }
@@ -434,15 +466,28 @@ function main(): number {
   // Force the agent to present first, get confirmation, then re-run with --confirmed.
   if (!isConfirmed && spec) {
     // Count existing answers (excluding metadata keys)
-    const metaKeys = new Set(["name", "session", "type", "flows", "phase_gate", "additional_systems"]);
-    const existingCount = Object.keys(target).filter(k => !metaKeys.has(k)).length;
+    const metaKeys = new Set([
+      "name",
+      "session",
+      "type",
+      "flows",
+      "phase_gate",
+      "additional_systems",
+    ]);
+    const existingCount = Object.keys(target).filter((k) => !metaKeys.has(k)).length;
 
     // Count inference-allowed items in this batch (exclude lookups, flow_definitions, connection keys)
     const noGateKeys = new Set([
-      "flow_definitions", "flow_count", "systems", "source_system", "destination_system",
-      "additional_systems", "phase_gate",
+      "flow_definitions",
+      "flow_count",
+      "systems",
+      "source_system",
+      "destination_system",
+      "additional_systems",
+      "phase_gate",
     ]);
-    const connectionPattern = /_(connection|connection_type|connection_existing|org_connection_scope)$/;
+    const connectionPattern =
+      /_(connection|connection_type|connection_existing|org_connection_scope)$/;
 
     let inferenceCount = 0;
     const inferredItems: Array<{ key: string; value: string }> = [];
@@ -460,17 +505,22 @@ function main(): number {
     if (inferenceCount >= 4 && existingCount < 8) {
       console.log(
         `0 answers written. Batch was HELD for user confirmation.\n\n` +
-        `<confirm-inferences-before-writing count="${inferenceCount}">\n` +
-        `  You are batch-writing ${inferenceCount} inferred values. Present these to the user FIRST.\n` +
-        `  Show what you inferred, why (cite the user's words), and the architectural impact.\n` +
-        `  WAIT for the user to confirm or correct before writing.\n` +
-        `  \n` +
-        `  Inferred values:\n` +
-        inferredItems.map(i => `    ${i.key} = ${i.value}`).join("\n") + `\n` +
-        `  \n` +
-        `  After the user confirms, re-run this exact command with --confirmed:\n` +
-        `    prismatic-tools record-choices --session ${sessionName} --type ${sessionType} --confirmed ${Object.entries(batch).map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`).join(" ")}\n` +
-        `</confirm-inferences-before-writing>`
+          `<confirm-inferences-before-writing count="${inferenceCount}">\n` +
+          `  You are batch-writing ${inferenceCount} inferred values. Present these to the user FIRST.\n` +
+          `  Show what you inferred, why (cite the user's words), and the architectural impact.\n` +
+          `  WAIT for the user to confirm or correct before writing.\n` +
+          `  \n` +
+          `  Inferred values:\n` +
+          inferredItems.map((i) => `    ${i.key} = ${i.value}`).join("\n") +
+          `\n` +
+          `  \n` +
+          `  After the user confirms, re-run this exact command with --confirmed:\n` +
+          `    prismatic-tools record-choices --session ${sessionName} --type ${sessionType} --confirmed ${Object.entries(
+            batch,
+          )
+            .map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`)
+            .join(" ")}\n` +
+          `</confirm-inferences-before-writing>`,
       );
       process.exit(0);
     }
@@ -487,7 +537,8 @@ function main(): number {
         // Exact match first
         if (!validChoices.includes(answer)) {
           // Try case-insensitive match and auto-correct
-          const match = validChoices.find(c => c.toLowerCase() === answer.toLowerCase());
+          const answerStr = answer;
+          const match = validChoices.find((c) => c.toLowerCase() === answerStr.toLowerCase());
           if (match) {
             answer = match;
             console.error(`NOTE: Auto-corrected "${rawAnswer}" → "${match}" for ${questionId}`);
@@ -496,22 +547,24 @@ function main(): number {
             let choiceLines = "";
             const implications = specItem.implications as Record<string, string> | undefined;
             if (implications) {
-              choiceLines = validChoices.map(c => {
-                const desc = implications[c]
-                  ? ` — ${(implications[c] as string).trim().split("\n")[0]}`
-                  : "";
-                return `    <choice value="${c}">${c}${desc}</choice>`;
-              }).join("\n");
+              choiceLines = validChoices
+                .map((c) => {
+                  const desc = implications[c]
+                    ? ` — ${(implications[c] as string).trim().split("\n")[0]}`
+                    : "";
+                  return `    <choice value="${c}">${c}${desc}</choice>`;
+                })
+                .join("\n");
             } else {
-              choiceLines = validChoices.map(c =>
-                `    <choice value="${c}">${c}</choice>`
-              ).join("\n");
+              choiceLines = validChoices
+                .map((c) => `    <choice value="${c}">${c}</choice>`)
+                .join("\n");
             }
             console.log(
               `<validation-error key="${questionId}" attempted="${answer}">\n` +
-              `  <valid-choices>\n${choiceLines}\n  </valid-choices>\n` +
-              `  <instruction>Use ONLY the exact value= strings above. Present these choices to the user if needed. Do NOT invent alternatives.</instruction>\n` +
-              `</validation-error>`
+                `  <valid-choices>\n${choiceLines}\n  </valid-choices>\n` +
+                `  <instruction>Use ONLY the exact value= strings above. Present these choices to the user if needed. Do NOT invent alternatives.</instruction>\n` +
+                `</validation-error>`,
             );
             continue; // Skip writing this invalid answer
           }
@@ -519,13 +572,13 @@ function main(): number {
       }
 
       // Check on_answer for follow-up actions (using corrected value)
-      if (specItem && specItem.on_answer && typeof specItem.on_answer === "object") {
+      if (specItem?.on_answer && typeof specItem.on_answer === "object") {
         const onAnswer = specItem.on_answer as Record<string, string>;
         if (onAnswer[answer as string]) {
           onAnswerActions.push(
             `<action trigger="${questionId}=${answer}" blocking="true">\n` +
-            `  ${onAnswer[answer as string].trim()}\n` +
-            `</action>`
+              `  ${onAnswer[answer as string].trim()}\n` +
+              `</action>`,
           );
         }
       }
@@ -537,7 +590,9 @@ function main(): number {
     // When *_connection_existing is written with a rich connection object:
     // - Auto-infer connection_type (data extraction, not a user decision)
     // - Do NOT auto-infer connection strategy — that's a user decision. Emit a directive instead.
-    const existingMatch = questionId.match(/^(source|destination|connector_\d+)_connection_existing$/);
+    const existingMatch = questionId.match(
+      /^(source|destination|connector_\d+)_connection_existing$/,
+    );
     if (existingMatch && sessionType !== "component" && answer && typeof answer === "object") {
       const prefix = existingMatch[1];
       const conn = answer as Record<string, unknown>;
@@ -554,11 +609,13 @@ function main(): number {
           const comp = compAnswer as Record<string, unknown>;
           const connections = comp.connections as Array<Record<string, unknown>> | undefined;
           if (connections) {
-            const match = connections.find(c => c.key === connectionKey);
+            const match = connections.find((c) => c.key === connectionKey);
             if (match) {
               target[`${prefix}_connection_type`] = match;
               written.push(`${prefix}_connection_type`);
-              console.log(`   Auto-inferred: ${prefix}_connection_type from existing connection (key: ${connectionKey})`);
+              console.log(
+                `   Auto-inferred: ${prefix}_connection_type from existing connection (key: ${connectionKey})`,
+              );
             }
           }
         }
@@ -574,19 +631,20 @@ function main(): number {
 
       // Emit a directive: present this connection to the user and let them decide
       const systemKey = `${prefix}_system`;
-      const systemName = typeof (target[systemKey] || answers[systemKey]) === "string"
-        ? (target[systemKey] || answers[systemKey]) as string
-        : prefix;
+      const systemName =
+        typeof (target[systemKey] || answers[systemKey]) === "string"
+          ? ((target[systemKey] || answers[systemKey]) as string)
+          : prefix;
 
       if (detectedStrategy && !target[`${prefix}_connection`]) {
         onAnswerActions.push(
           `<connection-found system="${systemName}" prefix="${prefix}" blocking="true">\n` +
-          `  Found existing connection: "${connectionName || stableKey || "unknown"}" (${detectedStrategy})\n` +
-          `  Present this to the user: "I found an existing ${detectedStrategy.replace("_", "-")} connection for ${systemName}: ${connectionName || stableKey}. Use this one?"\n` +
-          `  <on-yes>Record: ${prefix}_connection=${detectedStrategy}</on-yes>\n` +
-          `  <on-no>Ask what connection strategy the user wants instead</on-no>\n` +
-          `  Do NOT auto-select. The user must confirm.\n` +
-          `</connection-found>`
+            `  Found existing connection: "${connectionName || stableKey || "unknown"}" (${detectedStrategy})\n` +
+            `  Present this to the user: "I found an existing ${detectedStrategy.replace("_", "-")} connection for ${systemName}: ${connectionName || stableKey}. Use this one?"\n` +
+            `  <on-yes>Record: ${prefix}_connection=${detectedStrategy}</on-yes>\n` +
+            `  <on-no>Ask what connection strategy the user wants instead</on-no>\n` +
+            `  Do NOT auto-select. The user must confirm.\n` +
+            `</connection-found>`,
         );
       }
     }
@@ -594,18 +652,13 @@ function main(): number {
     if (connectionTypeQuestions.includes(questionId)) {
       if (typeof answer === "object" && answer !== null) {
         const obj = answer as Record<string, unknown>;
-        if (
-          !obj.inputs ||
-          (Array.isArray(obj.inputs) && obj.inputs.length === 0)
-        ) {
+        if (!obj.inputs || (Array.isArray(obj.inputs) && obj.inputs.length === 0)) {
           console.log(
-            `WARNING: ${questionId} is missing 'inputs' array — will cause credentials error later.`
+            `WARNING: ${questionId} is missing 'inputs' array — will cause credentials error later.`,
           );
         }
       } else {
-        console.log(
-          `WARNING: ${questionId} should be an object, not string.`
-        );
+        console.log(`WARNING: ${questionId} should be an object, not string.`);
       }
     }
   }
@@ -622,9 +675,7 @@ function main(): number {
     console.log(`${prefix}${written.length} answers written to ${answersFile}`);
     for (const id of written) {
       const val = target[id];
-      console.log(
-        `   ${id} = ${typeof val === "string" ? val : JSON.stringify(val)}`
-      );
+      console.log(`   ${id} = ${typeof val === "string" ? val : JSON.stringify(val)}`);
     }
 
     // Print on_answer actions as XML — the agent parses structured XML more reliably than prose
@@ -649,7 +700,7 @@ function main(): number {
       const result = execFileSync(
         "npx",
         ["tsx", syncScript, syncSpec, answersFile, "--actionable"],
-        { encoding: "utf-8", timeout: 30000 }
+        { encoding: "utf-8", timeout: 30000 },
       );
       console.log(result);
     } catch (e) {

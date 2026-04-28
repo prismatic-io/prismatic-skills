@@ -12,10 +12,7 @@ export function formatDuration(seconds: number): string {
   return `${minutes}m ${Math.round(secs)}s`;
 }
 
-export function timedStep<T>(
-  stepName: string,
-  fn: () => T
-): T {
+export function timedStep<T>(stepName: string, fn: () => T): T {
   const start = performance.now();
   const result = fn();
   const duration = (performance.now() - start) / 1000;
@@ -23,10 +20,7 @@ export function timedStep<T>(
   return result;
 }
 
-export async function timedStepAsync<T>(
-  stepName: string,
-  fn: () => Promise<T>
-): Promise<T> {
+export async function timedStepAsync<T>(stepName: string, fn: () => Promise<T>): Promise<T> {
   const start = performance.now();
   const result = await fn();
   const duration = (performance.now() - start) / 1000;

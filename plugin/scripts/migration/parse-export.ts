@@ -16,7 +16,15 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from "node:fs";
+import {
+  writeFileSync,
+  readFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  copyFileSync,
+  statSync,
+} from "node:fs";
 import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -47,7 +55,9 @@ function main(): number {
   }
 
   if (!exportPath || !platform) {
-    console.log("Usage: prismatic-tools parse-export <export-path> --platform <boomi|cyclr> [--summary] [--session <name>]");
+    console.log(
+      "Usage: prismatic-tools parse-export <export-path> --platform <boomi|cyclr> [--summary] [--session <name>]",
+    );
     return 1;
   }
 
@@ -71,10 +81,16 @@ function main(): number {
   // The parser uses createRequire to resolve it from npx's cache (zero install)
   // Output goes to a temp file to avoid pipe buffer truncation with large exports
   const tmpOut = join(tmpdir(), `parse-export-${process.pid}.json`);
-  const npxArgs = platform === "boomi"
-    ? ["--package=@xmldom/xmldom", "--package=tsx", "--yes", "-c",
-       `tsx ${parserArgs.map(a => `'${a.replace(/'/g, "'\\''")}'`).join(" ")} > '${tmpOut}'`]
-    : ["tsx", ...parserArgs];
+  const npxArgs =
+    platform === "boomi"
+      ? [
+          "--package=@xmldom/xmldom",
+          "--package=tsx",
+          "--yes",
+          "-c",
+          `tsx ${parserArgs.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")} > '${tmpOut}'`,
+        ]
+      : ["tsx", ...parserArgs];
 
   const result = spawnSync("npx", npxArgs, {
     encoding: "utf-8",

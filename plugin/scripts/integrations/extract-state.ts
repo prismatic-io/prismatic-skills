@@ -134,12 +134,10 @@ function isDirectory(path: string): boolean {
 
 function findProject(pathOrName: string): string | null {
   const resolved = resolve(pathOrName);
-  if (existsSync(resolved) && isDirectory(resolved) && isValidCNIProject(resolved))
-    return resolved;
+  if (existsSync(resolved) && isDirectory(resolved) && isValidCNIProject(resolved)) return resolved;
   const cwd = process.cwd();
   const byName = join(cwd, pathOrName);
-  if (existsSync(byName) && isDirectory(byName) && isValidCNIProject(byName))
-    return byName;
+  if (existsSync(byName) && isDirectory(byName) && isValidCNIProject(byName)) return byName;
   const prismaticDir = join(cwd, ".prismatic", "integrations", pathOrName);
   if (existsSync(prismaticDir) && isDirectory(prismaticDir) && isValidCNIProject(prismaticDir))
     return prismaticDir;
@@ -147,17 +145,13 @@ function findProject(pathOrName: string): string | null {
   return null;
 }
 
-function extractFlows(
-  dir: string
-): { structure: "single-file" | "directory"; flows: FlowInfo[] } {
+function extractFlows(dir: string): { structure: "single-file" | "directory"; flows: FlowInfo[] } {
   const singleFile = join(dir, "src/flows.ts");
   const flowsDir = join(dir, "src/flows");
 
   if (existsSync(join(flowsDir, "index.ts"))) {
     const flows: FlowInfo[] = [];
-    const files = readdirSync(flowsDir).filter(
-      (f) => f.endsWith(".ts") && f !== "index.ts"
-    );
+    const files = readdirSync(flowsDir).filter((f) => f.endsWith(".ts") && f !== "index.ts");
     for (const file of files) {
       const content = readFileSync(join(flowsDir, file), "utf-8");
       const flow = parseFlowFromContent(content, `src/flows/${file}`);
@@ -175,17 +169,13 @@ function extractFlows(
   return { structure: "single-file", flows: [] };
 }
 
-function parseFlowFromContent(
-  content: string,
-  file: string
-): FlowInfo | null {
+function parseFlowFromContent(content: string, file: string): FlowInfo | null {
   const nameMatch = content.match(/name:\s*["']([^"']+)["']/);
   const keyMatch = content.match(/stableKey:\s*["']([^"']+)["']/);
   if (!nameMatch) return null;
   return {
     name: nameMatch[1],
-    stableKey:
-      keyMatch?.[1] ?? nameMatch[1].toLowerCase().replace(/\s+/g, "-"),
+    stableKey: keyMatch?.[1] ?? nameMatch[1].toLowerCase().replace(/\s+/g, "-"),
     file,
     hasTrigger: /onTrigger\s*:/.test(content),
     hasExecution: /onExecution\s*:/.test(content),
@@ -197,18 +187,14 @@ function extractComponents(dir: string): string[] {
   if (!existsSync(regPath)) return [];
   const content = readFileSync(regPath, "utf-8");
   const components: string[] = [];
-  const importRe =
-    /import\s+\w+\s+from\s+["']\.\/manifests\/([^"'/]+)["']/g;
-  let match;
-  while ((match = importRe.exec(content)) !== null) {
+  const importRe = /import\s+\w+\s+from\s+["']\.\/manifests\/([^"'/]+)["']/g;
+  for (const match of content.matchAll(importRe)) {
     components.push(match[1]);
   }
   return components;
 }
 
-function extractConfigPages(
-  dir: string
-): { pages: string[]; connections: string[] } {
+function extractConfigPages(dir: string): { pages: string[]; connections: string[] } {
   const cpPath = join(dir, "src/configPages.ts");
   if (!existsSync(cpPath)) return { pages: [], connections: [] };
   const content = readFileSync(cpPath, "utf-8");
@@ -216,18 +202,15 @@ function extractConfigPages(
   const connections: string[] = [];
 
   const pageRe = /["']([^"']+)["']\s*:\s*configPage\s*\(/g;
-  let match;
-  while ((match = pageRe.exec(content)) !== null) {
+  for (const match of content.matchAll(pageRe)) {
     pages.push(match[1]);
   }
-  const connRe =
-    /connectionConfigVar\s*\(\s*\{[^}]*key\s*:\s*["']([^"']+)["']/g;
-  while ((match = connRe.exec(content)) !== null) {
+  const connRe = /connectionConfigVar\s*\(\s*\{[^}]*key\s*:\s*["']([^"']+)["']/g;
+  for (const match of content.matchAll(connRe)) {
     connections.push(match[1]);
   }
-  const manifestConnRe =
-    /["']([^"']+)["']\s*:\s*\w+(?:Oauth2|ApiKey|Basic)\s*\(/g;
-  while ((match = manifestConnRe.exec(content)) !== null) {
+  const manifestConnRe = /["']([^"']+)["']\s*:\s*\w+(?:Oauth2|ApiKey|Basic)\s*\(/g;
+  for (const match of content.matchAll(manifestConnRe)) {
     connections.push(match[1]);
   }
   return { pages, connections };
@@ -259,15 +242,9 @@ function hasLifecycleHooks(dir: string): boolean {
  * Handles single-level nesting like errorConfig: { errorHandlerType: "retry", ... }
  * Also handles multi-line blocks by matching balanced braces.
  */
-function parseConfigBlock(
-  content: string,
-  blockName: string
-): Record<string, string> | null {
+function parseConfigBlock(content: string, blockName: string): Record<string, string> | null {
   // Try single-line first
-  const singleLineRe = new RegExp(
-    `${blockName}\\s*:\\s*\\{([^}]+)\\}`,
-    "s"
-  );
+  const singleLineRe = new RegExp(`${blockName}\\s*:\\s*\\{([^}]+)\\}`, "s");
   const singleMatch = content.match(singleLineRe);
 
   let blockContent: string | null = null;
@@ -297,10 +274,8 @@ function parseConfigBlock(
 
   const result: Record<string, string> = {};
   // Match key: value patterns (handles strings, numbers, booleans)
-  const kvRe =
-    /(\w+)\s*:\s*(?:"([^"]*)"|(true|false)|(\d+(?:\.\d+)?)|'([^']*)')/g;
-  let kvMatch;
-  while ((kvMatch = kvRe.exec(blockContent)) !== null) {
+  const kvRe = /(\w+)\s*:\s*(?:"([^"]*)"|(true|false)|(\d+(?:\.\d+)?)|'([^']*)')/g;
+  for (const kvMatch of blockContent.matchAll(kvRe)) {
     const key = kvMatch[1];
     const value = kvMatch[2] ?? kvMatch[3] ?? kvMatch[4] ?? kvMatch[5];
     if (key && value !== undefined) {
@@ -319,9 +294,7 @@ function extractFlowProperties(content: string): FlowState {
   // --- Trigger type ---
   if (/onTrigger\s*:\s*async\s*\(/.test(content)) {
     // Has a custom onTrigger — check for polling triggerType
-    const triggerTypeMatch = content.match(
-      /triggerType\s*:\s*["']([^"']+)["']/
-    );
+    const triggerTypeMatch = content.match(/triggerType\s*:\s*["']([^"']+)["']/);
     if (triggerTypeMatch?.[1] === "polling") {
       state.trigger_type = "polling";
     } else {
@@ -339,16 +312,14 @@ function extractFlowProperties(content: string): FlowState {
   // --- Schedule ---
   const scheduleBlock = parseConfigBlock(content, "schedule");
   if (scheduleBlock) {
-    if (scheduleBlock["value"]) {
-      state.schedule_value = scheduleBlock["value"];
+    if (scheduleBlock.value) {
+      state.schedule_value = scheduleBlock.value;
     }
-    if (scheduleBlock["timezone"]) {
-      state.schedule_timezone = scheduleBlock["timezone"];
+    if (scheduleBlock.timezone) {
+      state.schedule_timezone = scheduleBlock.timezone;
     }
     // Check for configVar reference
-    const configVarSchedule = content.match(
-      /schedule\s*:\s*\{[^}]*value\s*:\s*configVar\s*\(/s
-    );
+    const configVarSchedule = content.match(/schedule\s*:\s*\{[^}]*value\s*:\s*configVar\s*\(/s);
     if (configVarSchedule) {
       state.schedule_value = "configVar";
     }
@@ -365,21 +336,18 @@ function extractFlowProperties(content: string): FlowState {
   // --- Error handling ---
   const errorConfig = parseConfigBlock(content, "errorConfig");
   if (errorConfig) {
-    state.error_handler_type =
-      errorConfig["errorHandlerType"] ?? "fail";
-    if (errorConfig["maxAttempts"]) {
-      state.error_retry_max_attempts = errorConfig["maxAttempts"];
+    state.error_handler_type = errorConfig.errorHandlerType ?? "fail";
+    if (errorConfig.maxAttempts) {
+      state.error_retry_max_attempts = errorConfig.maxAttempts;
     }
-    if (errorConfig["delaySeconds"]) {
-      state.error_retry_delay_seconds = errorConfig["delaySeconds"];
+    if (errorConfig.delaySeconds) {
+      state.error_retry_delay_seconds = errorConfig.delaySeconds;
     }
-    if (errorConfig["usesExponentialBackoff"]) {
-      state.error_retry_backoff =
-        errorConfig["usesExponentialBackoff"] === "true" ? "Yes" : "No";
+    if (errorConfig.usesExponentialBackoff) {
+      state.error_retry_backoff = errorConfig.usesExponentialBackoff === "true" ? "Yes" : "No";
     }
-    if (errorConfig["ignoreFinalError"]) {
-      state.error_retry_ignore_final =
-        errorConfig["ignoreFinalError"] === "true" ? "Yes" : "No";
+    if (errorConfig.ignoreFinalError) {
+      state.error_retry_ignore_final = errorConfig.ignoreFinalError === "true" ? "Yes" : "No";
     }
   } else {
     state.error_handler_type = "fail"; // default when omitted
@@ -389,19 +357,17 @@ function extractFlowProperties(content: string): FlowState {
   const retryConfig = parseConfigBlock(content, "retryConfig");
   if (retryConfig) {
     state.execution_retry_enabled = "Yes";
-    if (retryConfig["maxAttempts"]) {
-      state.execution_retry_max_attempts = retryConfig["maxAttempts"];
+    if (retryConfig.maxAttempts) {
+      state.execution_retry_max_attempts = retryConfig.maxAttempts;
     }
-    if (retryConfig["delayMinutes"]) {
-      state.execution_retry_delay_minutes = retryConfig["delayMinutes"];
+    if (retryConfig.delayMinutes) {
+      state.execution_retry_delay_minutes = retryConfig.delayMinutes;
     }
-    if (retryConfig["usesExponentialBackoff"]) {
-      state.execution_retry_backoff =
-        retryConfig["usesExponentialBackoff"] === "true" ? "Yes" : "No";
+    if (retryConfig.usesExponentialBackoff) {
+      state.execution_retry_backoff = retryConfig.usesExponentialBackoff === "true" ? "Yes" : "No";
     }
-    if (retryConfig["uniqueRequestIdField"]) {
-      state.execution_retry_cancellation_field =
-        retryConfig["uniqueRequestIdField"];
+    if (retryConfig.uniqueRequestIdField) {
+      state.execution_retry_cancellation_field = retryConfig.uniqueRequestIdField;
     }
   } else {
     state.execution_retry_enabled = "No"; // default when omitted
@@ -410,28 +376,24 @@ function extractFlowProperties(content: string): FlowState {
   // --- Queue config ---
   const queueConfig = parseConfigBlock(content, "queueConfig");
   if (queueConfig) {
-    if (queueConfig["usesFifoQueue"]) {
-      state.queue_fifo_enabled =
-        queueConfig["usesFifoQueue"] === "true" ? "Yes" : "No";
+    if (queueConfig.usesFifoQueue) {
+      state.queue_fifo_enabled = queueConfig.usesFifoQueue === "true" ? "Yes" : "No";
     }
-    if (queueConfig["concurrencyLimit"]) {
-      state.queue_concurrency_limit = queueConfig["concurrencyLimit"];
+    if (queueConfig.concurrencyLimit) {
+      state.queue_concurrency_limit = queueConfig.concurrencyLimit;
     }
-    if (queueConfig["singletonExecutions"]) {
-      state.queue_singleton_executions =
-        queueConfig["singletonExecutions"] === "true" ? "Yes" : "No";
+    if (queueConfig.singletonExecutions) {
+      state.queue_singleton_executions = queueConfig.singletonExecutions === "true" ? "Yes" : "No";
     }
-    if (queueConfig["dedupeIdField"]) {
-      state.queue_dedupe_field = queueConfig["dedupeIdField"];
+    if (queueConfig.dedupeIdField) {
+      state.queue_dedupe_field = queueConfig.dedupeIdField;
     }
   } else {
     state.queue_fifo_enabled = "No"; // default
   }
 
   // --- Endpoint security ---
-  const securityMatch = content.match(
-    /endpointSecurityType\s*:\s*["']([^"']+)["']/
-  );
+  const securityMatch = content.match(/endpointSecurityType\s*:\s*["']([^"']+)["']/);
   if (securityMatch) {
     state.endpoint_security = securityMatch[1];
   } else {
@@ -439,9 +401,7 @@ function extractFlowProperties(content: string): FlowState {
   }
 
   // --- Organization API keys ---
-  const orgKeysMatch = content.match(
-    /organizationApiKeys\s*:\s*\[([^\]]+)\]/
-  );
+  const orgKeysMatch = content.match(/organizationApiKeys\s*:\s*\[([^\]]+)\]/);
   if (orgKeysMatch) {
     const keys = orgKeysMatch[1]
       .replace(/["']/g, "")
@@ -466,17 +426,12 @@ function extractFlowProperties(content: string): FlowState {
   }
 
   // --- State management ---
-  if (
-    /instanceState|crossFlowState|integrationState|context\.polling/.test(
-      content
-    )
-  ) {
+  if (/instanceState|crossFlowState|integrationState|context\.polling/.test(content)) {
     state.needs_state_management = "Yes";
     if (/crossFlowState/.test(content)) {
       state.state_scope = "crossFlowState (per-instance, shared across flows)";
     } else if (/integrationState/.test(content)) {
-      state.state_scope =
-        "integrationState (shared across all instances)";
+      state.state_scope = "integrationState (shared across all instances)";
     } else if (/context\.polling/.test(content)) {
       state.state_scope = "instanceState (per-flow, per-instance)";
     } else {
@@ -500,15 +455,11 @@ interface IntegrationLevelProps {
   routing_external_customer_id_field?: string;
 }
 
-function extractIntegrationProperties(
-  indexContent: string
-): IntegrationLevelProps {
+function extractIntegrationProperties(indexContent: string): IntegrationLevelProps {
   const props: IntegrationLevelProps = {};
 
   // --- Endpoint type ---
-  const endpointMatch = indexContent.match(
-    /endpointType\s*:\s*["']([^"']+)["']/
-  );
+  const endpointMatch = indexContent.match(/endpointType\s*:\s*["']([^"']+)["']/);
   if (endpointMatch) {
     props.endpoint_type = endpointMatch[1];
   } else {
@@ -516,27 +467,21 @@ function extractIntegrationProperties(
   }
 
   // --- Preprocess flow routing ---
-  const preprocessMatch = indexContent.match(
-    /triggerPreprocessFlowConfig\s*:\s*\{/
-  );
+  const preprocessMatch = indexContent.match(/triggerPreprocessFlowConfig\s*:\s*\{/);
   if (preprocessMatch) {
-    const block = parseConfigBlock(
-      indexContent,
-      "triggerPreprocessFlowConfig"
-    );
+    const block = parseConfigBlock(indexContent, "triggerPreprocessFlowConfig");
     if (block) {
-      if (block["flowNameField"]) {
-        props.routing_flow_name_field = block["flowNameField"];
+      if (block.flowNameField) {
+        props.routing_flow_name_field = block.flowNameField;
         // Infer routing type from field path
-        if (block["flowNameField"].startsWith("headers.")) {
+        if (block.flowNameField.startsWith("headers.")) {
           props.preprocess_flow_routing = "header_field";
         } else {
           props.preprocess_flow_routing = "body_field";
         }
       }
-      if (block["externalCustomerIdField"]) {
-        props.routing_external_customer_id_field =
-          block["externalCustomerIdField"];
+      if (block.externalCustomerIdField) {
+        props.routing_external_customer_id_field = block.externalCustomerIdField;
       }
     }
   }
@@ -562,8 +507,7 @@ function extractConnectionTypes(dir: string): ConnectionInfo[] {
   // Match connectionConfigVar with connectionType
   const connRe =
     /connectionConfigVar\s*\(\s*\{[^}]*key\s*:\s*["']([^"']+)["'][^}]*connectionType\s*:\s*["']([^"']+)["']/gs;
-  let match;
-  while ((match = connRe.exec(content)) !== null) {
+  for (const match of content.matchAll(connRe)) {
     connections.push({ key: match[1], connectionType: match[2] });
   }
 
@@ -580,10 +524,8 @@ function extractDataSources(dir: string): string[] {
   const content = readFileSync(cpPath, "utf-8");
   const dataSources: string[] = [];
 
-  const dsRe =
-    /dataSourceConfigVar\s*\(\s*\{[^}]*key\s*:\s*["']([^"']+)["']/g;
-  let match;
-  while ((match = dsRe.exec(content)) !== null) {
+  const dsRe = /dataSourceConfigVar\s*\(\s*\{[^}]*key\s*:\s*["']([^"']+)["']/g;
+  for (const match of content.matchAll(dsRe)) {
     dataSources.push(match[1]);
   }
 
@@ -598,14 +540,12 @@ function extractState(dir: string): {
   state: IntegrationState;
   extraction_gaps: string[];
 } {
-  const { structure, flows } = extractFlows(dir);
+  const { flows } = extractFlows(dir);
   const components = extractComponents(dir);
 
   // Read index.ts for integration-level properties
   const indexPath = join(dir, "src/index.ts");
-  const indexContent = existsSync(indexPath)
-    ? readFileSync(indexPath, "utf-8")
-    : "";
+  const indexContent = existsSync(indexPath) ? readFileSync(indexPath, "utf-8") : "";
   const integrationProps = extractIntegrationProperties(indexContent);
 
   // Extract connection types and data sources
@@ -616,17 +556,13 @@ function extractState(dir: string): {
   const flowStates: Record<string, FlowState> = {};
   for (const flowInfo of flows) {
     const flowPath = join(dir, flowInfo.file);
-    const flowContent = existsSync(flowPath)
-      ? readFileSync(flowPath, "utf-8")
-      : "";
+    const flowContent = existsSync(flowPath) ? readFileSync(flowPath, "utf-8") : "";
     flowStates[flowInfo.stableKey] = extractFlowProperties(flowContent);
   }
 
   // Determine the "primary" trigger type (for single-flow compat)
-  const primaryTrigger =
-    flows.length > 0
-      ? flowStates[flows[0].stableKey]?.trigger_type
-      : undefined;
+  const _primaryTrigger =
+    flows.length > 0 ? flowStates[flows[0].stableKey]?.trigger_type : undefined;
 
   const state: IntegrationState = {
     flow_count: String(flows.length),
@@ -642,21 +578,20 @@ function extractState(dir: string): {
     state.routing_flow_name_field = integrationProps.routing_flow_name_field;
   }
   if (integrationProps.routing_external_customer_id_field) {
-    state.routing_external_customer_id_field =
-      integrationProps.routing_external_customer_id_field;
+    state.routing_external_customer_id_field = integrationProps.routing_external_customer_id_field;
   }
 
   // Add component info as readable summaries
   if (components.length > 0) {
-    state["components"] = components.join(", ");
+    state.components = components.join(", ");
   }
   if (connectionTypes.length > 0) {
-    state["connection_types"] = connectionTypes
+    state.connection_types = connectionTypes
       .map((c) => `${c.key}: ${c.connectionType ?? "unknown"}`)
       .join(", ");
   }
   if (dataSources.length > 0) {
-    state["data_sources"] = dataSources.join(", ");
+    state.data_sources = dataSources.join(", ");
   }
 
   // For single-flow integrations, promote flow-scoped answers to root
@@ -712,8 +647,8 @@ function main(): number {
           error: `No valid CNI project found for "${pathOrName}".`,
         },
         null,
-        2
-      )
+        2,
+      ),
     );
     return 1;
   }

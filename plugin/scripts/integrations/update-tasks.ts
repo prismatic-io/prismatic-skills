@@ -70,6 +70,7 @@ interface SpecItem {
   default?: unknown;
   agent_context?: string;
   implications?: Record<string, string>;
+  suggestions?: string[];
   cookbook_section?: string;
   maps_to?: string;
   note?: string;
@@ -143,10 +144,7 @@ function normalizeForComparison(value: unknown): unknown {
   return value;
 }
 
-function evaluateCondition(
-  condition: Record<string, unknown>,
-  answers: Answers
-): boolean {
+function evaluateCondition(condition: Record<string, unknown>, answers: Answers): boolean {
   for (const [key, expected] of Object.entries(condition)) {
     const actual = normalizeForComparison(answers[key]);
 
@@ -159,11 +157,7 @@ function evaluateCondition(
       continue;
     }
 
-    if (
-      expected !== null &&
-      typeof expected === "object" &&
-      !Array.isArray(expected)
-    ) {
+    if (expected !== null && typeof expected === "object" && !Array.isArray(expected)) {
       const cond = expected as Record<string, unknown>;
 
       if ("not" in cond) {
@@ -188,10 +182,8 @@ function evaluateCondition(
         if (!allowed.includes(actual)) return false;
       }
       if ("contains" in cond) {
-        if (!Array.isArray(actual) || !actual.includes(cond.contains))
-          return false;
+        if (!Array.isArray(actual) || !actual.includes(cond.contains)) return false;
       }
-      continue;
     }
   }
   return true;
@@ -204,7 +196,7 @@ function evaluateCondition(
 function getItemStatus(
   item: SpecItem,
   answers: Answers,
-  value: unknown
+  value: unknown,
 ): "pending" | "answered" | "not_applicable" | "blocked" {
   // Check if answered
   if (!isEmpty(value)) return "answered";
@@ -336,7 +328,7 @@ function buildSubject(
   id: string,
   _groupLabel: string,
   flowName?: string,
-  sessionType?: string
+  sessionType?: string,
 ): string {
   const prefix = flowName ? `${flowName}: ` : "";
 
@@ -376,10 +368,7 @@ function isRequired(spec: Spec, itemId: string, answers: Answers): boolean {
   if (item?.inference === "prohibited") return true;
 
   for (const conditional of spec.required.when ?? []) {
-    if (
-      conditional.items.includes(itemId) &&
-      evaluateCondition(conditional.condition, answers)
-    ) {
+    if (conditional.items.includes(itemId) && evaluateCondition(conditional.condition, answers)) {
       return true;
     }
   }
@@ -415,10 +404,7 @@ const SCOPE_TO_GROUPS: Record<string, string[]> = {
     "lifecycle_hooks",
     "state_management",
   ],
-  "Change error handling / retry config": [
-    "error_handling",
-    "execution_retry",
-  ],
+  "Change error handling / retry config": ["error_handling", "execution_retry"],
   "Add or change a component": ["source", "destination"],
   "Modify config pages": ["payload_and_config"],
   "Add lifecycle hooks": ["lifecycle_hooks"],
@@ -453,10 +439,7 @@ function getRelevantGroups(modificationScopes: string[], sessionType?: string): 
  * Source (connectors[0]) and destination (connectors[1]) use existing items.
  * This only creates items for connectors[2+].
  */
-function expandConnectorTemplate(
-  spec: Spec,
-  answers: Answers,
-): void {
+function expandConnectorTemplate(spec: Spec, answers: Answers): void {
   // Parse additional_systems — should be a JSON array of system names
   const raw = answers.additional_systems;
   if (!raw) return;
@@ -474,7 +457,10 @@ function expandConnectorTemplate(
       }
     } catch {
       // Could be a comma-separated string
-      additionalSystems = raw.split(",").map(s => s.trim()).filter(Boolean);
+      additionalSystems = raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
     }
   } else {
     return;
@@ -483,7 +469,13 @@ function expandConnectorTemplate(
   if (additionalSystems.length === 0) return;
 
   // Load the connector template
-  const templatePath = join(getPluginRoot(), "scripts", "questions", "integration", "connector-template.yaml");
+  const templatePath = join(
+    getPluginRoot(),
+    "scripts",
+    "questions",
+    "integration",
+    "connector-template.yaml",
+  );
   if (!existsSync(templatePath)) return;
 
   let templateContent: string;
@@ -523,7 +515,7 @@ function expandConnectorTemplate(
 
     // Find or create a group for this connector
     const groupId = `connector_${connectorIndex}`;
-    const existingGroup = spec.groups.find(g => g.id === groupId);
+    const existingGroup = spec.groups.find((g) => g.id === groupId);
     if (!existingGroup) {
       const itemIds = Object.keys(items);
       spec.groups.push({
@@ -575,7 +567,10 @@ function parseSimpleYaml(content: string): Record<string, SpecItem> {
           try {
             currentItem[prop] = JSON.parse(value);
           } catch {
-            currentItem[prop] = value.slice(1, -1).split(",").map(s => s.trim().replace(/^["']|["']$/g, ""));
+            currentItem[prop] = value
+              .slice(1, -1)
+              .split(",")
+              .map((s) => s.trim().replace(/^["']|["']$/g, ""));
           }
         } else if (value.startsWith("{")) {
           // Inline object
@@ -595,7 +590,7 @@ function parseSimpleYaml(content: string): Record<string, SpecItem> {
         const trimmed = line.trim();
         for (const key of Object.keys(currentItem)) {
           if (currentItem[`_multiline_${key}`]) {
-            currentItem[key] = ((currentItem[key] as string) + " " + trimmed).trim();
+            currentItem[key] = `${currentItem[key] as string} ${trimmed}`.trim();
           }
         }
       }
@@ -651,7 +646,7 @@ function buildManifest(
     extractedState?: Answers;
     modificationScopes?: string[];
     sessionType?: string;
-  }
+  },
 ): TaskManifest {
   const tasks: TaskEntry[] = [];
 
@@ -661,9 +656,7 @@ function buildManifest(
     !Array.isArray(answers.flows) &&
     Object.keys(answers.flows as Record<string, unknown>).length > 0;
 
-  const flowIds = isMultiFlow
-    ? Object.keys(answers.flows as Record<string, unknown>)
-    : [];
+  const flowIds = isMultiFlow ? Object.keys(answers.flows as Record<string, unknown>) : [];
 
   // In modify mode, filter to relevant groups based on modification scope
   const relevantGroups =
@@ -688,9 +681,8 @@ function buildManifest(
     if (scope === "flow" && isMultiFlow) {
       // Create per-flow tasks
       for (const flowId of flowIds) {
-        const flowAnswers = (
-          answers.flows as Record<string, Record<string, unknown>>
-        )[flowId] ?? {};
+        const flowAnswers =
+          (answers.flows as Record<string, Record<string, unknown>>)[flowId] ?? {};
         const merged: Answers = { ...answers, ...flowAnswers };
         delete merged.flows;
 
@@ -700,17 +692,11 @@ function buildManifest(
 
         // In modify mode, skip items that are already answered (from extracted state)
         // unless the status would be "pending" (user wants to change it)
-        if (
-          options.mode === "modify" &&
-          options.extractedState &&
-          status === "answered"
-        ) {
+        if (options.mode === "modify" && options.extractedState && status === "answered") {
           continue; // Already known — don't create a task
         }
 
-        const flowData = (
-          answers.flows as Record<string, Record<string, unknown>>
-        )[flowId];
+        const flowData = (answers.flows as Record<string, Record<string, unknown>>)[flowId];
         const flowDisplayName =
           (flowData?.flow_name as string) ??
           flowId
@@ -740,11 +726,7 @@ function buildManifest(
       const blockingKeys = getBlockingKeys(item);
 
       // In modify mode, skip already-answered items
-      if (
-        options.mode === "modify" &&
-        options.extractedState &&
-        status === "answered"
-      ) {
+      if (options.mode === "modify" && options.extractedState && status === "answered") {
         continue;
       }
 
@@ -770,13 +752,11 @@ function buildManifest(
   const answered = tasks.filter((t) => t.status === "answered").length;
   const pending = tasks.filter((t) => t.status === "pending").length;
   const blocked = tasks.filter((t) => t.status === "blocked").length;
-  const notApplicable = tasks.filter(
-    (t) => t.status === "not_applicable"
-  ).length;
+  const notApplicable = tasks.filter((t) => t.status === "not_applicable").length;
 
   // Ready when all required pending items are zero
   const requiredPending = tasks.filter(
-    (t) => t.is_required && (t.status === "pending" || t.status === "blocked")
+    (t) => t.is_required && (t.status === "pending" || t.status === "blocked"),
   );
   const readyForNextPhase = requiredPending.length === 0;
 
@@ -797,11 +777,7 @@ function buildManifest(
 // Task description builder
 // ---------------------------------------------------------------------------
 
-function buildDescription(
-  item: SpecItem,
-  specKey: string,
-  extractedState?: Answers
-): string {
+function buildDescription(item: SpecItem, specKey: string, extractedState?: Answers): string {
   const parts: string[] = [];
 
   // Spec key for task metadata linkage
@@ -845,7 +821,11 @@ function buildDescription(
 // ---------------------------------------------------------------------------
 
 function escapeXml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function inferPhase(answered: number, total: number, ready: boolean): string {
@@ -894,14 +874,22 @@ function main(): number {
   if (!sessionName && positional.length < 2) {
     console.error(
       "Usage: npx tsx sync-task-list.ts <spec.yaml> <answers.json> [--mode build|modify] [--extracted-state <file>] [--scope <scopes>]\n" +
-      "       npx tsx sync-task-list.ts --session <name> [--type component|integration] --actionable [--mode build|modify]"
+        "       npx tsx sync-task-list.ts --session <name> [--type component|integration] --actionable [--mode build|modify]",
     );
     return 2;
   }
 
   if (sessionName) {
-    specFile = join(getPluginRoot(), "scripts", "questions", sessionType === "component" ? "component.yaml" : "integration.yaml");
-    answersFile = join(getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"), "requirements.json");
+    specFile = join(
+      getPluginRoot(),
+      "scripts",
+      "questions",
+      sessionType === "component" ? "component.yaml" : "integration.yaml",
+    );
+    answersFile = join(
+      getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"),
+      "requirements.json",
+    );
   } else {
     specFile = positional[0];
     answersFile = positional[1];
@@ -920,15 +908,10 @@ function main(): number {
   let answers: Answers = {};
   try {
     if (existsSync(answersFile)) {
-      const raw = JSON.parse(readFileSync(answersFile, "utf-8")) as Record<
-        string,
-        unknown
-      >;
+      const raw = JSON.parse(readFileSync(answersFile, "utf-8")) as Record<string, unknown>;
       // Support both { answers: {...} } wrapper and flat { key: value } formats
       answers = (
-        raw.answers && typeof raw.answers === "object"
-          ? (raw.answers as Answers)
-          : raw
+        raw.answers && typeof raw.answers === "object" ? (raw.answers as Answers) : raw
       ) as Answers;
     }
   } catch (e) {
@@ -940,9 +923,7 @@ function main(): number {
   let extractedState: Answers | undefined;
   if (extractedStateFile && existsSync(extractedStateFile)) {
     try {
-      const raw = JSON.parse(
-        readFileSync(extractedStateFile, "utf-8")
-      ) as Record<string, unknown>;
+      const raw = JSON.parse(readFileSync(extractedStateFile, "utf-8")) as Record<string, unknown>;
       extractedState = (raw.state as Answers) ?? raw;
     } catch (e) {
       console.error(`Failed to load extracted state: ${e}`);
@@ -967,17 +948,13 @@ function main(): number {
   const actionable = args.includes("--actionable");
 
   if (actionable) {
-    const toCreate = manifest.tasks.filter(
-      (t) => t.status === "pending" && t.is_required
-    );
-    const toCreateOptional = manifest.tasks.filter(
-      (t) => t.status === "pending" && !t.is_required
-    );
+    const toCreate = manifest.tasks.filter((t) => t.status === "pending" && t.is_required);
+    const toCreateOptional = manifest.tasks.filter((t) => t.status === "pending" && !t.is_required);
     const toComplete = manifest.tasks.filter((t) => t.status === "answered");
 
     // Categorize inferable completed items
-    const fromDescription: Array<{key: string, subject: string, value: string}> = [];
-    const defaults: Array<{key: string, subject: string, value: string, rationale: string}> = [];
+    const fromDescription: Array<{ key: string; subject: string; value: string }> = [];
+    const defaults: Array<{ key: string; subject: string; value: string; rationale: string }> = [];
 
     for (const task of toComplete) {
       const specItem = spec.items[task.spec_key];
@@ -986,12 +963,18 @@ function main(): number {
 
       const defaultVal = (specItem as Record<string, unknown>).default;
       const currentVal = String(task.current_value ?? "");
-      const note = typeof (specItem as Record<string, unknown>).note === "string"
-        ? ((specItem as Record<string, unknown>).note as string).split("\n")[0]
-        : "";
+      const note =
+        typeof (specItem as Record<string, unknown>).note === "string"
+          ? ((specItem as Record<string, unknown>).note as string).split("\n")[0]
+          : "";
 
       if (defaultVal !== undefined && currentVal === String(defaultVal)) {
-        defaults.push({ key: task.spec_key, subject: task.subject, value: currentVal, rationale: note || "Standard default" });
+        defaults.push({
+          key: task.spec_key,
+          subject: task.subject,
+          value: currentVal,
+          rationale: note || "Standard default",
+        });
       } else if (currentVal) {
         fromDescription.push({ key: task.spec_key, subject: task.subject, value: currentVal });
       }
@@ -1001,9 +984,13 @@ function main(): number {
       console.log(`<present-before-writing>`);
       if (fromDescription.length > 0) {
         console.log(`  <from-description count="${fromDescription.length}">`);
-        console.log(`    These were inferred from the user's description. Cite the user's words when presenting.`);
+        console.log(
+          `    These were inferred from the user's description. Cite the user's words when presenting.`,
+        );
         for (const item of fromDescription) {
-          console.log(`    <inferred key="${escapeXml(item.key)}" value="${escapeXml(item.value)}">${escapeXml(item.subject)}</inferred>`);
+          console.log(
+            `    <inferred key="${escapeXml(item.key)}" value="${escapeXml(item.value)}">${escapeXml(item.subject)}</inferred>`,
+          );
         }
         console.log(`  </from-description>`);
       }
@@ -1011,7 +998,9 @@ function main(): number {
         console.log(`  <defaults count="${defaults.length}">`);
         console.log(`    These are sensible defaults. Label them as defaults with rationale.`);
         for (const item of defaults) {
-          console.log(`    <default key="${escapeXml(item.key)}" value="${escapeXml(item.value)}" rationale="${escapeXml(item.rationale)}">${escapeXml(item.subject)}</default>`);
+          console.log(
+            `    <default key="${escapeXml(item.key)}" value="${escapeXml(item.value)}" rationale="${escapeXml(item.rationale)}">${escapeXml(item.subject)}</default>`,
+          );
         }
         console.log(`  </defaults>`);
       }
@@ -1026,11 +1015,14 @@ function main(): number {
 
     // Emit connection setup instruction when connection items are pending (integrations only)
     if (sessionType !== "component") {
-      const connectionKeys = ["source_connection", "destination_connection",
-        ...Object.keys(spec.items).filter(k => /^connector_\d+_connection$/.test(k))];
-      const pendingConnectionItems = toCreate.filter(t => connectionKeys.includes(t.spec_key));
+      const connectionKeys = [
+        "source_connection",
+        "destination_connection",
+        ...Object.keys(spec.items).filter((k) => /^connector_\d+_connection$/.test(k)),
+      ];
+      const pendingConnectionItems = toCreate.filter((t) => connectionKeys.includes(t.spec_key));
       if (pendingConnectionItems.length > 0) {
-        const systems = pendingConnectionItems.map(t => {
+        const systems = pendingConnectionItems.map((t) => {
           // Extract the prefix: source_, destination_, or connector_N_
           let systemKey: string;
           if (t.spec_key.startsWith("source_")) systemKey = "source_system";
@@ -1041,19 +1033,24 @@ function main(): number {
           }
           const raw = answers[systemKey];
           if (typeof raw === "string") return raw;
-          if (raw && typeof raw === "object") return (raw as Record<string, unknown>).source as string || (raw as Record<string, unknown>).name as string || systemKey;
+          if (raw && typeof raw === "object")
+            return (
+              ((raw as Record<string, unknown>).source as string) ||
+              ((raw as Record<string, unknown>).name as string) ||
+              systemKey
+            );
           return systemKey;
         });
         console.log(
           `<connection-setup-required systems="${systems.join(",")}">\n` +
-          `  Connection management decisions are pending. These CANNOT be inferred or batch-written.\n` +
-          `  For EACH system, you MUST:\n` +
-          `  1. Run prismatic-tools search-connections <system> to check for existing reusable connections\n` +
-          `  2. Present the results to the user and recommend reusable (customer-activated) connections\n` +
-          `  3. Ask the user which approach they want — do NOT choose for them\n` +
-          `  4. Record the connection ONLY after the user responds\n` +
-          `  Do NOT batch these with other answers. Do NOT infer a connection strategy.\n` +
-          `</connection-setup-required>`
+            `  Connection management decisions are pending. These CANNOT be inferred or batch-written.\n` +
+            `  For EACH system, you MUST:\n` +
+            `  1. Run prismatic-tools search-connections <system> to check for existing reusable connections\n` +
+            `  2. Present the results to the user and recommend reusable (customer-activated) connections\n` +
+            `  3. Ask the user which approach they want — do NOT choose for them\n` +
+            `  4. Record the connection ONLY after the user responds\n` +
+            `  Do NOT batch these with other answers. Do NOT infer a connection strategy.\n` +
+            `</connection-setup-required>`,
         );
       }
     }
@@ -1062,22 +1059,30 @@ function main(): number {
     // and trigger research BEFORE downstream answers can be written.
     if (sessionType === "component") {
       const allPending = [...toCreate, ...toCreateOptional];
-      const docsUrlPending = allPending.find(t => t.spec_key === "api_docs_url");
-      const docsUrlInferred = toComplete.find(t => t.spec_key === "api_docs_url");
-      const researchDependents = ["auth_type", "base_url", "confirm_resources", "resource_actions",
-        "webhook_support", "webhook_events", "webhook_security", "pagination_strategy"];
+      const docsUrlPending = allPending.find((t) => t.spec_key === "api_docs_url");
+      const docsUrlInferred = toComplete.find((t) => t.spec_key === "api_docs_url");
+      const researchDependents = [
+        "auth_type",
+        "base_url",
+        "confirm_resources",
+        "resource_actions",
+        "webhook_support",
+        "webhook_events",
+        "webhook_security",
+        "pagination_strategy",
+      ];
 
       if (docsUrlPending || docsUrlInferred) {
         // api_docs_url is about to be written — gate everything downstream
         console.log(
           `<api-research-required>\n` +
-          `  api_docs_url MUST be written ALONE — do NOT batch it with other answers.\n` +
-          `  After writing api_docs_url, IMMEDIATELY spawn the external-api-researcher agent\n` +
-          `  with the URL. WAIT for research to complete before writing any of these:\n` +
-          `  ${researchDependents.join(", ")}\n` +
-          `  Do NOT infer auth_type, resources, or webhook support from training data.\n` +
-          `  Use the researcher's findings.\n` +
-          `</api-research-required>`
+            `  api_docs_url MUST be written ALONE — do NOT batch it with other answers.\n` +
+            `  After writing api_docs_url, IMMEDIATELY spawn the external-api-researcher agent\n` +
+            `  with the URL. WAIT for research to complete before writing any of these:\n` +
+            `  ${researchDependents.join(", ")}\n` +
+            `  Do NOT infer auth_type, resources, or webhook support from training data.\n` +
+            `  Use the researcher's findings.\n` +
+            `</api-research-required>`,
         );
       }
     }
@@ -1085,8 +1090,19 @@ function main(): number {
     // Emit AskUserQuestion directive for ALL pending choice items with ≤4 choices.
     // This gives the agent the exact valid choices for every question, preventing hallucinated options.
     const allPendingItems = [...toCreate, ...toCreateOptional];
-    const askItems: Array<{ spec_key: string; subject: string; choices: string[]; implications: Record<string, string>; inference: string }> = [];
-    const askTextItems: Array<{ spec_key: string; subject: string; suggestions: string[]; inference: string }> = [];
+    const askItems: Array<{
+      spec_key: string;
+      subject: string;
+      choices: string[];
+      implications: Record<string, string>;
+      inference: string;
+    }> = [];
+    const askTextItems: Array<{
+      spec_key: string;
+      subject: string;
+      suggestions: string[];
+      inference: string;
+    }> = [];
 
     for (const task of allPendingItems) {
       const specItem = spec.items[task.spec_key];
@@ -1098,7 +1114,10 @@ function main(): number {
           implications: (specItem.implications as Record<string, string>) ?? {},
           inference: task.inference,
         });
-      } else if (task.inference === "prohibited" && (!specItem?.choices || !Array.isArray(specItem.choices))) {
+      } else if (
+        task.inference === "prohibited" &&
+        (!specItem?.choices || !Array.isArray(specItem.choices))
+      ) {
         askTextItems.push({
           spec_key: task.spec_key,
           subject: task.subject,
@@ -1111,15 +1130,21 @@ function main(): number {
     if (askTextItems.length > 0) {
       console.log(
         `<ask-user-text-inputs>\n` +
-        `  The following items accept free-text values.\n` +
-        `  Ask the user for EACH ONE individually. Present the question and STOP.\n` +
-        `  Present ONE question per message.\n` +
-        askTextItems.map(item =>
-          `  <ask-text spec_key="${item.spec_key}" subject="${item.subject}"` +
-          (item.suggestions.length > 0 ? ` suggestions="${item.suggestions.join(", ")}"` : "") +
-          ` />`
-        ).join("\n") + `\n` +
-        `</ask-user-text-inputs>`
+          `  The following items accept free-text values.\n` +
+          `  Ask the user for EACH ONE individually. Present the question and STOP.\n` +
+          `  Present ONE question per message.\n` +
+          askTextItems
+            .map(
+              (item) =>
+                `  <ask-text spec_key="${item.spec_key}" subject="${item.subject}"` +
+                (item.suggestions.length > 0
+                  ? ` suggestions="${item.suggestions.join(", ")}"`
+                  : "") +
+                ` />`,
+            )
+            .join("\n") +
+          `\n` +
+          `</ask-user-text-inputs>`,
       );
     }
 
@@ -1128,8 +1153,9 @@ function main(): number {
       console.log(`  Use AskUserQuestion for each of these. Copy the JSON payload verbatim.`);
       console.log(`  Present ONE per message. Wait for the user's response before the next.`);
       for (const item of askItems) {
-        const options = item.choices.map(c => ({
-          label: item.implications[c]?.split("\n")[0]?.split("—")[0]?.trim() || c.replace(/_/g, " "),
+        const options = item.choices.map((c) => ({
+          label:
+            item.implications[c]?.split("\n")[0]?.split("—")[0]?.trim() || c.replace(/_/g, " "),
           description: item.implications[c]?.split("\n")[0]?.trim() || c,
         }));
         const payload = {
@@ -1160,7 +1186,7 @@ function main(): number {
           const deps = specItem.depends_on ?? [];
           const condKeys = specItem.condition ? Object.keys(specItem.condition) : [];
           const allDeps = [...new Set([...deps, ...condKeys])];
-          const allSatisfied = allDeps.every(d => !isEmpty(answers[d]));
+          const allSatisfied = allDeps.every((d) => !isEmpty(answers[d]));
           if (allSatisfied) {
             lookupItems.push({
               spec_key: task.spec_key,
@@ -1174,20 +1200,24 @@ function main(): number {
 
     if (lookupItems.length > 1) {
       // Verify mutual independence: none of these items depend on each other
-      const lookupKeys = new Set(lookupItems.map(l => l.spec_key));
-      const independent = lookupItems.filter(item => {
+      const lookupKeys = new Set(lookupItems.map((l) => l.spec_key));
+      const independent = lookupItems.filter((item) => {
         const specItem = spec.items[item.spec_key];
         const deps = [...(specItem?.depends_on ?? [])];
         if (specItem?.condition) deps.push(...Object.keys(specItem.condition));
-        return !deps.some(d => lookupKeys.has(d));
+        return !deps.some((d) => lookupKeys.has(d));
       });
 
       if (independent.length > 1) {
         console.log(`<parallel-batch>`);
-        console.log(`  These ${independent.length} lookups are mutually independent — run them ALL as separate Bash commands in ONE response.`);
+        console.log(
+          `  These ${independent.length} lookups are mutually independent — run them ALL as separate Bash commands in ONE response.`,
+        );
         console.log(`  Do NOT wait for one to finish before starting the next.`);
         for (const item of independent) {
-          console.log(`  <action spec_key="${escapeXml(item.spec_key)}" type="lookup" script="${escapeXml(item.script)}">${escapeXml(item.subject)}</action>`);
+          console.log(
+            `  <action spec_key="${escapeXml(item.spec_key)}" type="lookup" script="${escapeXml(item.script)}">${escapeXml(item.subject)}</action>`,
+          );
         }
         console.log(`</parallel-batch>`);
       }
@@ -1197,21 +1227,21 @@ function main(): number {
     const totalItems = toCreate.length + toCreateOptional.length + toComplete.length;
     console.log(
       `<task-creation>\n` +
-      `  Create tasks for ALL ${totalItems} items — answered AND pending.\n` +
-      `  - ${toComplete.length} answered items: TaskCreate then immediately TaskUpdate(completed).\n` +
-      `  - ${toCreate.length} required pending: TaskCreate as open.\n` +
-      `  - ${toCreateOptional.length} optional pending: TaskCreate as open.\n` +
-      `  ALL in one response. The task list is the user's dashboard — they need to see everything.\n` +
-      `</task-creation>`
+        `  Create tasks for ALL ${totalItems} items — answered AND pending.\n` +
+        `  - ${toComplete.length} answered items: TaskCreate then immediately TaskUpdate(completed).\n` +
+        `  - ${toCreate.length} required pending: TaskCreate as open.\n` +
+        `  - ${toCreateOptional.length} optional pending: TaskCreate as open.\n` +
+        `  ALL in one response. The task list is the user's dashboard — they need to see everything.\n` +
+        `</task-creation>`,
     );
 
     // Emit draft-proposal when all lookups are complete and remaining items are choice/text
     // This enables the "review a proposal" metaphor instead of sequential question-answer
-    const pendingLookups = allPendingItems.filter(t => {
+    const pendingLookups = allPendingItems.filter((t) => {
       const si = spec.items[t.spec_key];
       return si?.type === "lookup";
     });
-    const pendingChoiceOrText = allPendingItems.filter(t => {
+    const pendingChoiceOrText = allPendingItems.filter((t) => {
       const si = spec.items[t.spec_key];
       return si?.type === "choice" || si?.type === "multi_choice" || si?.type === "text";
     });
@@ -1239,7 +1269,9 @@ function main(): number {
         const si = spec.items[item.spec_key];
         const defaultVal = si?.default !== undefined ? ` (recommend: ${si.default})` : "";
         const choicesStr = si?.choices ? ` [${(si.choices as string[]).join(", ")}]` : "";
-        console.log(`  <decision key="${escapeXml(item.spec_key)}" subject="${escapeXml(item.subject)}"${choicesStr}${defaultVal} />`);
+        console.log(
+          `  <decision key="${escapeXml(item.spec_key)}" subject="${escapeXml(item.subject)}"${choicesStr}${defaultVal} />`,
+        );
       }
       console.log(`  `);
       console.log(`  The user can correct any decision with a simple phrase:`);
@@ -1277,26 +1309,32 @@ function main(): number {
         payload_and_config: "integration/payload-and-behavior.yaml",
         behavior: "integration/payload-and-behavior.yaml",
       };
-      const groupFileMap = sessionType === "component" ? componentGroupFileMap : integrationGroupFileMap;
-      const filesToRead = [...new Set(
-        [...pendingGroups].map(g => groupFileMap[g]).filter(Boolean)
-      )];
+      const groupFileMap =
+        sessionType === "component" ? componentGroupFileMap : integrationGroupFileMap;
+      const filesToRead = [
+        ...new Set([...pendingGroups].map((g) => groupFileMap[g]).filter(Boolean)),
+      ];
       console.log(
         `<read-spec-before-asking>\n` +
-        `  Before presenting any choice to the user, read the spec item from its domain file.\n` +
-        `  The item's agent_context contains <present-as> XML with the exact options and natural language labels.\n` +
-        `  Use the <option value="..."> labels when talking to the user. Write the value= attribute to requirements.\n` +
-        `  Domain files for pending items:\n` +
-        filesToRead.map(f => `    ${f}`).join("\n") + `\n` +
-        `</read-spec-before-asking>`
+          `  Before presenting any choice to the user, read the spec item from its domain file.\n` +
+          `  The item's agent_context contains <present-as> XML with the exact options and natural language labels.\n` +
+          `  Use the <option value="..."> labels when talking to the user. Write the value= attribute to requirements.\n` +
+          `  Domain files for pending items:\n` +
+          filesToRead.map((f) => `    ${f}`).join("\n") +
+          `\n` +
+          `</read-spec-before-asking>`,
       );
     }
 
     // Emit communication and voice reminders
     console.log(
-      `<communication>Do not mention scripts, sync, spec, tasks, requirements, validation, items, or internal process to the user. Rewrite as what the user experiences.</communication>`
+      `<communication>Do not mention scripts, sync, spec, tasks, requirements, validation, items, or internal process to the user. Rewrite as what the user experiences.</communication>`,
     );
-    const phase = inferPhase(manifest.summary.answered, manifest.summary.total_applicable, manifest.ready_for_next_phase);
+    const phase = inferPhase(
+      manifest.summary.answered,
+      manifest.summary.total_applicable,
+      manifest.ready_for_next_phase,
+    );
     const voiceExemplars: Record<string, string> = {
       greeting: [
         `<voice phase="greeting">`,
@@ -1342,20 +1380,20 @@ function main(): number {
     if (manifest.ready_for_next_phase) {
       console.log(
         `<confirm-before-scaffold>\n` +
-        `  All required answers are collected. Before scaffolding:\n` +
-        `  1. Present a summary of ALL decisions to the user (systems, components, connections, flows, error handling, everything).\n` +
-        `  2. Ask: "Does this look right? Anything you'd like to add or change before I scaffold the project?"\n` +
-        `  3. WAIT for the user to respond before proceeding.\n` +
-        `</confirm-before-scaffold>`
+          `  All required answers are collected. Before scaffolding:\n` +
+          `  1. Present a summary of ALL decisions to the user (systems, components, connections, flows, error handling, everything).\n` +
+          `  2. Ask: "Does this look right? Anything you'd like to add or change before I scaffold the project?"\n` +
+          `  3. WAIT for the user to respond before proceeding.\n` +
+          `</confirm-before-scaffold>`,
       );
       console.log(
         `<exit-states>\n` +
-        `  After deployment, the session must end in one of these states:\n` +
-        `  <state id="tested_and_passing">All flows tested successfully. The only "complete" state.</state>\n` +
-        `  <state id="deployed_awaiting_config">Deployed but needs configuration. A pause, not an exit.</state>\n` +
-        `  <state id="deployed_testing_deferred">User chose to defer testing. Valid exit with acknowledgment.</state>\n` +
-        `  The summary MUST include test_outcome identifying which state applies.\n` +
-        `</exit-states>`
+          `  After deployment, the session must end in one of these states:\n` +
+          `  <state id="tested_and_passing">All flows tested successfully. The only "complete" state.</state>\n` +
+          `  <state id="deployed_awaiting_config">Deployed but needs configuration. A pause, not an exit.</state>\n` +
+          `  <state id="deployed_testing_deferred">User chose to defer testing. Valid exit with acknowledgment.</state>\n` +
+          `  The summary MUST include test_outcome identifying which state applies.\n` +
+          `</exit-states>`,
       );
     }
 
@@ -1379,13 +1417,14 @@ function main(): number {
         subject: t.subject,
         group: t.group,
       })),
-      blocked_count: manifest.tasks.filter((t) => t.status === "blocked")
-        .length,
+      blocked_count: manifest.tasks.filter((t) => t.status === "blocked").length,
       summary: manifest.summary,
       ready_for_next_phase: manifest.ready_for_next_phase,
-      ...(toCreateOptional.length > 0 ? {
-        optional_items_instruction: `${toCreateOptional.length} optional items remain. Present each to the user with your recommendation. Do not fill them silently — these are architectural decisions that affect production behavior.`
-      } : {}),
+      ...(toCreateOptional.length > 0
+        ? {
+            optional_items_instruction: `${toCreateOptional.length} optional items remain. Present each to the user with your recommendation. Do not fill them silently — these are architectural decisions that affect production behavior.`,
+          }
+        : {}),
     };
     console.log(JSON.stringify(output, null, 2));
   } else {

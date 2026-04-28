@@ -35,7 +35,9 @@ query checkComponent($key: String!) {
 function findComponent(key: string): { found: boolean; isPublic: boolean; label: string } {
   try {
     const data = graphql(CHECK_COMPONENT_QUERY, { key }) as Record<string, unknown>;
-    const nodes = ((data.components as Record<string, unknown>)?.nodes ?? []) as Array<Record<string, unknown>>;
+    const nodes = ((data.components as Record<string, unknown>)?.nodes ?? []) as Array<
+      Record<string, unknown>
+    >;
     for (const node of nodes) {
       if (node.key === key) {
         return {

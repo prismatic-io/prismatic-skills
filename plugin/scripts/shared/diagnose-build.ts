@@ -57,14 +57,12 @@ const ERROR_PATTERNS: ErrorPattern[] = [
     fix: "Check the source file exports — `{match}` is not exported from the referenced module",
   },
   {
-    pattern:
-      /Argument of type .+ is not assignable to parameter of type ['"]ConnectionInput['"]/g,
+    pattern: /Argument of type .+ is not assignable to parameter of type ['"]ConnectionInput['"]/g,
     diagnosis: "Connection passed incorrectly",
     fix: 'Use `connectionConfigVar()` wrapper, not a raw object. Access via `context.configVars["connectionKey"]`',
   },
   {
-    pattern:
-      /Type ['"]string['"] is not assignable to type ['"]ConfigVarResultCollection['"]/g,
+    pattern: /Type ['"]string['"] is not assignable to type ['"]ConfigVarResultCollection['"]/g,
     diagnosis: "Config variable accessed incorrectly",
     fix: "Use `configVar()` wrapper function, not a raw string",
   },
@@ -101,18 +99,11 @@ interface Finding {
   fix: string;
 }
 
-function diagnoseErrorText(
-  errorText: string,
-  projectDir: string,
-  projectType: string
-): Finding[] {
+function diagnoseErrorText(errorText: string, projectDir: string, projectType: string): Finding[] {
   const findings: Finding[] = [];
 
   for (const ep of ERROR_PATTERNS) {
-    // Reset lastIndex for global regexps
-    ep.pattern.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = ep.pattern.exec(errorText)) !== null) {
+    for (const match of errorText.matchAll(ep.pattern)) {
       const matchedText = match[1] ?? match[0];
       findings.push({
         diagnosis: ep.diagnosis,
@@ -128,10 +119,7 @@ function diagnoseErrorText(
   return findings;
 }
 
-function checkStructuralIssues(
-  projectDir: string,
-  projectType: string
-): Finding[] {
+function checkStructuralIssues(projectDir: string, projectType: string): Finding[] {
   const issues: Finding[] = [];
 
   // Check node_modules exists
@@ -159,9 +147,7 @@ function checkStructuralIssues(
         const content = readFileSync(configPath, "utf-8");
         if (
           /\{\s*key\s*:/.test(content) &&
-          !/configVar\s*\(|connectionConfigVar\s*\(|dataSourceConfigVar\s*\(/.test(
-            content
-          )
+          !/configVar\s*\(|connectionConfigVar\s*\(|dataSourceConfigVar\s*\(/.test(content)
         ) {
           issues.push({
             diagnosis: "Config elements missing wrapper functions",
@@ -181,8 +167,7 @@ function checkStructuralIssues(
         const content = readFileSync(flowsPath, "utf-8");
         if (
           content.includes("instanceState") &&
-          (content.includes("onInstanceDeploy") ||
-            content.includes("onInstanceDelete"))
+          (content.includes("onInstanceDeploy") || content.includes("onInstanceDelete"))
         ) {
           issues.push({
             diagnosis: "instanceState used in lifecycle hook",
@@ -219,8 +204,7 @@ function checkStructuralIssues(
       try {
         const content = readFileSync(fp, "utf-8");
         if (
-          (content.includes("onInstanceDeploy") ||
-            content.includes("onInstanceDelete")) &&
+          (content.includes("onInstanceDeploy") || content.includes("onInstanceDelete")) &&
           !content.includes("onTrigger")
         ) {
           issues.push({
@@ -239,9 +223,7 @@ function checkStructuralIssues(
     if (existsSync(registryPath)) {
       try {
         const content = readFileSync(registryPath, "utf-8");
-        const manifestImports = [
-          ...content.matchAll(/from\s+["']\.\/([\w-]+Manifest\.json)["']/g),
-        ];
+        const manifestImports = [...content.matchAll(/from\s+["']\.\/([\w-]+Manifest\.json)["']/g)];
         for (const m of manifestImports) {
           if (!existsSync(join(projectDir, "src", m[1]))) {
             issues.push({
@@ -266,8 +248,7 @@ function checkStructuralIssues(
           !existsSync(join(projectDir, "src", "connections.ts"))
         ) {
           issues.push({
-            diagnosis:
-              "Component references connections but connections.ts is missing",
+            diagnosis: "Component references connections but connections.ts is missing",
             match: "src/connections.ts",
             fix: "Create src/connections.ts with a connection() definition",
           });
@@ -283,7 +264,7 @@ function checkStructuralIssues(
 
 function runBuildAndCapture(
   projectDir: string,
-  projectType: string
+  projectType: string,
 ): { errorText: string | null; err: string | null } {
   const scriptDir = dirname(dirname(resolve(__filename)));
 
@@ -306,7 +287,7 @@ function runBuildAndCapture(
       return { errorText: null, err: null };
     }
     return {
-      errorText: (result.stdout ?? "") + "\n" + (result.stderr ?? ""),
+      errorText: `${result.stdout ?? ""}\n${result.stderr ?? ""}`,
       err: null,
     };
   } catch (e) {
@@ -339,7 +320,7 @@ function main(): number {
 
   if (!projectDir || !projectType) {
     console.error(
-      "Usage: npx tsx diagnose-build.ts <project-dir> --type <component|integration> [--error <error-text>]"
+      "Usage: npx tsx diagnose-build.ts <project-dir> --type <component|integration> [--error <error-text>]",
     );
     return 2;
   }
@@ -352,15 +333,11 @@ function main(): number {
   projectDir = resolve(projectDir);
   try {
     if (!statSync(projectDir).isDirectory()) {
-      console.log(
-        JSON.stringify({ error: `Directory not found: ${projectDir}` })
-      );
+      console.log(JSON.stringify({ error: `Directory not found: ${projectDir}` }));
       return 2;
     }
   } catch {
-    console.log(
-      JSON.stringify({ error: `Directory not found: ${projectDir}` })
-    );
+    console.log(JSON.stringify({ error: `Directory not found: ${projectDir}` }));
     return 2;
   }
 
@@ -386,8 +363,7 @@ function main(): number {
   };
 
   if (findings.length === 0) {
-    output.note =
-      "No known patterns matched. Raw error may require manual analysis.";
+    output.note = "No known patterns matched. Raw error may require manual analysis.";
     output.raw_error_preview = errorText.slice(0, 500);
   }
 
@@ -401,9 +377,7 @@ function main(): number {
       console.error(`    Fix: ${f.fix}`);
     }
   } else {
-    console.error(
-      "\nNo known structural issues found. Check raw error output."
-    );
+    console.error("\nNo known structural issues found. Check raw error output.");
   }
 
   return 0;

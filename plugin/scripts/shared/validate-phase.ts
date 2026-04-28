@@ -36,34 +36,16 @@ interface Shape {
 
 const COMPONENT_SHAPES: Record<string, Shape> = {
   scaffold: {
-    required_files: [
-      "package.json",
-      "tsconfig.json",
-      "webpack.config.js",
-      "src/index.ts",
-    ],
+    required_files: ["package.json", "tsconfig.json", "webpack.config.js", "src/index.ts"],
     required_dirs: ["src", "node_modules"],
     description: "Scaffolded component project",
   },
   "code-gen": {
-    required_files: [
-      "package.json",
-      "tsconfig.json",
-      "webpack.config.js",
-      "src/index.ts",
-    ],
+    required_files: ["package.json", "tsconfig.json", "webpack.config.js", "src/index.ts"],
     required_one_of: [["src/actions.ts", "src/actions/index.ts"]],
-    optional_files: [
-      "src/connections.ts",
-      "src/triggers.ts",
-      "src/client.ts",
-      "assets/icon.png",
-    ],
+    optional_files: ["src/connections.ts", "src/triggers.ts", "src/client.ts", "assets/icon.png"],
     file_patterns: {
-      "src/index.ts": [
-        "export\\s+default\\s+component\\(",
-        "component\\(\\s*\\{",
-      ],
+      "src/index.ts": ["export\\s+default\\s+component\\(", "component\\(\\s*\\{"],
     },
     description: "Component with generated source code",
   },
@@ -114,11 +96,7 @@ const INTEGRATION_SHAPES: Record<string, Shape> = {
   },
 };
 
-function checkFilePatterns(
-  projectDir: string,
-  filePath: string,
-  patterns: string[]
-): string[] {
+function checkFilePatterns(projectDir: string, filePath: string, patterns: string[]): string[] {
   const fullPath = join(projectDir, filePath);
   if (!existsSync(fullPath)) return [];
 
@@ -142,18 +120,13 @@ function checkFilePatterns(
  * For multi-flow integrations, check that at least one .ts file in src/flows/
  * contains the expected patterns (onTrigger|onExecution).
  */
-function checkFlowsDirectoryPatterns(
-  projectDir: string,
-  patterns: string[]
-): string[] {
+function checkFlowsDirectoryPatterns(projectDir: string, patterns: string[]): string[] {
   const flowsDir = join(projectDir, "src/flows");
   if (!existsSync(flowsDir)) return [];
 
   let files: string[];
   try {
-    files = readdirSync(flowsDir).filter(
-      (f) => f.endsWith(".ts") && f !== "index.ts"
-    );
+    files = readdirSync(flowsDir).filter((f) => f.endsWith(".ts") && f !== "index.ts");
   } catch {
     return ["src/flows/: unable to read directory"];
   }
@@ -199,15 +172,12 @@ function checkTriggerConfiguration(projectDir: string): string[] {
   }
 
   // Detect endpointType
-  const endpointMatch = indexContent.match(
-    /endpointType\s*:\s*["'](\w+)["']/
-  );
+  const endpointMatch = indexContent.match(/endpointType\s*:\s*["'](\w+)["']/);
   const endpointType = endpointMatch ? endpointMatch[1] : "flow_specific";
 
   // If non-default endpointType, check for routing config
   if (endpointType === "instance_specific" || endpointType === "shared_instance") {
-    const hasTriggerPreprocess =
-      /triggerPreprocessFlowConfig\s*:/.test(indexContent);
+    const hasTriggerPreprocess = /triggerPreprocessFlowConfig\s*:/.test(indexContent);
 
     // Check if any flow has preprocessFlowConfig
     let hasPreprocessFlow = false;
@@ -229,14 +199,14 @@ function checkTriggerConfiguration(projectDir: string): string[] {
         `endpointType "${endpointType}" requires routing config. ` +
           `Add triggerPreprocessFlowConfig to integration() in index.ts, ` +
           `OR add preprocessFlowConfig to exactly one flow. ` +
-          `Without routing, deploy fails with "Invalid trigger configuration".`
+          `Without routing, deploy fails with "Invalid trigger configuration".`,
       );
     }
 
     if (hasTriggerPreprocess && hasPreprocessFlow) {
       issues.push(
         `Cannot have BOTH triggerPreprocessFlowConfig (on integration) AND ` +
-          `preprocessFlowConfig (on a flow). Use one or the other.`
+          `preprocessFlowConfig (on a flow). Use one or the other.`,
       );
     }
 
@@ -244,17 +214,14 @@ function checkTriggerConfiguration(projectDir: string): string[] {
       if (!/flowNameField\s*:/.test(indexContent)) {
         issues.push(
           `triggerPreprocessFlowConfig is missing flowNameField. ` +
-            `This is required to route requests to the correct flow.`
+            `This is required to route requests to the correct flow.`,
         );
       }
-      if (
-        endpointType === "shared_instance" &&
-        !/externalCustomerIdField\s*:/.test(indexContent)
-      ) {
+      if (endpointType === "shared_instance" && !/externalCustomerIdField\s*:/.test(indexContent)) {
         issues.push(
           `shared_instance endpointType requires externalCustomerIdField in ` +
             `triggerPreprocessFlowConfig. Without it, the platform can't identify ` +
-            `which customer instance should handle the request.`
+            `which customer instance should handle the request.`,
         );
       }
     }
@@ -263,7 +230,7 @@ function checkTriggerConfiguration(projectDir: string): string[] {
   // Check each flow file for trigger issues
   const flowFiles = collectFlowFiles(projectDir);
   for (const fp of flowFiles) {
-    const relPath = fp.replace(projectDir + "/", "");
+    const relPath = fp.replace(`${projectDir}/`, "");
     let content: string;
     try {
       content = readFileSync(fp, "utf-8");
@@ -272,14 +239,11 @@ function checkTriggerConfiguration(projectDir: string): string[] {
     }
 
     // Check: retryConfig on synchronous flow
-    if (
-      /isSynchronous\s*:\s*true/.test(content) &&
-      /retryConfig\s*:/.test(content)
-    ) {
+    if (/isSynchronous\s*:\s*true/.test(content) && /retryConfig\s*:/.test(content)) {
       issues.push(
         `${relPath}: retryConfig on synchronous flow. ` +
           `Platform REJECTS retryConfig on synchronous flows. ` +
-          `Remove retryConfig or set isSynchronous: false.`
+          `Remove retryConfig or set isSynchronous: false.`,
       );
     }
 
@@ -291,7 +255,7 @@ function checkTriggerConfiguration(projectDir: string): string[] {
     ) {
       issues.push(
         `${relPath}: has both schedule and onTrigger without triggerType: "polling". ` +
-          `Scheduled flows should not define onTrigger unless polling.`
+          `Scheduled flows should not define onTrigger unless polling.`,
       );
     }
 
@@ -302,7 +266,7 @@ function checkTriggerConfiguration(projectDir: string): string[] {
     ) {
       issues.push(
         `${relPath}: endpointSecurityType "organization" without organizationApiKeys. ` +
-          `Platform REJECTS flows with organization security and empty API keys.`
+          `Platform REJECTS flows with organization security and empty API keys.`,
       );
     }
 
@@ -312,7 +276,7 @@ function checkTriggerConfiguration(projectDir: string): string[] {
         `${relPath}: uses webhookLifecycleHandlers. ` +
           `Prefer onInstanceDeploy/onInstanceDelete — webhookLifecycleHandlers ` +
           `has been reported to cause "Invalid trigger configuration" on some platform versions. ` +
-          `See flows.ts.template for the correct pattern.`
+          `See flows.ts.template for the correct pattern.`,
       );
     }
   }
@@ -359,11 +323,7 @@ interface ValidationResult {
  * Semantic checks that go beyond structural validation.
  * Returns guidance mini-prompts that help the agent fix issues.
  */
-function semanticChecks(
-  projectDir: string,
-  phase: string,
-  projectType: string
-): Guidance[] {
+function semanticChecks(projectDir: string, phase: string, projectType: string): Guidance[] {
   const guidance: Guidance[] = [];
 
   if (projectType !== "integration" || phase !== "code-gen") return guidance;
@@ -373,14 +333,10 @@ function semanticChecks(
   if (existsSync(configPath)) {
     try {
       const content = readFileSync(configPath, "utf-8");
-      if (
-        /\{\s*key\s*:\s*["']/.test(content) &&
-        !/configVar\s*\(/.test(content)
-      ) {
+      if (/\{\s*key\s*:\s*["']/.test(content) && !/configVar\s*\(/.test(content)) {
         guidance.push({
           severity: "error",
-          issue:
-            "configPages.ts contains raw objects instead of wrapper functions",
+          issue: "configPages.ts contains raw objects instead of wrapper functions",
           fix: "Replace plain `{ key: ... }` objects with `configVar()`, `connectionConfigVar()`, or `dataSourceConfigVar()` wrappers. See the configPages.ts.template for correct patterns.",
           reference: "code-anti-patterns.md#raw-config-objects",
         });
@@ -390,7 +346,8 @@ function semanticChecks(
       if (/process\.env\./.test(content)) {
         guidance.push({
           severity: "error",
-          issue: "configPages.ts references process.env — secrets should not be in environment variables",
+          issue:
+            "configPages.ts references process.env — secrets should not be in environment variables",
           fix: "Use reusable connections (customerActivatedConnection or organizationActivatedConnection) for credentials. Do not embed secrets via process.env. Connection credentials should be managed in Prismatic's connection system, not in build-time environment variables.",
           reference: "cni-examples/integration-agnostic-connections.md",
         });
@@ -401,14 +358,13 @@ function semanticChecks(
   // Check flows for instanceState in lifecycle hooks
   const flowFiles = collectFlowFiles(projectDir);
   for (const fp of flowFiles) {
-    const relPath = fp.replace(projectDir + "/", "");
+    const relPath = fp.replace(`${projectDir}/`, "");
     try {
       const content = readFileSync(fp, "utf-8");
 
       if (
         content.includes("instanceState") &&
-        (content.includes("onInstanceDeploy") ||
-          content.includes("onInstanceDelete"))
+        (content.includes("onInstanceDeploy") || content.includes("onInstanceDelete"))
       ) {
         guidance.push({
           severity: "error",
@@ -420,8 +376,7 @@ function semanticChecks(
 
       // Check for lifecycle hooks without onTrigger passthrough
       if (
-        (content.includes("onInstanceDeploy") ||
-          content.includes("onInstanceDelete")) &&
+        (content.includes("onInstanceDeploy") || content.includes("onInstanceDelete")) &&
         !content.includes("onTrigger")
       ) {
         guidance.push({
@@ -444,15 +399,17 @@ function semanticChecks(
 
       // Check for passthrough onTrigger when component triggers might exist
       if (
-        /onTrigger\s*:\s*async\s*\(_?context,?\s*payload\)\s*=>\s*\(\s*\{\s*payload\s*\}\s*\)/.test(content)
+        /onTrigger\s*:\s*async\s*\(_?context,?\s*payload\)\s*=>\s*\(\s*\{\s*payload\s*\}\s*\)/.test(
+          content,
+        )
       ) {
         // Check if any manifest has a triggers/ directory
         const manifestsDir = join(projectDir, "src", "manifests");
         if (existsSync(manifestsDir)) {
           try {
             const components = readdirSync(manifestsDir);
-            const triggersExist = components.some(c =>
-              existsSync(join(manifestsDir, c, "triggers"))
+            const triggersExist = components.some((c) =>
+              existsSync(join(manifestsDir, c, "triggers")),
             );
             if (triggersExist) {
               guidance.push({
@@ -509,7 +466,7 @@ function semanticChecks(
 
   // Check for context.components usage (wrong API for CNIs)
   for (const fp of flowFiles) {
-    const relPath = fp.replace(projectDir + "/", "");
+    const relPath = fp.replace(`${projectDir}/`, "");
     try {
       const content = readFileSync(fp, "utf-8");
       if (/context\.components\./.test(content)) {
@@ -576,13 +533,13 @@ function validatePhase(projectDir: string, shape: Shape): ValidationResult {
     const full = join(projectDir, d);
     try {
       if (statSync(full).isDirectory()) {
-        result.present.push(d + "/");
+        result.present.push(`${d}/`);
       } else {
-        result.missing.push(d + "/");
+        result.missing.push(`${d}/`);
         result.complete = false;
       }
     } catch {
-      result.missing.push(d + "/");
+      result.missing.push(`${d}/`);
       result.complete = false;
     }
   }
@@ -613,9 +570,7 @@ function validatePhase(projectDir: string, shape: Shape): ValidationResult {
   }
 
   // Check file patterns
-  for (const [filePath, patterns] of Object.entries(
-    shape.file_patterns ?? {}
-  )) {
+  for (const [filePath, patterns] of Object.entries(shape.file_patterns ?? {})) {
     const issues = checkFilePatterns(projectDir, filePath, patterns);
     if (issues.length > 0) {
       result.missing_patterns.push(...issues);
@@ -660,7 +615,7 @@ function main(): number {
 
   if (!projectDir || !phase || !projectType) {
     console.error(
-      "Usage: npx tsx validate-phase.ts <project-dir> --phase <phase> --type <component|integration>"
+      "Usage: npx tsx validate-phase.ts <project-dir> --phase <phase> --type <component|integration>",
     );
     return 2;
   }
@@ -678,20 +633,15 @@ function main(): number {
   projectDir = resolve(projectDir);
   try {
     if (!statSync(projectDir).isDirectory()) {
-      console.log(
-        JSON.stringify({ error: `Directory not found: ${projectDir}` })
-      );
+      console.log(JSON.stringify({ error: `Directory not found: ${projectDir}` }));
       return 2;
     }
   } catch {
-    console.log(
-      JSON.stringify({ error: `Directory not found: ${projectDir}` })
-    );
+    console.log(JSON.stringify({ error: `Directory not found: ${projectDir}` }));
     return 2;
   }
 
-  const shapes =
-    projectType === "component" ? COMPONENT_SHAPES : INTEGRATION_SHAPES;
+  const shapes = projectType === "component" ? COMPONENT_SHAPES : INTEGRATION_SHAPES;
   const shape = shapes[phase];
   if (!shape) {
     console.log(JSON.stringify({ error: `Unknown phase: ${phase}` }));
@@ -712,14 +662,13 @@ function main(): number {
   // Run semantic checks and append guidance
   const guidanceItems = semanticChecks(projectDir, phase, projectType);
   result.guidance.push(...guidanceItems);
-  const errors = guidanceItems.filter(g => g.severity === "error");
+  const errors = guidanceItems.filter((g) => g.severity === "error");
   if (errors.length > 0) {
     result.complete = false;
   }
 
   // Compute completeness percentage
-  let total =
-    (shape.required_files?.length ?? 0) + (shape.required_dirs?.length ?? 0);
+  let total = (shape.required_files?.length ?? 0) + (shape.required_dirs?.length ?? 0);
   total += shape.required_one_of?.length ?? 0;
   total += Object.keys(shape.file_patterns ?? {}).length;
   const filled = total - result.missing.length - result.missing_patterns.length;
@@ -729,19 +678,13 @@ function main(): number {
   console.log(JSON.stringify(result, null, 2));
 
   if (result.complete) {
-    console.error(
-      `\n✓ Phase '${phase}' validation passed (${result.completeness}%)`
-    );
+    console.error(`\n✓ Phase '${phase}' validation passed (${result.completeness}%)`);
     if (result.optional_missing.length > 0) {
-      console.error(
-        `  Optional files missing: ${result.optional_missing.join(", ")}`
-      );
+      console.error(`  Optional files missing: ${result.optional_missing.join(", ")}`);
     }
     return 0;
   } else {
-    console.error(
-      `\n✗ Phase '${phase}' validation failed (${result.completeness}%)`
-    );
+    console.error(`\n✗ Phase '${phase}' validation failed (${result.completeness}%)`);
     for (const m of result.missing) {
       console.error(`  Missing: ${m}`);
     }

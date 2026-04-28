@@ -9,7 +9,7 @@
       "!.claude/settings.local.json",
       "!bun.lock",
       "!plugin/templates/**/*.template",
-      "!plugin/skills/**"
+      "!plugin/skills"
     ]
   },
   "formatter": {

@@ -34,7 +34,7 @@ function findIntegrationId(projectName: string): string | null {
   try {
     const result = runPrismQuery(
       ["prism", "integrations:list", "--output", "json", "--extended"],
-      15
+      15,
     );
     if (result.returncode !== 0 || !result.stdout) return null;
 
@@ -44,7 +44,9 @@ function findIntegrationId(projectName: string): string | null {
     // Match by name (case-insensitive, hyphen-normalized)
     const normalized = projectName.toLowerCase().replace(/-/g, " ");
     const match = integrations.find((i: Record<string, unknown>) => {
-      const name = String(i.name || "").toLowerCase().replace(/-/g, " ");
+      const name = String(i.name || "")
+        .toLowerCase()
+        .replace(/-/g, " ");
       return name === normalized || name.includes(normalized);
     });
 
@@ -99,25 +101,27 @@ function getTestInstanceInfo(integrationId: string): TestInstanceInfo | null {
     const instance = instances.nodes[0];
     const instanceId = instance.id as string;
 
-    const configVars = (instance.configVariables as { nodes: Array<Record<string, unknown>> })?.nodes ?? [];
+    const configVars =
+      (instance.configVariables as { nodes: Array<Record<string, unknown>> })?.nodes ?? [];
     const unconfigured = configVars
-      .filter(cv => {
+      .filter((cv) => {
         const status = cv.status as string;
         return status === "PENDING" || status === "ERROR" || !cv.value;
       })
-      .map(cv => {
+      .map((cv) => {
         const rcv = cv.requiredConfigVariable as Record<string, unknown>;
         return {
           key: (rcv?.key as string) || "",
           type: (rcv?.dataType as string) || "",
         };
       })
-      .filter(cv => cv.key);
+      .filter((cv) => cv.key);
 
-    const flowConfigs = (instance.flowConfigs as { nodes: Array<Record<string, unknown>> })?.nodes ?? [];
+    const flowConfigs =
+      (instance.flowConfigs as { nodes: Array<Record<string, unknown>> })?.nodes ?? [];
     const flowUrls = flowConfigs
-      .filter(fc => fc.webhookUrl)
-      .map(fc => {
+      .filter((fc) => fc.webhookUrl)
+      .map((fc) => {
         const flow = fc.flow as Record<string, unknown>;
         return {
           name: (flow?.name as string) || "",
@@ -201,7 +205,9 @@ function deployIntegration(projectDir: string): number {
           if (pkg.name) {
             integrationId = findIntegrationId(pkg.name);
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       // --- Test instance info (A) ---
@@ -234,7 +240,7 @@ function deployIntegration(projectDir: string): number {
         deployResult.guidance = [
           `Open the test instance designer: ${testInstance.designer_url}`,
           testInstance.unconfigured.length > 0
-            ? `Configure ${testInstance.unconfigured.length} unconfigured item(s): ${testInstance.unconfigured.map(u => u.key).join(", ")}`
+            ? `Configure ${testInstance.unconfigured.length} unconfigured item(s): ${testInstance.unconfigured.map((u) => u.key).join(", ")}`
             : "All config variables are set",
           "Ask the user to confirm configuration is complete before running tests",
           "Do NOT produce a final summary until test_outcome is determined",

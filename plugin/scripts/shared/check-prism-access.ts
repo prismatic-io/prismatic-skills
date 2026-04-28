@@ -74,7 +74,7 @@ function checkPrismAccess(): number {
       return 0;
     }
 
-    const combinedOutput = (result.stderr || "") + " " + (result.stdout || "");
+    const combinedOutput = `${result.stderr || ""} ${result.stdout || ""}`;
 
     if (isNetworkError(combinedOutput)) {
       console.log("Network access to Prismatic is blocked");

@@ -89,9 +89,7 @@ function main(): number {
     console.log("Component structure is valid and build output exists.");
     console.log("");
     console.log("Next steps:");
-    console.log(
-      "  1. Publish: npx tsx scripts/publish-component.ts " + componentDir
-    );
+    console.log(`  1. Publish: npx tsx scripts/publish-component.ts ${componentDir}`);
     console.log("  2. Test functionality in the Prismatic platform");
     console.log("     - Create or edit an integration");
     console.log("     - Add your component's actions");

@@ -22,7 +22,7 @@ import { execFileSync } from "node:child_process";
 const SCRIPTS_DIR = new URL(".", import.meta.url).pathname;
 
 const SEARCH_DIRS = [
-  SCRIPTS_DIR,                          // root scripts
+  SCRIPTS_DIR, // root scripts
   join(SCRIPTS_DIR, "integrations"),
   join(SCRIPTS_DIR, "shared"),
   join(SCRIPTS_DIR, "components"),
@@ -101,7 +101,7 @@ function main(): number {
 
     // Fuzzy match
     const candidates = [...index.keys()].filter(
-      (k) => k.includes(scriptName) || scriptName.includes(k)
+      (k) => k.includes(scriptName) || scriptName.includes(k),
     );
     if (candidates.length > 0) {
       console.error(`Did you mean: ${candidates.join(", ")}?`);

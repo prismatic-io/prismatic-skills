@@ -28,7 +28,7 @@ function main(): number {
   if (args.length < 2) {
     console.log(
       "Usage: npx tsx write-answer.ts <answers-file> [--flow <flow-id>] <question-id> <answer>\n" +
-      "       npx tsx write-answer.ts --session <name> [--type component|integration] [--flow <flow-id>] <question-id> <answer>"
+        "       npx tsx write-answer.ts --session <name> [--type component|integration] [--flow <flow-id>] <question-id> <answer>",
     );
     return 1;
   }
@@ -78,17 +78,16 @@ function main(): number {
   let answerRaw: string | undefined;
 
   if (sessionName) {
-    answersFile = join(getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"), "requirements.json");
+    answersFile = join(
+      getSessionDirectory(sessionName, sessionType === "component" ? "components" : "integrations"),
+      "requirements.json",
+    );
     questionId = positional[0];
     answerRaw = positional[1];
   } else {
     answersFile = positional[0];
     questionId = positional[1];
     answerRaw = positional[2];
-  }
-
-  if (answerRaw === "--json" && restArgs.length > 2) {
-    answerRaw = restArgs[2];
   }
 
   // If no answer argument, read from stdin
@@ -124,13 +123,13 @@ function main(): number {
     if (connectionExistingKeys.includes(questionId)) {
       console.log(
         `Answer REJECTED: ${questionId} cannot be written via write-answer.\n\n` +
-        `<connection-gate>\n` +
-        `  Connection existing values must come from actual search results, not fabricated objects.\n` +
-        `  Use the connection workflow in record-choices instead:\n` +
-        `  1. Run prismatic-tools search-connections <system>\n` +
-        `  2. Record the search result via record-choices\n` +
-        `  3. The connection gate in record-choices handles the creation workflow\n` +
-        `</connection-gate>`
+          `<connection-gate>\n` +
+          `  Connection existing values must come from actual search results, not fabricated objects.\n` +
+          `  Use the connection workflow in record-choices instead:\n` +
+          `  1. Run prismatic-tools search-connections <system>\n` +
+          `  2. Record the search result via record-choices\n` +
+          `  3. The connection gate in record-choices handles the creation workflow\n` +
+          `</connection-gate>`,
       );
       return 1;
     }
@@ -147,14 +146,15 @@ function main(): number {
         if (specItem && Array.isArray(specItem.choices)) {
           const validChoices = specItem.choices as string[];
           if (!validChoices.includes(answer)) {
-            const match = validChoices.find(c => c.toLowerCase() === answer.toLowerCase());
+            const answerStr = answer;
+            const match = validChoices.find((c) => c.toLowerCase() === answerStr.toLowerCase());
             if (match) {
               answer = match;
               console.error(`NOTE: Auto-corrected "${answerRaw}" → "${match}" for ${questionId}`);
             } else {
               console.log(
                 `Answer REJECTED: "${answer}" is not a valid choice for ${questionId}.\n` +
-                `Valid choices: ${validChoices.join(", ")}`
+                  `Valid choices: ${validChoices.join(", ")}`,
               );
               return 1;
             }
@@ -200,10 +200,7 @@ function main(): number {
 
   // Validation warning for connection-type questions (integrations only)
   if (sessionType !== "component") {
-    const connectionQuestions = [
-      "source_connection_type",
-      "destination_connection_type",
-    ];
+    const connectionQuestions = ["source_connection_type", "destination_connection_type"];
 
     if (connectionQuestions.includes(questionId)) {
       if (typeof answer === "object" && answer !== null) {
@@ -235,7 +232,9 @@ function main(): number {
     writeFileSync(answersFile, JSON.stringify(answers, null, 2));
     const prefix = flowId ? `[flow: ${flowId}] ` : "";
     console.log(`${prefix}Answer written to ${answersFile}`);
-    console.log(`   ${questionId} = ${typeof answer === "string" ? answer : JSON.stringify(answer)}`);
+    console.log(
+      `   ${questionId} = ${typeof answer === "string" ? answer : JSON.stringify(answer)}`,
+    );
     return 0;
   } catch (e) {
     console.error(`Failed to write file: ${e}`);

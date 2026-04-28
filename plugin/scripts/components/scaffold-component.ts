@@ -12,16 +12,28 @@
  *   3 - Error: Scaffolding failed
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, renameSync, readdirSync, statSync, unlinkSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  rmSync,
+  renameSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+} from "node:fs";
 import { spawnSync } from "node:child_process";
-import { join, basename, relative } from "node:path";
+import { join, relative } from "node:path";
 import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { getProjectRoot } from "../shared/project-directory.js";
 import { timedStep, printTimingSummary } from "../shared/timing.js";
 
 function toPascalCase(name: string): string {
-  return name.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("");
+  return name
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join("");
 }
 
 function validateComponentName(name: string): boolean {
@@ -151,7 +163,7 @@ function removeTestFiles(componentPath: string): void {
         }
       }
 
-      if (modified) writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+      if (modified) writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
     }
 
     if (removed.length > 0) console.log(`Removed test files: ${removed.join(", ")}`);
@@ -168,7 +180,7 @@ function addSkeletonFiles(componentPath: string, componentName: string): void {
     if (!existsSync(typesPath)) {
       writeFileSync(
         typesPath,
-        `// Type definitions for ${pascalName} component\n\nexport interface ${pascalName}Resource {\n  id: string;\n  // Add resource-specific fields here\n}\n`
+        `// Type definitions for ${pascalName} component\n\nexport interface ${pascalName}Resource {\n  id: string;\n  // Add resource-specific fields here\n}\n`,
       );
       console.log("Created: src/types.ts");
     }
@@ -177,7 +189,7 @@ function addSkeletonFiles(componentPath: string, componentName: string): void {
     if (!existsSync(inputsPath)) {
       writeFileSync(
         inputsPath,
-        `import { input, util } from "@prismatic-io/spectral";\n\nexport const connectionInput = input({\n  label: "Connection",\n  type: "connection",\n  required: true,\n});\n`
+        `import { input, util } from "@prismatic-io/spectral";\n\nexport const connectionInput = input({\n  label: "Connection",\n  type: "connection",\n  required: true,\n});\n`,
       );
       console.log("Created: src/inputs.ts");
     }
