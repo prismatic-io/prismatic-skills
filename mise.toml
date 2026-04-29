@@ -16,9 +16,17 @@ run = "bun run check-format"
 description = "Lint the source code"
 run = "bun run lint"
 
+[tasks."validate:plugin"]
+description = "Validate plugin and marketplace manifests via claude CLI"
+tools = { claude = "2.1.123" }
+run = '''
+claude plugin validate plugin
+claude plugin validate .claude-plugin/marketplace.json
+'''
+
 [tasks.validate]
 description = "Run all validation checks"
-depends = ["format:check", "lint", "typecheck"]
+depends = ["format:check", "lint", "typecheck", "validate:plugin"]
 
 [tasks.version-bump]
 description = "Bump plugin.json version and pin marketplace.json:source.ref to the new tag (set BUMP_TYPE=patch|minor|major)"
