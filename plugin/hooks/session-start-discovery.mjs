@@ -1,14 +1,25 @@
 /**
  * SessionStart hook: reads tool-manifest.json and injects a tool registry
  * so agents auto-discover available synthetic tools and know which tools
- * require explicit invocation.
+ * require explicit invocation. Also snapshots the loaded plugin version
+ * so /version can detect a stale session.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MANIFEST_PATH = join(__dirname, "tool-manifest.json");
+const PLUGIN_JSON_PATH = join(__dirname, "..", ".claude-plugin", "plugin.json");
+const SNAPSHOT_PATH = join(tmpdir(), "prismatic-skills-loaded-version");
+
+try {
+  const pluginMeta = JSON.parse(readFileSync(PLUGIN_JSON_PATH, "utf8"));
+  writeFileSync(SNAPSHOT_PATH, pluginMeta.version ?? "unknown");
+} catch {
+  // best effort — version detection just won't work if this fails
+}
 
 let manifest;
 try {
