@@ -16,6 +16,7 @@ Add the marketplace and install the plugin in Claude Code:
 ```bash
 /plugin marketplace add prismatic-io/prismatic-skills
 /plugin install prismatic-skills@prismatic-skills
+/reload-plugins
 ```
 
 ### Development / Testing
