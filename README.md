@@ -143,7 +143,7 @@ Check which plugin version is loaded and whether the session is stale.
 | `component-builder`       | Builds custom components from requirements to deployment. Handles scaffolding, code generation, building, and publishing.                                                                                               |
 | `cni-builder`             | Builds Code Native Integrations from requirements to deployment. Manages component manifests, OAuth configuration, TypeScript generation, deploy, and test cycles. Also handles modifications to existing integrations. |
 | `external-api-researcher` | Researches external APIs by fetching and analyzing documentation. Extracts authentication methods, endpoints, data models, and webhook capabilities into a structured JSON spec.                                        |
-| `embed-advisor`           | Guides developers through embedding Prismatic's marketplace and workflow builder in their web application. Handles signing key setup, JWT backend generation, frontend SDK integration, theming, and i18n.              |
+| `embedded-advisor`        | Guides developers through embedding Prismatic's marketplace and workflow builder in their web application. Handles signing key setup, JWT backend generation, frontend SDK integration, theming, and i18n.              |
 | `migration-analyzer`      | Parses integration exports from other platforms (Boomi, Cyclr) and produces a standardized integration schema for migration to Prismatic.                                                                               |
 | `migration-reviewer`      | Reviews and validates migration analysis output before handing off to the CNI build pipeline.                                                                                                                           |
 | `orby`                    | Interactive Prismatic platform guide. Explores your environment, executes platform operations, constructs GraphQL queries, searches documentation, and orchestrates multi-step workflows.                               |
@@ -261,7 +261,7 @@ prismatic-skills/
 │   ├── component-builder.md
 │   ├── cni-builder.md
 │   ├── external-api-researcher.md
-│   ├── embed-advisor.md
+│   ├── embedded-advisor.md
 │   ├── migration-analyzer.md
 │   ├── migration-reviewer.md
 │   └── orby.md
@@ -270,7 +270,7 @@ prismatic-skills/
 │   ├── integration-patterns/        # CNI reference docs & pattern library
 │   ├── prismatic-api/               # GraphQL & API reference
 │   ├── prismatic-docs/              # Documentation search reference
-│   ├── embedded/                    # Embedded marketplace & workflow builder
+│   ├── embedded-patterns/           # Embedded marketplace & workflow builder
 │   ├── migration-framework/         # Standardized migration schema & mapping
 │   ├── boomi-migration/             # Boomi-specific parsing & concept mapping
 │   └── cyclr-migration/             # Cyclr-specific parsing & concept mapping

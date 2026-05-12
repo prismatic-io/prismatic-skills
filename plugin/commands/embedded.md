@@ -1,8 +1,7 @@
 ---
 name: embedded
 description: Set up Prismatic embedding — marketplace, workflow builder, or custom UI — in your web application
-context: fork
-agent: embed-advisor
+agent: embedded-advisor
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, TaskCreate, TaskUpdate, TaskList, TaskGet
 ---
 
@@ -14,7 +13,7 @@ $ARGUMENTS
     <never>Expose private signing keys in generated source code or conversation output</never>
   </rule>
   <rule name="reference-before-code">
-    <always>Read the relevant embedded skill reference file before generating any code</always>
+    <always>Read the relevant embedded-patterns skill reference file before generating any code</always>
     <never>Generate JWT endpoints, SDK setup, or framework integration code from memory alone</never>
   </rule>
   <rule name="one-step-at-a-time">

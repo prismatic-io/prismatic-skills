@@ -1,5 +1,5 @@
 ---
-name: embedded
+name: embedded-patterns
 version: 1.0.0
 description: Reference documentation for embedding Prismatic's integration marketplace and workflow builder in a web application. Covers JWT authentication, the embedded SDK, marketplace and workflow embedding, theming, i18n, additional screens, and custom marketplace UI. Use when the user asks about embedding Prismatic, JWT tokens for embedded apps, marketplace iframes, workflow builder integration, custom marketplace UI, or frontend SDK setup.
 user-invocable: false
