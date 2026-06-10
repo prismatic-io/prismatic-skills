@@ -3,6 +3,7 @@
 ## When to Build a Custom UI
 
 The embedded marketplace iframe covers most use cases and gives you theming control. Build a fully custom marketplace UI when you need:
+
 - Your integrations rendered as native UI elements (cards, lists, tables) that match your design system exactly
 - Custom interaction patterns that don't fit the iframe model
 - Deep integration with your app's state management or routing
@@ -55,7 +56,9 @@ const GET_MARKETPLACE_INTEGRATIONS = `
   }
 `;
 
-const result = await prismatic.graphqlRequest({ query: GET_MARKETPLACE_INTEGRATIONS });
+const result = await prismatic.graphqlRequest({
+  query: GET_MARKETPLACE_INTEGRATIONS,
+});
 const integrations = result.data.marketplaceIntegrations.nodes;
 ```
 
@@ -91,13 +94,17 @@ interface MarketplaceIntegration {
 Integration avatars are stored in authenticated S3. You can't use `avatarUrl` directly as an `<img src>` — you need to exchange it for a presigned URL.
 
 ```typescript
-async function getAvatarUrl(avatarUrl: string, token: string): Promise<string> {
-  const response = await fetch(avatarUrl, {
+async function getAvatarUrl(
+  avatarUrl: string,
+  prismaticBaseUrl: string,
+  token: string,
+): Promise<string> {
+  const response = await fetch(`${prismaticBaseUrl}${avatarUrl}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  const json = await response.json();
-  // Returns: { "data": { "url": "https://s3.amazonaws.com/..." } }
-  return json.data.url;
+  const { url } = await response.json();
+  // Returns: { "url": "https://s3.amazonaws.com/..." }
+  return url;
 }
 ```
 
@@ -139,7 +146,11 @@ const GET_INTEGRATIONS = `
   }
 `;
 
-function IntegrationCard({ integration }: { integration: MarketplaceIntegration }) {
+function IntegrationCard({
+  integration,
+}: {
+  integration: MarketplaceIntegration;
+}) {
   const isActive = integration.deploymentStatus === "ACTIVATED";
   const isConfigured = integration.deployedInstances !== "ZERO";
 
@@ -172,7 +183,9 @@ function IntegrationCard({ integration }: { integration: MarketplaceIntegration 
 }
 
 export function CustomMarketplace() {
-  const [integrations, setIntegrations] = useState<MarketplaceIntegration[]>([]);
+  const [integrations, setIntegrations] = useState<MarketplaceIntegration[]>(
+    [],
+  );
 
   useEffect(() => {
     prismatic.graphqlRequest({ query: GET_INTEGRATIONS }).then((result) => {
@@ -196,16 +209,16 @@ Since you control the rendering, you can filter however you like:
 
 ```typescript
 // Filter by category
-const erpIntegrations = integrations.filter(i => i.category === "ERP");
+const erpIntegrations = integrations.filter((i) => i.category === "ERP");
 
 // Filter to only active integrations
 const activeIntegrations = integrations.filter(
-  i => i.deploymentStatus === "ACTIVATED"
+  (i) => i.deploymentStatus === "ACTIVATED",
 );
 
 // Filter to only not-yet-connected integrations
 const availableIntegrations = integrations.filter(
-  i => i.deployedInstances === "ZERO"
+  (i) => i.deployedInstances === "ZERO",
 );
 ```
 
