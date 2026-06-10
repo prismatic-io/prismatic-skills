@@ -12,11 +12,11 @@
     "check-format": "biome format ."
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.12",
-    "@types/node": "^24.0.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.6.3",
-    "@xmldom/xmldom": "^0.8.10"
+    "@biomejs/biome": "^2.4.16",
+    "@types/node": "^24.13.1",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3",
+    "@xmldom/xmldom": "^0.8.13"
   },
   "engines": {
     "node": ">=24"
