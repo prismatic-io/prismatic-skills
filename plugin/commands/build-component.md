@@ -37,6 +37,13 @@ Voice and narration style are defined in the agent instructions. Follow them.
     Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <name> --type component`. Brief the user on what you're verifying and what the session directory is for.
   </step>
 
+  <step name="check-existing-component">
+    For connector components (those wrapping an external API), check whether Prismatic already ships one before proceeding:
+    1. WebFetch `https://github.com/prismatic-io/components` and scan the directory listing for a subdirectory matching the target service
+    2. If found: tell the user an official component exists, link to it, and ask whether they want to build a custom variant or stop here. If they choose to stop, end the workflow.
+    3. If not found: continue. Note this check for utility components (no external API) — skip it.
+  </step>
+
   <step name="run-sync-script">
     Run the task sync script to discover what spec items need user input:
     <command>
