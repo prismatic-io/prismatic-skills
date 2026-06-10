@@ -24,7 +24,8 @@ Add the marketplace and install the plugin in Claude Code:
 For local development, load the plugin directly:
 
 ```bash
-claude --plugin-dir /path/to/prismatic-skills
+export PRISMATIC_MARKETPLACE_CHECKOUT=/path/to/prismatic-skills
+claude --plugin-dir ${PRISMATIC_MARKETPLACE_CHECKOUT}/plugin
 ```
 
 ## Available Commands
