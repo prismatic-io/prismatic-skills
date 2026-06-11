@@ -46,7 +46,7 @@ Components define their own inputs — not `configVar()` wrappers. Each action u
 Before scaffolding any connector component, check whether Prismatic already ships one:
 
 ```
-https://github.com/prismatic-io/components
+https://github.com/prismatic-io/components/tree/main/components
 ```
 
 Browse or search (`repo:prismatic-io/components <service-name>`) to see if a subdirectory exists for the target service. If it does:
@@ -81,7 +81,7 @@ Load only the references relevant to your current workflow phase. This keeps con
 See the `<spec-loading>` block in component-builder.md for progressive disclosure rules.
 The references below are the full set available — load per the agent's guidance.
 
-- **Production components** (`https://github.com/prismatic-io/components`) — When building a connector, browse the repo for a component that uses the same auth type or a similar API. These are production-grade and show current SDK idioms for client setup, error handling, pagination, and action structure. Fetch raw source with `https://raw.githubusercontent.com/prismatic-io/components/main/<name>/src/index.ts`.
+- **Production components** (`https://github.com/prismatic-io/components/tree/main/components`) — When building a connector, browse the repo for a component that uses the same auth type or a similar API. These are production-grade and show current SDK idioms for client setup, error handling, pagination, and action structure. Fetch raw source with `https://raw.githubusercontent.com/prismatic-io/components/tree/main/components/<name>/src/index.ts`.
 - `references/answer-to-code-cookbook.md` - **LOAD FIRST** — Maps component.yaml answers directly to TypeScript code snippets. Spec items with `cookbook_section` fields point to specific headings in this file — Grep for those headings to find exact patterns, especially after context compaction.
 - `references/code-generation-guide.md` - File generation patterns and component structure
 - `references/authentication-patterns.md` - API Key, OAuth2, Bearer Token, Basic Auth patterns

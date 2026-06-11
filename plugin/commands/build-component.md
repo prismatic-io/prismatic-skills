@@ -39,7 +39,7 @@ Voice and narration style are defined in the agent instructions. Follow them.
 
   <step name="check-existing-component">
     For connector components (those wrapping an external API), check whether Prismatic already ships one before proceeding:
-    1. WebFetch `https://github.com/prismatic-io/components` and scan the directory listing for a subdirectory matching the target service
+    1. WebFetch `https://github.com/prismatic-io/components/tree/main/components` and scan the directory listing for a subdirectory matching the target service
     2. If found: tell the user an official component exists, link to it, and ask whether they want to build a custom variant or stop here. If they choose to stop, end the workflow.
     3. If not found: continue. Note this check for utility components (no external API) — skip it.
   </step>

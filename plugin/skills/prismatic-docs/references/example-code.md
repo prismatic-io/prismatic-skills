@@ -89,10 +89,10 @@ https://raw.githubusercontent.com/prismatic-io/examples/main/<path-to-file>
 The open-source repository of Prismatic's own production components. Use this when you need to see how a real, shipped connector handles auth, pagination, error handling, or a specific API.
 
 ```
-https://github.com/prismatic-io/components
+https://github.com/prismatic-io/components/tree/main/components
 ```
 
-Each subdirectory is a complete component (e.g., `components/slack/`, `components/salesforce/`). These are production-grade and reflect current Prismatic SDK best practices.
+Each subdirectory is a complete component (e.g., `slack/`, `salesforce/`). These are production-grade and reflect current Prismatic SDK best practices.
 
 ### When to use `components` instead of `examples`
 
@@ -112,7 +112,7 @@ repo:prismatic-io/components <service-name>
 ### Fetch raw files
 
 ```
-https://raw.githubusercontent.com/prismatic-io/components/main/<component-name>/src/index.ts
+https://raw.githubusercontent.com/prismatic-io/components/tree/main/components/<component-name>/src/index.ts
 ```
 
 ## Citation Format
@@ -126,7 +126,7 @@ See the example implementation at: https://github.com/prismatic-io/examples/tree
 When referencing production components:
 
 ```
-See the production component: https://github.com/prismatic-io/components/tree/main/<component-name>
+See the production component: https://github.com/prismatic-io/components/tree/main/components/<component-name>
 ```
 
 For specific files:
