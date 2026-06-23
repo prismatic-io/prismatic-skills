@@ -41,6 +41,21 @@ Components define their own inputs — not `configVar()` wrappers. Each action u
 - Use `util.types` for input type constants
 - See `references/authentication-patterns.md` for connection field patterns
 
+## Phase: Existing Component Check
+
+Before scaffolding any connector component, check whether Prismatic already ships one:
+
+```
+https://github.com/prismatic-io/components/tree/main/components
+```
+
+Browse or search (`repo:prismatic-io/components <service-name>`) to see if a subdirectory exists for the target service. If it does:
+1. Tell the user an official component exists and link to it
+2. Ask whether they want to build a custom variant anyway (e.g., extended actions, different auth) or stop here
+3. If proceeding, use the production component as a reference for auth patterns, action structure, and error handling — it reflects current SDK best practices
+
+This check only applies to connector components (those wrapping external APIs), not utility components.
+
 ## Phase: API Research
 
 When the `on_answer` trigger fires for `api_docs_url`, the agent spawns the `external-api-researcher`
@@ -66,6 +81,7 @@ Load only the references relevant to your current workflow phase. This keeps con
 See the `<spec-loading>` block in component-builder.md for progressive disclosure rules.
 The references below are the full set available — load per the agent's guidance.
 
+- **Production components** (`https://github.com/prismatic-io/components/tree/main/components`) — When building a connector, browse the repo for a component that uses the same auth type or a similar API. These are production-grade and show current SDK idioms for client setup, error handling, pagination, and action structure. Fetch raw source with `https://raw.githubusercontent.com/prismatic-io/components/tree/main/components/<name>/src/index.ts`.
 - `references/answer-to-code-cookbook.md` - **LOAD FIRST** — Maps component.yaml answers directly to TypeScript code snippets. Spec items with `cookbook_section` fields point to specific headings in this file — Grep for those headings to find exact patterns, especially after context compaction.
 - `references/code-generation-guide.md` - File generation patterns and component structure
 - `references/authentication-patterns.md` - API Key, OAuth2, Bearer Token, Basic Auth patterns

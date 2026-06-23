@@ -1,14 +1,15 @@
-# Prismatic Examples Repository
+# Prismatic Code Repositories
 
-Reference for Prismatic's official examples repository containing working code implementations.
+Two GitHub repositories provide working code references. Choose based on what you need:
 
-## Repository
+| Repository | URL | Use When |
+|------------|-----|----------|
+| **examples** | `https://github.com/prismatic-io/examples` | Learning patterns, starter code, curated teaching material |
+| **components** | `https://github.com/prismatic-io/components` | Production implementations — how Prismatic's own connectors are built |
 
-```
-https://github.com/prismatic-io/examples
-```
+## prismatic-io/examples
 
-This repository contains reference implementations for components, integrations, and common patterns. Use it to find working code examples when documentation alone isn't enough.
+Curated reference implementations for components, integrations, and common patterns. Use it to find working code examples when documentation alone isn't enough.
 
 ## Key Directories
 
@@ -83,12 +84,49 @@ https://raw.githubusercontent.com/prismatic-io/examples/main/<path-to-file>
 | Scheduled flows            | Flows using schedule triggers               |
 | Multi-step workflows       | Complex flow definitions                    |
 
+## prismatic-io/components (Production Components)
+
+The open-source repository of Prismatic's own production components. Use this when you need to see how a real, shipped connector handles auth, pagination, error handling, or a specific API.
+
+```
+https://github.com/prismatic-io/components/tree/main/components
+```
+
+Each subdirectory is a complete component (e.g., `slack/`, `salesforce/`). These are production-grade and reflect current Prismatic SDK best practices.
+
+### When to use `components` instead of `examples`
+
+| Need                                         | Use          |
+|----------------------------------------------|--------------|
+| Check if an official component already exists | `components` |
+| See production auth/pagination/error patterns | `components` |
+| Learn patterns from a didactic example        | `examples`   |
+| Copy-paste starter structure                  | `examples`   |
+
+### Search pattern
+
+```
+repo:prismatic-io/components <service-name>
+```
+
+### Fetch raw files
+
+```
+https://raw.githubusercontent.com/prismatic-io/components/tree/main/components/<component-name>/src/index.ts
+```
+
 ## Citation Format
 
 When referencing examples, cite the GitHub URL:
 
 ```
 See the example implementation at: https://github.com/prismatic-io/examples/tree/main/components/example-name
+```
+
+When referencing production components:
+
+```
+See the production component: https://github.com/prismatic-io/components/tree/main/components/<component-name>
 ```
 
 For specific files:
