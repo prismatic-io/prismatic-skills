@@ -143,26 +143,12 @@ prism graphql:query \
 | Query logs | - | - | `graphql()` |
 | Manage connections | - | - | `graphql()` |
 
-## Migration Notes
+## Architecture Rationale
 
-### What Changed
+API access uses a two-tier system:
+1. **MCP tools** — for agent conversations.
+2. **Prism CLI** — for scripts and agents, with `shared/graphql.ts` as a thin wrapper around `prism graphql:query`.
 
-The previous codebase had 4 inconsistent API access patterns:
-1. MCP tools (agent conversations)
-2. Prism CLI wrappers (via `prism-retry.ts`)
-3. Custom GraphQL client with Auth0 token exchange
-4. Inline GraphQL in individual scripts
+`prism graphql:query` handles authentication natively (including token refresh) and supports arbitrary queries with `--variables`, so `shared/graphql.ts` delegates auth to the Prism CLI rather than maintaining a custom token-exchange client.
 
-These were consolidated to a two-tier system:
-1. **MCP tools** (agent conversations — unchanged)
-2. **Prism CLI** (scripts + agents), with `shared/graphql.ts` as a thin wrapper around `prism graphql:query`
-
-### What Was Removed
-
-- Custom Auth0 token exchange + HTTP client. Replaced by `graphql.ts` (~80 lines) which delegates auth to Prism CLI.
-- Credential extraction utilities. No longer needed since `prism` commands handle auth natively.
-- Inline GraphQL helpers in individual scripts. Replaced by `shared/graphql.ts` imports.
-
-### Why
-
-`prism graphql:query` handles authentication natively (including token refresh) and supports arbitrary queries with `--variables`. This eliminates the need for a custom Python GraphQL client and its Auth0 integration layer.
+**Rule:** Use `shared/graphql.ts` imports for custom queries — never inline GraphQL clients or custom token exchange in individual scripts.
