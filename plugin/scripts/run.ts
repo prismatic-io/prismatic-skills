@@ -43,6 +43,7 @@ function buildIndex(): Map<string, string> {
 
     for (const f of files) {
       if (!f.endsWith(".ts")) continue;
+      if (f.endsWith(".test.ts")) continue; // colocated tests aren't dispatchable
       const full = join(dir, f);
       // Skip directories and this file
       try {

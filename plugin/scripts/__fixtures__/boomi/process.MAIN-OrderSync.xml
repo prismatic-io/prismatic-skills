@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bns:Process xmlns:bns="http://api.platform.boomi.com/" name="MAIN - Order Sync">
+  <bns:shapes>
+    <bns:shape type="start" name="Start">
+      <bns:connectorAction connectorType="http" actionType="LISTEN"/>
+    </bns:shape>
+    <bns:shape type="stop" name="Stop"/>
+  </bns:shapes>
+</bns:Process>
