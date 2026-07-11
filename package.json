@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit -p plugin/scripts/tsconfig.json",
     "lint": "biome lint .",
     "lint-fix": "biome lint --write --unsafe .",
+    "lint-plugin": "tsx plugin/scripts/lint-plugin.ts",
     "format": "bun run lint-fix && biome format --write .",
     "check-format": "biome format ."
   },
