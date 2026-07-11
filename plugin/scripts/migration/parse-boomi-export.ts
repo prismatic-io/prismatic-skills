@@ -26,29 +26,33 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { createRequire } from "node:module";
 
-// Resolve @xmldom/xmldom from npx cache or local node_modules — zero install required.
-// When invoked via `npx --package=@xmldom/xmldom`, npx adds its temp node_modules/.bin
-// to PATH. We derive the node_modules path from that and use createRequire to load from it.
+// Resolve @xmldom/xmldom with zero global install: from local node_modules
+// (createRequire since ESM has no bare `require`), else from the npx cache
+// populated by `npx --package=<pkg> tsx <script>`.
 function resolveNpxPackage(moduleName: string): unknown {
   try {
-    return require(moduleName);
+    return createRequire(import.meta.url)(moduleName);
   } catch {
-    /* not in local node_modules */
+    /* fall through to npx cache */
   }
 
   const npxBin = (process.env.PATH || "")
     .split(process.platform === "win32" ? ";" : ":")
     .find((p) => p.includes("_npx") && p.endsWith(".bin"));
 
-  if (!npxBin) {
-    throw new Error(
-      `Cannot find ${moduleName}. Run via: npx --package=${moduleName} npx tsx <script>`,
-    );
+  if (npxBin) {
+    const nmPath = npxBin.replace(/[/\\]\.bin$/, "");
+    try {
+      return createRequire(join(nmPath, "_virtual.js"))(moduleName);
+    } catch {
+      /* fall through to error */
+    }
   }
 
-  const nmPath = npxBin.replace(/[/\\]\.bin$/, "");
-  const customRequire = createRequire(join(nmPath, "_virtual.js"));
-  return customRequire(moduleName);
+  throw new Error(
+    `Cannot find ${moduleName}. Install it (\`npm install ${moduleName}\`) ` +
+      `or run via: npx --package=${moduleName} tsx <script>`,
+  );
 }
 
 import type { DOMParser as DOMParserType } from "@xmldom/xmldom";
