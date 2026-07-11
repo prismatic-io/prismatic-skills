@@ -1,0 +1,39 @@
+{
+  "Name": "Order Sync Cycle",
+  "Status": 1,
+  "VersionedCycle": { "Published": true, "Tags": ["orders"] },
+  "Steps": [
+    {
+      "Id": "step-post",
+      "Name": "Create ERP Record",
+      "Method_Id": "m-create",
+      "ActionType": 2,
+      "AccountConnector": {
+        "Name": "ERP API",
+        "Connector": { "Name": "Generic HTTP", "Version": "2.1" },
+        "ConnectorAuthentication": {
+          "AuthType": 4,
+          "OAuth2Type": 1,
+          "AuthoriseUrl": "https://erp.example.com/oauth/authorize",
+          "AccessTokenUrl": "https://erp.example.com/oauth/token"
+        }
+      },
+      "AccountConnector_Id": 900
+    },
+    {
+      "Id": "step-trigger",
+      "Name": "New Order Webhook",
+      "Method_Id": "m-listen",
+      "ActionType": 1,
+      "Interval": 300,
+      "AccountConnector": {
+        "Name": "Store Webhook",
+        "Connector": { "Name": "Store", "Version": "1.0" },
+        "ConnectorAuthentication": { "AuthType": 1 }
+      },
+      "AccountConnector_Id": 800
+    }
+  ],
+  "Edges": [{ "TailStep_Id": "step-trigger", "HeadStep_Id": "step-post", "CycleEdgeType": 1 }],
+  "Variables": [{ "Id": "v1", "Name": "region", "Value": "us-east" }]
+}

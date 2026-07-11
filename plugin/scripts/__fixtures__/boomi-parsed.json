@@ -1,0 +1,36 @@
+{
+  "platform": "boomi",
+  "components": {},
+  "processes": {
+    "proc-main": {
+      "name": "MAIN - Order Sync",
+      "shapes": [
+        {
+          "name": "s1",
+          "type": "start",
+          "connections_to": [{ "to_shape": "s2" }]
+        },
+        {
+          "name": "s2",
+          "type": "stop",
+          "connections_to": []
+        }
+      ]
+    },
+    "proc-otel": {
+      "name": "[OTEL] Telemetry Exporter",
+      "shapes": [
+        {
+          "name": "s1",
+          "type": "start",
+          "connections_to": [{ "to_shape": "s2" }]
+        },
+        {
+          "name": "s2",
+          "type": "stop",
+          "connections_to": []
+        }
+      ]
+    }
+  }
+}

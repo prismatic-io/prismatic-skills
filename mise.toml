@@ -8,6 +8,10 @@ node = "24"
 description = "Type-check scripts/"
 run = "bun run typecheck"
 
+[tasks.test]
+description = "Unit-test the plugin scripts and hooks"
+run = "bun test"
+
 [tasks."lint:plugin"]
 description = "Static manifest-integrity lint (agent/skill refs, tool dispatch, name parity)"
 run = "bun run lint-plugin"
@@ -30,7 +34,7 @@ claude plugin validate .claude-plugin/marketplace.json
 
 [tasks.validate]
 description = "Run all validation checks"
-depends = ["format:check", "lint", "lint:plugin", "typecheck", "validate:plugin"]
+depends = ["format:check", "lint", "lint:plugin", "typecheck", "test", "validate:plugin"]
 
 [tasks.version-bump]
 description = "Bump plugin.json version and pin marketplace.json:source.ref to the new tag (set BUMP_TYPE=patch|minor|major)"
