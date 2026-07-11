@@ -21,3 +21,7 @@ You should then:
 
 Do NOT ask the user to invoke Orby manually — handle the handoff automatically.
 </orchestration>
+
+<skill-authoring>
+When creating or editing a skill (`plugin/skills/**`), read `docs/skill-authoring-rubric.md`.
+</skill-authoring>
