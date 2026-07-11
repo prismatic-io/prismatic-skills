@@ -14,53 +14,38 @@ Search and retrieve Prismatic product documentation and code examples to answer 
 - **Documentation**: `https://prismatic.io/docs/` — Official product documentation
 - **Examples**: `https://github.com/prismatic-io/examples` — Working code implementations
 
-## Core Technique: Markdown Fetch
+## Core Technique: Discover via llms.txt, read via `.md`
 
-Prismatic docs pages serve clean markdown by appending `.md` to the URL path:
-
-| HTML URL                                    | Markdown URL                                  |
-|---------------------------------------------|-----------------------------------------------|
-| `https://prismatic.io/docs/connections/`    | `https://prismatic.io/docs/connections.md`    |
-| `https://prismatic.io/docs/config-pages/`   | `https://prismatic.io/docs/config-pages.md`   |
-
-The `.md` version strips HTML/CSS/JS, returning clean content ideal for LLM consumption.
-
-## Discovery Methods
-
-### Method 1: Index Lookup (llms.txt)
-
-Fetch the page index to find the right documentation page:
+Prismatic publishes an authoritative, LLM-optimized index of every docs page:
 
 ```
 https://prismatic.io/docs/llms.txt
 ```
 
-This contains 200+ page titles with URLs. Search for keywords to find relevant pages.
+It lists 200+ pages as `[Title](full .md URL): one-line description` and is the **single
+source of truth for doc URLs**. Each entry carries the page's `.md` URL, which returns clean
+markdown (no HTML/CSS/JS) ideal for LLM consumption.
 
-**Warning**: Do NOT use `llms-full.txt` — it exceeds 10MB and will timeout.
+**Look every doc URL up in `llms.txt`; never hand-construct one.** Doc pages live under
+nested paths — for example Config Pages is
+`https://prismatic.io/docs/integrations/config-wizard/config-pages.md`. Fetch `llms.txt`,
+search it for your topic, and fetch the exact `.md` URL it lists.
 
-### Method 2: Web Search
+**Warning**: fetch `llms.txt` (the small index), NOT `llms-full.txt` — it exceeds 10MB and
+times out.
 
-Use WebSearch scoped to `prismatic.io` when the topic is unclear:
-
-```
-site:prismatic.io/docs <topic>
-```
-
-### Method 3: Direct Fetch
-
-For known topics, fetch directly using common paths (see reference file).
+**Fallback** (when `llms.txt` doesn't surface the topic): `WebSearch` scoped to
+`site:prismatic.io/docs <topic>`, then fetch that page's `.md`.
 
 ## Workflows
 
 ### Answer Conceptual Questions
 
 1. Identify the topic from the user's question
-2. Check common documentation paths in `references/documentation-search.md`
-3. If path unknown, fetch `llms.txt` and search for relevant pages
-4. Convert URL to `.md` format and fetch with WebFetch
-5. Extract relevant information and present clearly
-6. Cite the HTML URL (not `.md`) so users can visit
+2. Fetch `llms.txt` and search it for the topic to get the page's exact `.md` URL
+3. Fetch that `.md` URL with WebFetch (clean markdown, no HTML/CSS/JS)
+4. Extract relevant information and present clearly
+5. Cite the page's HTML URL (drop the `.md`) so users can open it in a browser
 
 ### Find Code Examples
 
@@ -95,23 +80,13 @@ For known topics, fetch directly using common paths (see reference file).
 - "Deploy this instance"
 - "Show execution logs"
 
-## Common Documentation Paths
+## Finding the right page
 
-| Topic                    | Path                            |
-|--------------------------|---------------------------------|
-| Config variables         | `/docs/config-variables/`       |
-| Config pages             | `/docs/config-pages/`           |
-| Connections              | `/docs/connections/`            |
-| Customer config          | `/docs/customer-configuration/` |
-| Custom components        | `/docs/custom-components/`      |
-| Code-native integrations | `/docs/code-native-integrations/`|
-| Embedding marketplace    | `/docs/embedding-marketplace/`  |
-| Integration triggers     | `/docs/integration-triggers/`   |
-| Instances                | `/docs/instances/`              |
-| CLI reference            | `/docs/cli/`                    |
-| API reference            | `/docs/api/`                    |
+**Fetch `llms.txt` and search it for the topic** to get the page's `.md` URL. That one index
+covers every doc section — config wizard, connections, custom connectors, code-native,
+embed/marketplace, triggers, instances, CLI, API — so it is how you locate any page.
 
-See `references/documentation-search.md` for complete paths and task mappings.
+See `references/documentation-search.md` for task→topic mappings and search tips.
 
 ## Citation Format
 

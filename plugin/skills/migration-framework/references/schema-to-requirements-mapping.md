@@ -16,11 +16,8 @@ These are written to requirements.json by `schema-to-answers.ts`:
 | `systems[role=source].name` | `source_system` | text | System name |
 | `systems[role=destination].name` | `destination_system` | text | System name |
 | `data_transformations` | `transformations` | text | Narrative with first 10 mappings + function summary |
-| `error_handling.strategy` | `error_handler_type` | choice | Map: "retry"→"retry", "stop"→"fail", "continue"→"ignore" |
-| `error_handling.retry_count` | `error_retry_max_attempts` | text | Number as string |
-| `error_handling.retry_delay` | `error_retry_delay_seconds` | text | Number as string |
-| `error_handling.retry_backoff` | `error_retry_backoff` | choice | "Yes" or "No" |
-| `migration_notes + config_variables + scripts` | `additional_requirements` | text | Full text with Groovy source |
+| `error_handling.strategy` | `error_handler_type` | choice | Only MAPPED strategies set this: "retry"→"retry", "stop"→"fail", "continue"→"ignore". Unmapped strategies (e.g. "log", "notify") are NOT written here — they are surfaced in `additional_requirements`. |
+| `migration_notes + config_variables + scripts + unmapped error strategies` | `additional_requirements` | text | Full text with Groovy source; also captures error strategies like "log"/"notify" that have no spec-choice equivalent |
 
 ## NOT Pre-Populated
 
@@ -39,6 +36,7 @@ These require live platform interaction or user decisions:
 | `flow_count` | Derived from schema but confirmed by user |
 | `flow_definitions` | Derived from schema but confirmed by user |
 | `additional_systems` | If 3+ systems detected in schema |
+| `error_retry_max_attempts`, `error_retry_delay_seconds`, `error_retry_backoff` | Not auto-filled by `schema-to-answers.ts` — only `error_handler_type` is derived from `error_handling`; retry tuning is gathered during requirements |
 
 ## Choice Value Mapping
 
@@ -51,7 +49,8 @@ The schema uses different vocabulary than the spec. Map to exact spec slugs:
 | "poll", "polling" | `polling` | trigger_type |
 | "retry", "automatic retry" | `retry` | error_handler_type |
 | "stop", "fail", "abort" | `fail` | error_handler_type |
-| "continue", "ignore", "log" | `ignore` | error_handler_type |
+| "continue", "ignore" | `ignore` | error_handler_type |
+| "log", "notify" (no spec-choice equivalent) | — → `additional_requirements` | (not a choice) |
 
 ## Multi-Flow Handling
 

@@ -6,13 +6,18 @@ Reference for searching and retrieving Prismatic product documentation programma
 
 Prismatic docs pages serve clean markdown when you replace the trailing `/` with `.md`:
 
-| HTML (for users)                                  | Markdown (for LLM consumption)                       |
-|---------------------------------------------------|------------------------------------------------------|
-| `https://prismatic.io/docs/`                      | `https://prismatic.io/docs.md`                       |
-| `https://prismatic.io/docs/integrations/`         | `https://prismatic.io/docs/integrations.md`          |
-| `https://prismatic.io/docs/config-variables/`     | `https://prismatic.io/docs/config-variables.md`      |
+| HTML (for users)                                             | Markdown (for LLM consumption)                                       |
+|--------------------------------------------------------------|----------------------------------------------------------------------|
+| `https://prismatic.io/docs/`                                 | `https://prismatic.io/docs/index.md`                                 |
+| `https://prismatic.io/docs/integrations/`                    | `https://prismatic.io/docs/integrations.md`                          |
+| `https://prismatic.io/docs/integrations/config-wizard/config-variables/` | `https://prismatic.io/docs/integrations/config-wizard/config-variables.md` |
 
 The `.md` version strips all HTML, CSS, and JavaScript — returning only clean markdown content ideal for LLM processing.
+
+> **Find URLs via `llms.txt`.** It is the authoritative index of every docs page: fetch it,
+> search for your topic, and use the exact `.md` URL it lists. Doc pages live under nested
+> sections (e.g. `/docs/integrations/config-wizard/…`), so look the path up there rather than
+> assuming one.
 
 ## Discovery via llms.txt
 
