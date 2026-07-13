@@ -6,3 +6,7 @@ lib/
 
 # mise / bun local caches
 .mise.local.toml
+
+# Claude Code local artifacts (.claude/settings.json is intentionally tracked)
+.claude/worktrees/
+.claude/settings.local.json
