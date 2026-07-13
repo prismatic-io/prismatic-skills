@@ -25,3 +25,25 @@ Do NOT ask the user to invoke Orby manually — handle the handoff automatically
 <skill-authoring>
 When creating or editing a skill (`plugin/skills/**`), read `docs/skill-authoring-rubric.md`.
 </skill-authoring>
+
+<evals>
+## Skill evals (developer-only)
+
+Evals live in `evals/` and use [lux](https://github.com/prismatic-io/lux). Each skill has
+typed cases under `evals/cases/<skill>/`; `lux run` discovers them (no manifest).
+
+```bash
+cd evals
+
+# one case
+bun run lux run cases/boomi-migration/shape-mapping.ts
+
+# one skill (path substring)
+bun run lux run boomi-migration/
+
+# everything
+bun run lux run
+```
+
+See `evals/README.md` for prerequisites (lux must be linked locally via `bun link`).
+</evals>

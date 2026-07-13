@@ -1,0 +1,13 @@
+{
+  "name": "@prismatic-io/prismatic-skills-evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lux eval suite for the prismatic-skills Claude Code plugin.",
+  "scripts": {
+    "lux": "lux"
+  },
+  "dependencies": {
+    "@prismatic-io/lux": "*"
+  }
+}
