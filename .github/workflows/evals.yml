@@ -1,0 +1,71 @@
+name: Skill Evals
+
+# Regression gate for the skills: runs the curated `ci`-tagged cases (via
+# `lux run --tag ci`) and fails the check if any case regresses. Eval runs drive the `claude` CLI, which bills
+# the Anthropic API in CI (locally the suite runs on your Claude subscription).
+# This gate is therefore OPT-IN: it is a no-op unless ANTHROPIC_API_KEY is set
+# as a repository secret, so it never blocks PRs from forks or unconfigured repos.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "plugin/**"
+      - "evals/**"
+      - ".github/workflows/evals.yml"
+
+jobs:
+  # The deterministic gate (typecheck + bun test + lint-plugin + manifest
+  # validation) runs on every push via build.yaml -> `mise run validate`, which
+  # needs no secret and so covers forks too. This workflow is only the live,
+  # API-key-gated eval loop.
+  evals:
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Note when skipped
+        if: ${{ env.ANTHROPIC_API_KEY == '' }}
+        run: echo "ANTHROPIC_API_KEY not configured — skipping the (opt-in) live eval gate."
+
+      - uses: actions/checkout@v6
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+
+      # lux is not published yet, so it is consumed from source. If the lux repo
+      # is private, set a LUX_REPO_TOKEN secret with read access; github.token
+      # only reaches this same repo.
+      - name: Check out lux
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        uses: actions/checkout@v6
+        with:
+          repository: prismatic-io/lux
+          path: lux
+          token: ${{ secrets.LUX_REPO_TOKEN || github.token }}
+
+      - uses: jdx/mise-action@v4
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+
+      # The driver and the rubric judge both spawn a bare `claude`, so the
+      # global bin dir has to be on PATH for later steps — `bun add --global`
+      # alone does not put it there, and the failure is silent until a run
+      # dies with ENOENT.
+      - name: Install the Claude Code CLI (driver + judge)
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        run: |
+          bun add --global @anthropic-ai/claude-code
+          bun pm bin --global >> "$GITHUB_PATH"
+
+      - name: Verify the claude CLI is on PATH
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        run: claude --version
+
+      - name: Build lux and link it into the eval suite
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        run: |
+          (cd lux && bun install --frozen-lockfile && bun run build)
+          LUX_DIR="$GITHUB_WORKSPACE/lux" evals/scripts/link-lux.sh
+
+      - name: Run the CI eval set (fails on any regression)
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        working-directory: evals
+        run: bun run lux run --tag ci
