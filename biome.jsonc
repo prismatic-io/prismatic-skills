@@ -5,6 +5,7 @@
       "**",
       "!**/node_modules",
       "!**/dist",
+      "!**/.lux-runs",
       "!**/.prismatic",
       "!.claude/settings.local.json",
       "!bun.lock",

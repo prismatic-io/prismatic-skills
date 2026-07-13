@@ -1,0 +1,13 @@
+# Permissive scripted-answerer fixture: no API key needed.
+# Most knowledge/Q&A cases never interrupt. Build cases may ask a few
+# clarifying questions — answer them with sensible, minimal defaults so the
+# run proceeds. Use the "persona" answerer + a real persona (see
+# withPersona in cases/_support.ts) for cases where the *quality of
+# interaction* is what you want to grade.
+- match: { kind: "ask", question_contains: "auth" }
+  answer: "Use API key authentication."
+- match: { kind: "approve" }
+  approved: true
+  reason: "Proceed — this is an automated eval."
+- default:
+    answer: "Pick the smallest reasonable default and proceed without further questions."
