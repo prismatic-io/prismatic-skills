@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Nimbus API Reference</title></head>
+<body>
+<h1>Nimbus API Reference</h1>
+
+<h2>Base URL</h2>
+<p>All API requests are made to <code>https://api.nimbus.io/v1</code>.</p>
+
+<h2>Authentication</h2>
+<p>Nimbus supports <strong>two authentication methods</strong>. Both are fully
+supported and offer equivalent access to the API — pick whichever suits your
+integration.</p>
+
+<h3>Option A — OAuth 2.0</h3>
+<p>Nimbus implements the OAuth 2.0 authorization code grant. Direct users to the
+authorization endpoint at <code>https://auth.nimbus.io/oauth/authorize</code> and
+exchange the returned code for tokens at
+<code>https://auth.nimbus.io/oauth/token</code>. Supported scopes are
+<code>records.read</code>, <code>records.write</code>, and <code>webhooks.manage</code>.
+Access tokens expire after 3600 seconds; refresh tokens are issued alongside them.</p>
+
+<h3>Option B — API Key</h3>
+<p>Alternatively, create an API key in the Nimbus dashboard under Settings &rarr;
+API Keys and pass it in the <code>X-Nimbus-Key</code> request header on every call.
+The raw key value is sent directly (no "Bearer" prefix).</p>
+
+<h2>Records</h2>
+<h3>List records — <code>GET /records</code></h3>
+<p>Returns a page of records. Pagination is cursor-based: pass <code>cursor</code>
+(string, optional) and <code>limit</code> (number, optional, default 50). The response
+includes a <code>next_cursor</code> field.</p>
+
+<h3>Get a record — <code>GET /records/{id}</code></h3>
+<p>Returns a single record by id.</p>
+
+<h3>Create a record — <code>POST /records</code></h3>
+<p>Body fields: <code>title</code> (string, required), <code>body</code> (string, optional),
+<code>tags</code> (array of strings, optional).</p>
+
+<h2>Webhooks</h2>
+<p>Register a webhook with <code>POST /webhooks</code>. Body: <code>url</code> (string,
+required), <code>events</code> (array of strings, optional). Event types:
+<code>record.created</code>, <code>record.updated</code>, <code>record.deleted</code>.</p>
+
+<h2>Rate limits</h2>
+<p>240 requests per minute. The <code>X-RateLimit-Remaining</code> header reports what is left.</p>
+</body>
+</html>

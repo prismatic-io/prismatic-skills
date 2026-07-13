@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Widgetco API Reference</title></head>
+<body>
+<h1>Widgetco API Reference</h1>
+
+<h2>Base URL</h2>
+<p>All API requests are made to <code>https://api.widgetco.com/v2</code>. There is a
+separate sandbox host at <code>https://sandbox.widgetco.com/v2</code> for testing.</p>
+
+<h2>Authentication</h2>
+<p>Widgetco uses an API key. Pass your key in the <code>X-Widget-Key</code> request
+header on every call. The raw key value is sent directly (there is no "Bearer" prefix).
+Keys are created in the Widgetco dashboard under Settings &rarr; API Keys. OAuth2 is not
+supported.</p>
+
+<h2>Widgets</h2>
+<h3>List widgets — <code>GET /widgets</code></h3>
+<p>Returns a page of widgets. Pagination is cursor-based: pass <code>cursor</code> (string,
+optional) and <code>limit</code> (number, optional, default 25). The response includes a
+<code>next_cursor</code> field.</p>
+
+<h3>Get a widget — <code>GET /widgets/{id}</code></h3>
+<p>Returns a single widget by id.</p>
+
+<h3>Create a widget — <code>POST /widgets</code></h3>
+<p>Body fields: <code>name</code> (string, required), <code>color</code> (string, optional),
+<code>weight_grams</code> (number, optional).</p>
+
+<h3>Widget object</h3>
+<pre>
+{
+  "id": "wgt_123",
+  "name": "Sprocket",
+  "color": "blue",
+  "weight_grams": 42,
+  "created_at": "2026-01-15T10:30:00Z"
+}
+</pre>
+
+<h2>Webhooks</h2>
+<p>Register a webhook with <code>POST /hooks</code>. Body: <code>target_url</code> (string,
+required), <code>events</code> (array of strings, optional — empty means all events).</p>
+<p>Event types: <code>widget.created</code>, <code>widget.updated</code>,
+<code>widget.deleted</code>.</p>
+<p>Each delivery is signed. Verify the <code>X-Widget-Signature</code> header, which contains
+an HMAC-SHA256 hex digest of the raw request body computed with your webhook secret.</p>
+
+<h2>Rate limits</h2>
+<p>120 requests per minute. The <code>X-RateLimit-Remaining</code> header reports what is left.</p>
+</body>
+</html>

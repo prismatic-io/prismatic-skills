@@ -1,0 +1,60 @@
+{
+  "metadata": {
+    "source_platform": "boomi",
+    "overall_confidence": 0.8,
+    "notes": "Order Sync migration from Boomi"
+  },
+  "integration": {
+    "name": "Order Sync",
+    "description": "Receives an order webhook, normalizes it, and creates it in the Orders API"
+  },
+  "flows": [
+    {
+      "name": "Order Sync",
+      "trigger": { "type": "webhook" },
+      "steps": [
+        { "name": "Normalize Order", "type": "transform", "source_concept": "map" },
+        { "name": "Create Order", "type": "api_call", "operation": "POST /api/v2/orders" }
+      ]
+    }
+  ],
+  "api_profiles": {
+    "createOrder": {
+      "request": {
+        "endpoint": "POST /api/v2/orders",
+        "body_structure": {
+          "orderId": "string",
+          "customerEmail": "string",
+          "lineItems": "array"
+        },
+        "fields": ["orderId", "customerEmail", "lineItems"]
+      },
+      "response": {
+        "structure": {
+          "nesting_path": "data.order",
+          "fields": ["id", "status"]
+        }
+      }
+    }
+  },
+  "endpoints": [{ "method": "POST", "path": "/api/v2/orders", "confidence": 0.95 }],
+  "data_transformations": [
+    {
+      "mappings": [
+        { "source_path": "order.number", "target_path": "orderId" },
+        { "source_path": "order.email", "target_path": "customerEmail" }
+      ],
+      "functions": [{ "name": "normalizeOrder", "type": "script" }]
+    }
+  ],
+  "scripts": [
+    {
+      "name": "normalizeOrder",
+      "language": "groovy",
+      "script_content": "def total = order.lineItems.sum { it.qty * it.unitPrice }\nreturn [ orderId: 'ORD-' + order.number, customerEmail: order.email, lineItems: order.lineItems, total: total ]",
+      "inputs": ["order"],
+      "outputs": ["orderId", "customerEmail", "lineItems", "total"]
+    }
+  ],
+  "config_variables": []
+}
