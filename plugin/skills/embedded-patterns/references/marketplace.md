@@ -90,6 +90,18 @@ prismatic.configureInstance({
 
 If the customer already has an instance, this opens the existing config. If not, it starts the config wizard.
 
+## Reconfiguring an Existing Instance Inline
+
+To reconfigure a deployed instance inside your own dialog or drawer — dropping the customer straight into the config wizard without the intermediate instance screen and its "Reconfigure" button — call `prismatic.editInstanceConfiguration` with the instance ID and a container `selector`. It renders inline (no popover), fires `onSuccess` / `onCancel` / `onDelete` callbacks, and returns a cleanup function that detaches its listeners.
+
+```typescript
+const cleanup = prismatic.editInstanceConfiguration({
+  instanceId: "SW5zdGFuY2U6...",
+  selector: "#config-panel",
+  onSuccess: () => closeDialog(),
+});
+```
+
 ## Marketplace Events
 
 Listen to events from the embedded marketplace:

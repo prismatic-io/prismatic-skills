@@ -51,6 +51,45 @@ prismatic.showWorkflow({
 });
 ```
 
+## Workflow Contexts (Automation Entry Points)
+
+A **workflow context** is defined once at the organization level (Organization Settings → Workflow Contexts) and referenced from your app by a stable key. It pins a trigger with pre-filled inputs and a curated action palette, so customers start from a guided workflow instead of a blank canvas. Use contexts to offer in-app "create automation" entry points — for example, a **Create automation** button on a ticket detail page that spins up a workflow already wired to your "Ticket updated" trigger and scoped to that ticket.
+
+### Create a workflow from a context
+
+`prismatic.createWorkflow(contextStableKey, args)` creates the workflow and returns a GraphQL response. Read the new workflow's ID and open it in the builder with `showWorkflow`:
+
+```tsx
+import prismatic from "@prismatic-io/embedded";
+
+async function createTicketAutomation(ticket: { id: string; projectId: string }) {
+  const response = await prismatic.createWorkflow("ticket-automation", {
+    name: `Automation for ticket ${ticket.id}`,
+    contextData: { projectId: ticket.projectId, priority: "high" },
+    externalId: ticket.id,
+  });
+
+  const workflowId = response.data.importWorkflow.workflow.id;
+  prismatic.showWorkflow({ workflowId, selector: "#embedded-workflow-div" });
+}
+```
+
+`contextData` is typed per context: extend the `WorkflowContexts` interface via module augmentation, or generate the declarations with `npx @prismatic-io/embedded generate-types`.
+
+### List workflows for a record
+
+`prismatic.queryWorkflows(props?)` returns the customer's workflows, optionally filtered by `contextStableKey` or the `externalId` you passed to `createWorkflow`. Use it to show the automations already attached to a record:
+
+```typescript
+const response = await prismatic.queryWorkflows({
+  contextStableKey: "ticket-automation",
+  externalId: ticket.id,
+});
+const workflows = response.data.workflows.nodes;
+```
+
+Other optional filters: `searchTerm`, `descriptionSearch`, `categorySearch`, `labelSearch`, `sortBy`, `first`, `cursor`.
+
 ## Workflow Events
 
 ```typescript
