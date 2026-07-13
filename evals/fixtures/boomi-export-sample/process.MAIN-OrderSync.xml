@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<bns:Component xmlns:bns="http://api.platform.boomi.com/"
+    componentId="11111111-1111-1111-1111-111111111111"
+    version="1"
+    name="MAIN - Order Sync"
+    type="process"
+    subType=""
+    createdDate="2026-01-05T12:00:00Z"
+    createdBy="migration@example.com"
+    currentVersion="true">
+  <bns:object>
+    <bns:process allowSimultaneous="false" enableUserLog="false" processLogOnErrorOnly="false" purgeDataImmediately="false" workload="general">
+      <bns:shapes>
+        <bns:shape name="shape1" shapetype="start" userlabel="Listen for Order" x="96" y="96">
+          <bns:configuration>
+            <bns:connectoraction connectionId="22222222-2222-2222-2222-222222222222" connectorType="http" actionType="LISTEN"/>
+          </bns:configuration>
+          <bns:dragpoints>
+            <bns:dragpoint name="shape1.dragpoint1" toShape="shape2"/>
+          </bns:dragpoints>
+        </bns:shape>
+        <bns:shape name="shape2" shapetype="map" userlabel="NormalizeOrder" x="288" y="96">
+          <!-- Map runs the Groovy transform script.function.NormalizeOrder -->
+          <bns:configuration>
+            <bns:map mapId="33333333-3333-3333-3333-333333333333"/>
+          </bns:configuration>
+          <bns:dragpoints>
+            <bns:dragpoint name="shape2.dragpoint1" toShape="shape3"/>
+          </bns:dragpoints>
+        </bns:shape>
+        <bns:shape name="shape3" shapetype="connectoraction" userlabel="POST to ERP" x="480" y="96">
+          <bns:configuration>
+            <bns:connectoraction connectionId="44444444-4444-4444-4444-444444444444" connectorType="http" actionType="SEND" operationId="55555555-5555-5555-5555-555555555555"/>
+          </bns:configuration>
+          <bns:dragpoints>
+            <bns:dragpoint name="shape3.dragpoint1" toShape="shape4"/>
+          </bns:dragpoints>
+        </bns:shape>
+        <bns:shape name="shape4" shapetype="stop" userlabel="End" x="672" y="96">
+          <bns:configuration>
+            <bns:stop continue="true"/>
+          </bns:configuration>
+        </bns:shape>
+      </bns:shapes>
+    </bns:process>
+  </bns:object>
+</bns:Component>

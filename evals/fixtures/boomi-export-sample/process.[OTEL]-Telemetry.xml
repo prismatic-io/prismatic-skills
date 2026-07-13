@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<bns:Component xmlns:bns="http://api.platform.boomi.com/"
+    componentId="66666666-6666-6666-6666-666666666666"
+    version="1"
+    name="[OTEL] Telemetry Exporter"
+    type="process"
+    subType=""
+    createdDate="2026-01-05T12:00:00Z"
+    createdBy="migration@example.com"
+    currentVersion="true">
+  <bns:object>
+    <bns:process allowSimultaneous="false" enableUserLog="false" processLogOnErrorOnly="false" purgeDataImmediately="false" workload="general">
+      <bns:shapes>
+        <bns:shape name="shape1" shapetype="start" userlabel="Start" x="96" y="96">
+          <bns:configuration>
+            <bns:noaction/>
+          </bns:configuration>
+          <bns:dragpoints>
+            <bns:dragpoint name="shape1.dragpoint1" toShape="shape2"/>
+          </bns:dragpoints>
+        </bns:shape>
+        <bns:shape name="shape2" shapetype="connectoraction" userlabel="Export spans to collector" x="288" y="96">
+          <bns:configuration>
+            <bns:connectoraction connectionId="77777777-7777-7777-7777-777777777777" connectorType="http" actionType="SEND"/>
+          </bns:configuration>
+          <bns:dragpoints>
+            <bns:dragpoint name="shape2.dragpoint1" toShape="shape3"/>
+          </bns:dragpoints>
+        </bns:shape>
+        <bns:shape name="shape3" shapetype="stop" userlabel="Stop" x="480" y="96">
+          <bns:configuration>
+            <bns:stop continue="true"/>
+          </bns:configuration>
+        </bns:shape>
+      </bns:shapes>
+    </bns:process>
+  </bns:object>
+</bns:Component>
