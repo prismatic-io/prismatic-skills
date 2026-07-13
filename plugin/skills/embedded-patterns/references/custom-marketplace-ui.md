@@ -128,6 +128,40 @@ prismatic.configureInstance({
 });
 ```
 
+## Reconfiguring an Existing Instance Inline
+
+`configureInstance` shows the wizard in a popover or the standard instance screen. When a card represents an integration the customer has already configured and you want to drop them straight into the config wizard **inside your own dialog or drawer** — skipping the intermediate instance screen with its "Reconfigure" button — call `editInstanceConfiguration` with the instance ID and a container `selector`. It renders the wizard inline, fires `onSuccess` / `onCancel` / `onDelete` callbacks, and returns a cleanup function to detach its listeners.
+
+```tsx
+import { useEffect } from "react";
+import prismatic from "@prismatic-io/embedded";
+
+function ReconfigureDialog({
+  instanceId,
+  onClose,
+}: {
+  instanceId: string;
+  onClose: () => void;
+}) {
+  const containerId = "edit-instance-config";
+
+  useEffect(() => {
+    const cleanup = prismatic.editInstanceConfiguration({
+      instanceId,
+      selector: `#${containerId}`,
+      onSuccess: onClose,
+      onCancel: onClose,
+      onDelete: onClose,
+    });
+    return () => cleanup?.();
+  }, [instanceId, onClose]);
+
+  return <div id={containerId} style={{ height: "80vh" }} />;
+}
+```
+
+Use `configureInstance({ integrationName })` for first-time setup from a card, and `editInstanceConfiguration({ instanceId, selector })` to reconfigure an already-deployed instance inline.
+
 ## React Example: Custom Card-Based Marketplace
 
 ```tsx
@@ -148,8 +182,10 @@ const GET_INTEGRATIONS = `
 
 function IntegrationCard({
   integration,
+  onReconfigure,
 }: {
   integration: MarketplaceIntegration;
+  onReconfigure: (instanceId: string) => void;
 }) {
   const isActive = integration.deploymentStatus === "ACTIVATED";
   const isConfigured = integration.deployedInstances !== "ZERO";
@@ -164,10 +200,7 @@ function IntegrationCard({
       <button
         onClick={() => {
           if (isConfigured && integration.firstDeployedInstance) {
-            prismatic.configureInstance({
-              instanceId: integration.firstDeployedInstance.id,
-              usePopover: true,
-            });
+            onReconfigure(integration.firstDeployedInstance.id);
           } else {
             prismatic.configureInstance({
               integrationName: integration.name,
@@ -186,6 +219,9 @@ export function CustomMarketplace() {
   const [integrations, setIntegrations] = useState<MarketplaceIntegration[]>(
     [],
   );
+  const [reconfiguringInstanceId, setReconfiguringInstanceId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     prismatic.graphqlRequest({ query: GET_INTEGRATIONS }).then((result) => {
@@ -196,8 +232,18 @@ export function CustomMarketplace() {
   return (
     <div className="integration-grid">
       {integrations.map((integration) => (
-        <IntegrationCard key={integration.id} integration={integration} />
+        <IntegrationCard
+          key={integration.id}
+          integration={integration}
+          onReconfigure={setReconfiguringInstanceId}
+        />
       ))}
+      {reconfiguringInstanceId && (
+        <ReconfigureDialog
+          instanceId={reconfiguringInstanceId}
+          onClose={() => setReconfiguringInstanceId(null)}
+        />
+      )}
     </div>
   );
 }

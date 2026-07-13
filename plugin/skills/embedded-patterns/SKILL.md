@@ -109,12 +109,15 @@ Minimum valid payload:
 | `prismatic.showMarketplace(options?)` | Embed the integration marketplace |
 | `prismatic.showWorkflows(options?)` | Embed the workflow builder list |
 | `prismatic.showWorkflow({ workflowId, ...options })` | Open a specific workflow in the builder |
+| `prismatic.createWorkflow(contextStableKey, { name, contextData, externalId })` | Create a pre-configured workflow from an org-defined context (in-app automation entry point) |
+| `prismatic.queryWorkflows(filters?)` | List the customer's workflows, filterable by context or `externalId` |
 | `prismatic.showDashboard(options?)` | Embed the customer dashboard |
 | `prismatic.showConnections(options?)` | Embed the connections management screen |
 | `prismatic.showLogs(options?)` | Embed the logs screen |
 | `prismatic.showComponents(options?)` | Embed the component browser |
 | `prismatic.showComponent({ componentId, ...options })` | Show a specific component |
 | `prismatic.configureInstance(props)` | Open a config wizard for an integration |
+| `prismatic.editInstanceConfiguration({ instanceId, selector, ... })` | Render an existing instance's config wizard inline (your own dialog/drawer) with success/cancel/delete callbacks |
 | `prismatic.setConfigVars({ iframe, configVars })` | Programmatically set config variables |
 | `prismatic.graphqlRequest({ query, variables? })` | Execute authenticated GraphQL queries |
 
@@ -135,8 +138,8 @@ Load only the references relevant to the current setup step. This keeps context 
 ### Follow-up Topics (load on demand)
 - Theming / dark mode / custom fonts → `references/theming-and-i18n.md`
 - Translations / i18n / phrase keys → `references/theming-and-i18n.md`
-- Marketplace filters, events, setConfigVars → `references/marketplace.md`
-- Workflow builder setup → `references/workflow-builder.md`
+- Marketplace filters, events, setConfigVars, reconfiguring an instance inline → `references/marketplace.md`
+- Workflow builder setup, workflow contexts (automation entry points) → `references/workflow-builder.md`
 - Dashboard, connections, logs, components → `references/additional-screens.md`
 - Custom marketplace UI / GraphQL → `references/custom-marketplace-ui.md`
 
@@ -146,9 +149,9 @@ Full list for manual lookup:
 
 - `references/authentication.md` — JWT claims, signing examples for Node.js, Python, Ruby, Go, C#, and re-authentication pattern
 - `references/sdk-api.md` — Full SDK type definitions, ScreenConfiguration, Filters, PrismaticMessageEvent enum
-- `references/marketplace.md` — showMarketplace, filters (simple and advanced), configureInstance, events, setConfigVars
-- `references/workflow-builder.md` — showWorkflows, showWorkflow, key differences from the low-code designer
+- `references/marketplace.md` — showMarketplace, filters (simple and advanced), configureInstance, editInstanceConfiguration, events, setConfigVars
+- `references/workflow-builder.md` — showWorkflows, showWorkflow, workflow contexts (createWorkflow, queryWorkflows), key differences from the low-code designer
 - `references/theming-and-i18n.md` — Light/dark mode, custom fonts, loading screen, custom terms, translations
 - `references/additional-screens.md` — showDashboard, showConnections, showComponents, showLogs, common options
-- `references/custom-marketplace-ui.md` — Building a fully custom marketplace with GraphQL, TypeScript types, avatar images
+- `references/custom-marketplace-ui.md` — Building a fully custom marketplace with GraphQL, TypeScript types, avatar images, reconfiguring an existing instance inline (editInstanceConfiguration)
 - `references/framework-examples.md` — React, Next.js, Vue, and Svelte integration patterns with full code examples

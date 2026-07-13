@@ -7,7 +7,9 @@
 - [prismatic.authenticate](#prismaticauthenticate) — Authenticate with JWT
 - [prismatic.showMarketplace](#prismaticshowmarketplace) — Marketplace screen
 - [prismatic.configureInstance](#prismaticconfigureinstance) — Config wizard
+- [prismatic.editInstanceConfiguration](#prismaticeditinstanceconfiguration) — Reconfigure an existing instance inline
 - [prismatic.showWorkflows / showWorkflow](#prismaticshowworkflows) — Workflow builder
+- [prismatic.createWorkflow / queryWorkflows](#prismaticcreateworkflow) — Workflow contexts (automation entry points)
 - [prismatic.showDashboard](#prismaticshowdashboard) — Customer dashboard
 - [prismatic.showConnections](#prismaticshowconnections) — Connection management
 - [prismatic.showLogs](#prismaticshowlogs) — Logs screen
@@ -98,6 +100,26 @@ prismatic.configureInstance({
 });
 ```
 
+## prismatic.editInstanceConfiguration(props)
+
+Render the config wizard for an **existing** instance directly into a DOM element — no popover, no intermediate instance screen with a "Reconfigure" button. Use this to let a customer adjust a deployed instance inline inside your own dialog or drawer. Unlike `configureInstance`, it opens the wizard immediately, takes lifecycle callbacks, and returns a cleanup function that removes its listeners.
+
+```typescript
+const cleanup = prismatic.editInstanceConfiguration({
+  instanceId: "SW5zdGFuY2U6...",
+  selector: "#config-panel",
+  theme: "LIGHT",
+  screenConfiguration: {
+    configurationWizard: { triggerDetailsConfiguration: "hidden" },
+  },
+  onSuccess: () => closeDialog(),
+  onCancel: () => closeDialog(),
+  onDelete: () => closeDialog(),
+});
+
+cleanup?.();
+```
+
 ## prismatic.showWorkflows(options?)
 
 Show the workflow builder list screen.
@@ -120,6 +142,37 @@ prismatic.showWorkflow({
   usePopover: false,
 });
 ```
+
+## prismatic.createWorkflow(contextStableKey, args)
+
+Create a workflow for the authenticated customer user from an org-defined **workflow context** — a pre-configured trigger, curated action palette, and data your app injects. This powers an in-app "create automation" entry point (for example, a button on a ticket or deal page) that starts the customer from a guided workflow instead of a blank canvas. Returns a GraphQL response; read the new workflow's ID and open it with `showWorkflow`.
+
+```typescript
+const response = await prismatic.createWorkflow("ticket-automation", {
+  name: "Notify on high-priority tickets",
+  contextData: { projectId: "proj_abc123", priority: "high" },
+  externalId: "ticket_1234",
+});
+
+const workflowId = response.data.importWorkflow.workflow.id;
+prismatic.showWorkflow({ workflowId, selector: "#builder-div" });
+```
+
+`contextStableKey` is the stable key of a context configured under **Organization Settings → Workflow Contexts**. Extend the `WorkflowContexts` interface (or run `npx @prismatic-io/embedded generate-types`) to type each context's `contextData`.
+
+## prismatic.queryWorkflows(props?)
+
+List the authenticated customer user's workflows, optionally filtered by the context they were created from or the `externalId` you supplied at creation. Use it to show the automations tied to a specific record — "the workflows attached to this ticket."
+
+```typescript
+const response = await prismatic.queryWorkflows({
+  contextStableKey: "ticket-automation",
+  externalId: "ticket_1234",
+});
+const workflows = response.data.workflows.nodes;
+```
+
+Optional props: `searchTerm`, `descriptionSearch`, `categorySearch`, `labelSearch`, `contextStableKey`, `externalId`, `sortBy`, `first`, `cursor`.
 
 ## prismatic.showDashboard(options?)
 
