@@ -1,0 +1,78 @@
+{
+  "metadata": {
+    "source_platform": "cyclr",
+    "export_file_count": 12,
+    "parse_timestamp": "2026-02-01T09:00:00Z",
+    "overall_confidence": 0.81
+  },
+  "summary": {
+    "counts": {
+      "cycles": 1,
+      "steps": 3,
+      "connectors": 2,
+      "edges": 2,
+      "variables": 2,
+      "field_mappings": 4
+    },
+    "cycles": [
+      {
+        "name": "Sync New Leads",
+        "step_count": 3,
+        "connector_names": ["Salesforce", "HubSpot"]
+      }
+    ],
+    "connectors": [
+      { "name": "Salesforce", "auth_type": "oauth2", "version": "3.1" },
+      { "name": "HubSpot", "auth_type": "api_key", "version": "2.0" }
+    ]
+  },
+  "cycles": [
+    {
+      "name": "Sync New Leads",
+      "execution_order": [
+        { "step_id": "s1", "step_name": "New Lead Trigger" },
+        { "step_id": "s2", "step_name": "Get Lead Details" },
+        { "step_id": "s3", "step_name": "Create HubSpot Contact" }
+      ],
+      "edges": [
+        { "tail_step_id": "s1", "head_step_id": "s2", "edge_type": 1 },
+        { "tail_step_id": "s2", "head_step_id": "s3", "edge_type": 1 }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "name": "New Lead Trigger",
+          "action_type": 5,
+          "interval": 300,
+          "account_connector": { "name": "Salesforce", "auth_type": "oauth2" }
+        },
+        {
+          "id": "s2",
+          "name": "Get Lead Details",
+          "action_type": 1,
+          "method": "GET",
+          "path": "/services/data/v57.0/sobjects/Lead/{id}",
+          "account_connector": { "name": "Salesforce", "auth_type": "oauth2" }
+        },
+        {
+          "id": "s3",
+          "name": "Create HubSpot Contact",
+          "action_type": 1,
+          "method": "POST",
+          "path": "/crm/v3/objects/contacts",
+          "account_connector": { "name": "HubSpot", "auth_type": "api_key" },
+          "field_mappings": [
+            { "source_path": "Lead.Email", "target_path": "properties.email" },
+            { "source_path": "Lead.FirstName", "target_path": "properties.firstname" },
+            { "source_path": "Lead.LastName", "target_path": "properties.lastname" },
+            { "source_path": "Lead.Company", "target_path": "properties.company" }
+          ]
+        }
+      ]
+    }
+  ],
+  "share_fields": [
+    { "name": "hubspot_owner_id", "description": "Default HubSpot owner for created contacts" },
+    { "name": "sync_batch_size", "description": "Number of leads to process per run" }
+  ]
+}
