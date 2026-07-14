@@ -53,6 +53,9 @@ jobs:
         env:
           BUMP_TYPE: ${{ inputs.bump }}
 
+      - name: Validate release contents
+        run: mise run validate
+
       - name: Commit and tag
         run: |
           git config user.name "${{ steps.app-token.outputs.app-slug }}[bot]"

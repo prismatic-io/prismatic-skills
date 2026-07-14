@@ -59,6 +59,7 @@ VERSION=$NEXT node -e "
   market.plugins.find((p) => p.name === 'prismatic-skills').source.ref = 'v' + v;
   fs.writeFileSync(marketPath, JSON.stringify(market, null, 2) + '\\n');
 "
+bun run biome format --write plugin/.claude-plugin/plugin.json .claude-plugin/marketplace.json
 echo "v$NEXT"
 '''
 
