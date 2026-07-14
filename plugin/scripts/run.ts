@@ -1,23 +1,18 @@
 #!/usr/bin/env npx tsx
-/**
- * run.ts — Script dispatcher
- *
- * Resolves script names to their full paths so callers don't need to
- * know which subdirectory a script lives in.
- *
- * USAGE:
- *   npx tsx run.ts <script-name> [args...]
- *   npx tsx run.ts record-choices reqs.json key=value
- *   npx tsx run.ts diagnose-build ./my-project --type integration
- *   npx tsx run.ts --list
- *
- * Script names are basenames without the .ts extension.
- * All arguments after the script name are forwarded as-is.
- */
 
-import { readdirSync, statSync } from "node:fs";
-import { join, basename } from "node:path";
+/** Resolves script basenames across script directories and forwards remaining arguments unchanged. */
+
 import { execFileSync } from "node:child_process";
+import { readdirSync, statSync } from "node:fs";
+import { basename, join } from "node:path";
+import { type CliConfig, parseCliArgs } from "./shared/cli-help.js";
+
+const CLI = {
+  command: "prismatic-tools",
+  description: "Run a Prismatic development script by name.",
+  positionals: [{ name: "script-name" }, { name: "args", variadic: true }],
+  options: [{ name: "list", type: "boolean", description: "List available scripts." }],
+} as const satisfies CliConfig;
 
 const SCRIPTS_DIR = new URL(".", import.meta.url).pathname;
 
@@ -65,17 +60,13 @@ function buildIndex(): Map<string, string> {
 }
 
 function main(): number {
-  const args = process.argv.slice(2);
-
-  if (args.length === 0 || args[0] === "--help") {
-    console.error("Usage: npx tsx run.ts <script-name> [args...]");
-    console.error("       npx tsx run.ts --list");
-    return 2;
-  }
+  const rawArgs = process.argv.slice(2);
+  const dispatcherArgs = rawArgs[0]?.startsWith("-") ? rawArgs : rawArgs.slice(0, 1);
+  const { values, positionals } = parseCliArgs(dispatcherArgs, CLI);
 
   const index = buildIndex();
 
-  if (args[0] === "--list") {
+  if (values.list) {
     const grouped: Record<string, string[]> = {};
     for (const [name, path] of index) {
       const rel = path.replace(SCRIPTS_DIR, "");
@@ -93,8 +84,12 @@ function main(): number {
     return 0;
   }
 
-  const scriptName = args[0];
-  const scriptArgs = args.slice(1);
+  const scriptName = positionals[0];
+  if (!scriptName) {
+    console.error("Run with --help for usage or --list to see available scripts.");
+    return 2;
+  }
+  const scriptArgs = rawArgs.slice(1);
 
   const scriptPath = index.get(scriptName);
   if (!scriptPath) {

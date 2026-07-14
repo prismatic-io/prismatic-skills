@@ -2,7 +2,7 @@
  * prism-retry.ts — Reusable retry mechanism with exponential backoff + jitter.
  */
 
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 
 const NETWORK_ERROR_PATTERNS = [
   "enotfound",

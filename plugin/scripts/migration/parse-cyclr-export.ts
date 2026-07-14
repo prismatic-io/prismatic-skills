@@ -1,25 +1,14 @@
 #!/usr/bin/env npx tsx
-/**
- * parse-cyclr-export.ts
- *
- * Deterministic JSON parser for Cyclr cycle export files.
- * Extracts structured data from Cyclr JSON export(s) and outputs JSON to stdout.
- *
- * Usage:
- *     npx tsx parse-cyclr-export.ts <export-path> [--summary]
- *
- * Input: Path to a single Cyclr JSON file or a directory containing .json files
- * Output: JSON to stdout with structured cycle data
- *
- * Flags:
- *     --summary   Output a condensed overview instead of full data.
- *                 Includes cycle counts, step names, connector names,
- *                 and field mapping counts. Useful for getting a quick
- *                 scope assessment before reading full output.
- */
-
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
+import { type CliConfig, cliError, parseCliArgs } from "../shared/cli-help.js";
+
+const CLI = {
+  command: "prismatic-tools parse-cyclr-export",
+  description: "Parse a Cyclr JSON export.",
+  positionals: [{ name: "export-path", required: true }],
+  options: [{ name: "summary", type: "boolean", description: "Emit a condensed overview." }],
+} as const satisfies CliConfig;
 
 // ── Type definitions ──────────────────────────────────────────────────────────
 
@@ -927,17 +916,14 @@ function generateSummary(fullOutput: ParsedOutput): SummaryOutput {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 function main(): void {
-  const argv = process.argv.slice(2);
-  const summaryMode = argv.includes("--summary");
-  const args = argv.filter((a) => !a.startsWith("--"));
+  const { values, positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const summaryMode = values.summary === true;
 
-  if (args.length !== 1) {
-    process.stderr.write("Usage: npx tsx parse-cyclr-export.ts <export-path> [--summary]\n");
-    process.stderr.write("\nInput: Path to a single Cyclr JSON file or directory of JSON files\n");
-    process.exit(2);
+  if (positionals.length !== 1) {
+    cliError(CLI, "exactly one export-path is required.");
   }
 
-  const exportPath = args[0];
+  const exportPath = positionals[0];
 
   if (!existsSync(exportPath)) {
     process.stderr.write(`Error: ${exportPath} does not exist\n`);

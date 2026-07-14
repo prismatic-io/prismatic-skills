@@ -1,18 +1,13 @@
 #!/usr/bin/env npx tsx
-/**
- * find-components.ts
- *
- * PURPOSE: Search for components by keyword
- *
- * USAGE: npx tsx find-components.ts <search-term>
- *
- * EXIT CODES:
- *   0 - Success: Components found and displayed
- *   1 - Error: No search term provided
- *   2 - Error: API call failed
- */
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
+import { GraphQLError, graphql } from "../shared/graphql.js";
 
-import { graphql, GraphQLError } from "../shared/graphql.js";
+const CLI = {
+  command: "prismatic-tools find-components",
+  description: "Find Prismatic components by keyword.",
+  positionals: [{ name: "keyword", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 const SEARCH_COMPONENTS_QUERY = `
 query searchComponents($filterQuery: JSONString, $after: String) {
@@ -146,13 +141,8 @@ function formatForRequirements(components: ComponentNode[]): unknown[] {
 }
 
 function main(): number {
-  if (process.argv.length < 3) {
-    console.error("No search term provided");
-    console.error("Usage: npx tsx find-components.ts <search-term>");
-    return 1;
-  }
-
-  const searchTerm = process.argv[2];
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const searchTerm = positionals[0];
   console.error(`Searching for '${searchTerm}'...`);
 
   try {

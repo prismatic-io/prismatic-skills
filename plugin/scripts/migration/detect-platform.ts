@@ -1,23 +1,14 @@
 #!/usr/bin/env npx tsx
-/**
- * detect-platform.ts
- *
- * Detects whether export files are from Dell Boomi or Cyclr by reading
- * file headers. Boomi exports are XML with bns:Component root elements.
- * Cyclr exports are JSON with Steps[], Edges[], VersionedCycle keys.
- *
- * USAGE:
- *   prismatic-tools detect-platform <export-path>
- *
- * OUTPUT: JSON with platform, file_count, files
- *
- * EXIT CODES:
- *   0 - Success
- *   1 - Error (path not found or unrecognized format)
- */
-
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, basename } from "node:path";
+import { basename, join } from "node:path";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
+
+const CLI = {
+  command: "prismatic-tools detect-platform",
+  description: "Detect whether an integration export is from Boomi or Cyclr.",
+  positionals: [{ name: "export-path", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 interface DetectionResult {
   platform: "boomi" | "cyclr" | "unknown";
@@ -27,12 +18,8 @@ interface DetectionResult {
 }
 
 function main(): number {
-  const exportPath = process.argv[2];
-
-  if (!exportPath) {
-    console.log("Usage: prismatic-tools detect-platform <export-path>");
-    return 1;
-  }
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const exportPath = positionals[0];
 
   let files: string[];
   try {

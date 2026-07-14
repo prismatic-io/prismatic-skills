@@ -1,24 +1,14 @@
 #!/usr/bin/env npx tsx
-/**
- * generate-mermaid-diagrams.ts
- *
- * Converts parsed Boomi export JSON into Mermaid flowchart diagrams.
- * Generates one .mmd file per business logic process plus a combined
- * migration-diagrams.md summary file.
- *
- * USAGE:
- *   prismatic-tools generate-mermaid-diagrams <parsed-export.json> <output-dir>
- *
- * INPUT:  Path to JSON file produced by the Boomi export parser.
- * OUTPUT: Directory of .mmd files and a combined migration-diagrams.md.
- *
- * EXIT CODES:
- *   0 - Success
- *   1 - Error (missing args, bad input, etc.)
- */
-
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { dirname, join } from "node:path";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
+
+const CLI = {
+  command: "prismatic-tools generate-mermaid-diagrams",
+  description: "Generate Mermaid diagrams from a parsed integration export.",
+  positionals: [{ name: "parsed-export.json", required: true }, { name: "output-dir" }],
+  options: [],
+} as const satisfies CliConfig;
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -268,14 +258,10 @@ function generateDiagrams(parsedData: ParsedExport, outputDir: string): string[]
 // ── Main ───────────────────────────────────────────────────────────────
 
 function main(): number {
-  if (process.argv.length < 3) {
-    console.error("Usage: generate-mermaid-diagrams <parsed-export.json> [output-dir]");
-    return 1;
-  }
-
-  const inputPath = process.argv[2] as string;
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const inputPath = positionals[0];
   // Default output dir: diagrams/ alongside the input file
-  const outputDir = process.argv[3] || join(dirname(inputPath), "diagrams");
+  const outputDir = positionals[1] || join(dirname(inputPath), "diagrams");
 
   let parsedData: ParsedExport;
   try {

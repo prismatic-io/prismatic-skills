@@ -1,45 +1,16 @@
 #!/usr/bin/env npx tsx
-/**
- * extract-state.ts
- *
- * Extends locate-project.ts with deep extraction: parses existing source code
- * into spec-answer format, producing a "before snapshot" for the modify workflow.
- *
- * The agent reads this snapshot to know what the integration already does,
- * then asks ONLY about what the user wants to change.
- *
- * USAGE:
- *   npx tsx extract-state.ts <path-or-name>
- *   npx tsx extract-state.ts .
- *   npx tsx extract-state.ts /absolute/path/to/project
- *
- * OUTPUT (JSON):
- *   {
- *     "project_dir": "/path/to/project",
- *     "name": "my-integration",
- *     "architecture": { ... },          // from locate-project
- *     "state": {
- *       "systems": "...",               // integration-scoped answers
- *       "flow_count": "2",
- *       "endpoint_type": "flow_specific",
- *       "flows": {
- *         "order-sync": {               // per-flow answers
- *           "trigger_type": "webhook",
- *           "error_handler_type": "retry",
- *           ...
- *         }
- *       }
- *     },
- *     "extraction_gaps": [...]           // items that can't be extracted from code
- *   }
- *
- * EXIT CODES:
- *   0 - Success
- *   1 - Project not found or invalid
- */
+/** Produces a spec-answer “before snapshot” so modify workflows ask only about desired changes. */
 
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
+
+const CLI = {
+  command: "prismatic-tools extract-state",
+  description: "Read and summarize an existing integration project.",
+  positionals: [{ name: "path-or-name", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -629,14 +600,8 @@ function extractState(dir: string): {
 // ---------------------------------------------------------------------------
 
 function main(): number {
-  const args = process.argv.slice(2);
-
-  if (args.length < 1) {
-    console.error("Usage: npx tsx extract-state.ts <path-or-name>");
-    return 1;
-  }
-
-  const pathOrName = args[0];
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const pathOrName = positionals[0];
   const projectDir = findProject(pathOrName);
 
   if (!projectDir) {

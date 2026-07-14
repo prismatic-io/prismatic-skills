@@ -1,15 +1,12 @@
 #!/usr/bin/env npx tsx
-/**
- * extract-connections.ts
- *
- * PURPOSE: Extract and format connection types from a stored component object
- *
- * USAGE: npx tsx extract-connections.ts '<json-connections-array>'
- *
- * EXIT CODES:
- *   0 - Success: Connections formatted and displayed
- *   1 - Error: No input provided or invalid JSON
- */
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
+
+const CLI = {
+  command: "prismatic-tools extract-connections",
+  description: "List available authentication methods for a component.",
+  positionals: [{ name: "connections-json", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 interface Connection {
   key: string;
@@ -41,14 +38,8 @@ function formatConnections(connections: Connection[]): unknown[] {
 }
 
 function main(): number {
-  if (process.argv.length < 3) {
-    console.error("No connections data provided");
-    console.error("Usage: npx tsx extract-connections.ts '<json-connections-array>'");
-    console.log("[]");
-    return 0;
-  }
-
-  const connectionsJson = process.argv[2];
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const connectionsJson = positionals[0];
 
   if (!connectionsJson || ["", "null", "None", "[]"].includes(connectionsJson)) {
     console.error("No connections found for this component");

@@ -1,25 +1,57 @@
 #!/usr/bin/env npx tsx
-/**
- * scaffold-project.ts
- *
- * PURPOSE: Initialize integration project using Prism CLI and install component manifests
- *
- * USAGE: npx tsx scaffold-project.ts <INTEGRATION_NAME> [--components <comp1,comp2,...>] [--credentials '<json>']
- *
- * EXIT CODES:
- *   0 - Success: Project scaffolded and dependencies installed
- *   1 - Error: Invalid usage
- *   3 - Error: Scaffolding failed
- *   4 - Error: Manifest installation failed
- */
-
-import { existsSync, readFileSync, writeFileSync, rmSync, renameSync, unlinkSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
-import { mkdtempSync } from "node:fs";
-import { getProjectRoot, getSessionDirectory } from "../shared/project-directory.js";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
 import { isValidComponentKey, resolveLocalBin } from "../shared/local-bin.js";
-import { timedStep, printTimingSummary } from "../shared/timing.js";
+import { getProjectRoot, getSessionDirectory } from "../shared/project-directory.js";
+import { printTimingSummary, timedStep } from "../shared/timing.js";
+
+const CLI = {
+  command: "prismatic-tools scaffold-project",
+  description: "Initialize a CNI integration project and install component manifests.",
+  positionals: [{ name: "integration-name", required: true }],
+  options: [
+    {
+      name: "components",
+      type: "string",
+      value: "comp1,comp2,...",
+      description: "Comma-separated public component keys.",
+    },
+    {
+      name: "private-components",
+      type: "string",
+      value: "comp1,comp2,...",
+      description: "Comma-separated private component keys.",
+    },
+    {
+      name: "credentials",
+      type: "string",
+      value: "json",
+      description: "Credentials to write to .env.",
+    },
+    {
+      name: "session",
+      type: "string",
+      value: "name",
+      description: "Requirements session name.",
+    },
+    {
+      name: "type",
+      type: "string",
+      value: "component|integration",
+      description: "Requirements session type.",
+    },
+  ],
+} as const satisfies CliConfig;
 
 function printSection(title: string): void {
   console.log("");
@@ -271,82 +303,44 @@ function installNpmDependencies(projectPath: string): boolean {
   });
 }
 
-function parseArgs(args: string[]): {
-  name: string | null;
-  components: string[];
-  privateComponents: Set<string>;
-  credentials: Record<string, string>;
-  sessionName: string | null;
-  sessionType: string | null;
-} {
-  let name: string | null = null;
-  let components: string[] = [];
-  let privateComponents: Set<string> = new Set();
-  let credentials: Record<string, string> = {};
-  let sessionName: string | null = null;
-  let sessionType: string | null = null;
-
-  let i = 0;
-  while (i < args.length) {
-    if (args[i] === "--components" && i + 1 < args.length) {
-      components = args[i + 1]
-        .split(",")
-        .map((c) => c.trim())
-        .filter(Boolean);
-      i += 2;
-    } else if (args[i] === "--private-components" && i + 1 < args.length) {
-      privateComponents = new Set(
-        args[i + 1]
-          .split(",")
-          .map((c) => c.trim())
-          .filter(Boolean),
-      );
-      i += 2;
-    } else if (args[i] === "--credentials" && i + 1 < args.length) {
-      try {
-        credentials = JSON.parse(args[i + 1]);
-      } catch (e) {
-        console.error(`Invalid credentials JSON: ${e}`);
-        process.exit(1);
-      }
-      i += 2;
-    } else if (args[i] === "--session" && i + 1 < args.length) {
-      sessionName = args[i + 1];
-      i += 2;
-    } else if (args[i] === "--type" && i + 1 < args.length) {
-      sessionType = args[i + 1];
-      i += 2;
-    } else if (!args[i].startsWith("-")) {
-      if (name !== null) {
-        console.error(`Unexpected argument: ${args[i]}`);
-        process.exit(1);
-      }
-      name = args[i];
-      i += 1;
-    } else {
-      i += 1;
-    }
-  }
-
-  return { name, components, privateComponents, credentials, sessionName, sessionType };
-}
-
 function main(): number {
+  const { values, positionals } = parseCliArgs(process.argv.slice(2), CLI);
+
   console.log("Integration Builder - Scaffold Project");
   console.log("");
 
-  if (process.argv.length < 3) {
-    console.log("Missing integration name");
-    console.log("");
-    console.log(
-      "Usage: npx tsx scaffold-project.ts <INTEGRATION_NAME> [--components <comp1,comp2,...>] [--credentials '<json>']",
-    );
+  const [name, ...unexpectedPositionals] = positionals;
+  if (unexpectedPositionals.length > 0) {
+    console.error(`Unexpected argument: ${unexpectedPositionals[0]}`);
     return 1;
   }
 
-  const { name, components, privateComponents, credentials, sessionName, sessionType } = parseArgs(
-    process.argv.slice(2),
+  const components =
+    typeof values.components === "string"
+      ? values.components
+          .split(",")
+          .map((component) => component.trim())
+          .filter(Boolean)
+      : [];
+  const privateComponents = new Set(
+    typeof values["private-components"] === "string"
+      ? values["private-components"]
+          .split(",")
+          .map((component) => component.trim())
+          .filter(Boolean)
+      : [],
   );
+  let credentials: Record<string, string> = {};
+  if (typeof values.credentials === "string") {
+    try {
+      credentials = JSON.parse(values.credentials);
+    } catch (error) {
+      console.error(`Invalid credentials JSON: ${error}`);
+      return 1;
+    }
+  }
+  const sessionName = typeof values.session === "string" ? values.session : null;
+  const sessionType = typeof values.type === "string" ? values.type : null;
 
   if (!name) {
     console.log("Missing integration name");

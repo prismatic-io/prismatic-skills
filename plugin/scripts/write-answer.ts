@@ -1,76 +1,63 @@
 #!/usr/bin/env npx tsx
-/**
- * write-answer.ts
- *
- * Helper script for agents to write answers to the requirements file.
- *
- * USAGE:
- *   prismatic-tools write-answer --session <name> --type <component|integration> <question-id> <answer>
- *   prismatic-tools write-answer --session <name> --type <component|integration> --flow <flow-id> <question-id> <answer>
- *
- * When --flow is provided, the answer is written under answers.flows[flowId].
- * When omitted, the answer is written at the root level (backward compatible).
- * When the answer argument is omitted, the script reads from stdin.
- *
- * EXIT CODES:
- *   0 - Success
- *   1 - Error
- */
+/** Persists one validated requirements answer while enforcing connection workflow gates. */
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getSessionDirectory, getPluginRoot } from "./shared/project-directory.js";
+import { type CliConfig, cliError, parseCliArgs } from "./shared/cli-help.js";
 import { loadSpec } from "./shared/load-spec.js";
+import { getPluginRoot, getSessionDirectory } from "./shared/project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools write-answer",
+  description: "Record one requirements answer.",
+  notes: [
+    "When answer is omitted, it is read from stdin.",
+    "--flow writes under answers.flows[flow-id]; otherwise the answer is written at the root.",
+    "Answers are decoded as JSON when possible and otherwise stored as strings.",
+  ],
+  examples: [
+    "prismatic-tools write-answer --session my-project trigger_type webhook",
+    "prismatic-tools write-answer --session my-project --flow order-sync retry_count 3",
+  ],
+  positionals: ["<question-id>", "[answer]"],
+  options: [
+    { name: "session", type: "string", value: "name", description: "Requirements session name." },
+    {
+      name: "type",
+      type: "string",
+      value: "component|integration",
+      default: "integration",
+      choices: ["component", "integration"],
+      description: "Session type.",
+    },
+    {
+      name: "flow",
+      type: "string",
+      value: "flow-id",
+      description: "Write to a flow-specific answer.",
+    },
+    {
+      name: "json",
+      type: "boolean",
+      description: "Compatibility flag; answers are always JSON-decoded when possible.",
+    },
+  ],
+} as const satisfies CliConfig;
 
 function main(): number {
-  const args = process.argv.slice(2);
+  const { values, positionals: positional } = parseCliArgs(process.argv.slice(2), CLI);
 
-  if (args.length < 2) {
-    console.log(
-      "Usage: npx tsx write-answer.ts <answers-file> [--flow <flow-id>] <question-id> <answer>\n" +
-        "       npx tsx write-answer.ts --session <name> [--type component|integration] [--flow <flow-id>] <question-id> <answer>",
+  if (positional.length < (values.session ? 1 : 2)) {
+    cliError(
+      CLI,
+      values.session ? "question-id is required." : "answers-file and question-id are required.",
     );
-    return 1;
   }
 
   // Parse all flags first, collect positional args
-  let flowId: string | null = null;
-  let sessionName: string | null = null;
-  let sessionType: "integration" | "component" = "integration";
-  const positional: string[] = [];
-
-  let i = 0;
-  while (i < args.length) {
-    if (args[i] === "--session") {
-      if (i + 1 >= args.length) {
-        console.error("--session requires a session name");
-        return 1;
-      }
-      sessionName = args[i + 1];
-      i += 2;
-    } else if (args[i] === "--type") {
-      if (i + 1 >= args.length) {
-        console.error("--type requires a value (component or integration)");
-        return 1;
-      }
-      sessionType = args[i + 1] as "integration" | "component";
-      i += 2;
-    } else if (args[i] === "--flow") {
-      if (i + 1 >= args.length) {
-        console.error("--flow requires a flow ID");
-        return 1;
-      }
-      flowId = args[i + 1];
-      i += 2;
-    } else if (args[i] === "--json") {
-      i++; // skip, handled below
-    } else if (!args[i].startsWith("-")) {
-      positional.push(args[i]);
-      i++;
-    } else {
-      i++;
-    }
-  }
+  const flowId = typeof values.flow === "string" ? values.flow : null;
+  const sessionName = typeof values.session === "string" ? values.session : null;
+  const sessionType = values.type;
 
   // Resolve answersFile and remaining positional args
   let answersFile: string;

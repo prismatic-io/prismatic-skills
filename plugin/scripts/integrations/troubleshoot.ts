@@ -1,20 +1,17 @@
 #!/usr/bin/env npx tsx
-/**
- * troubleshoot.ts
- *
- * PURPOSE: Diagnose common issues with Prismatic integration development
- *
- * USAGE: npx tsx troubleshoot.ts [project-directory]
- *
- * EXIT CODES:
- *   Returns number of issues found (0 = all checks passed)
- */
-
-import { existsSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
 import { ensureAuthenticated } from "../shared/graphql.js";
 import { isAuthError, isNetworkError, runPrismQuery } from "../shared/prism-retry.js";
+
+const CLI = {
+  command: "prismatic-tools troubleshoot",
+  description: "Check for common Prismatic project setup problems.",
+  positionals: [{ name: "project-directory" }],
+  options: [],
+} as const satisfies CliConfig;
 
 function checkPrismCli(): [boolean | null, string] {
   try {
@@ -211,7 +208,8 @@ function troubleshoot(projectDir: string | null): number {
 }
 
 function main(): number {
-  const projectDir = process.argv[2] ?? null;
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const projectDir = positionals[0] ?? null;
   return troubleshoot(projectDir);
 }
 

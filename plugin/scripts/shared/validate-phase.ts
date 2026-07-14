@@ -1,27 +1,27 @@
 #!/usr/bin/env npx tsx
-/**
- * validate-phase.ts
- *
- * PURPOSE: Structural validation at phase boundaries. Checks whether the project
- * directory contains the expected files and patterns for the completed phase.
- *
- * USAGE:
- *   npx tsx validate-phase.ts <project-dir> --phase <phase> --type <component|integration>
- *
- * PHASES:
- *   scaffold  - After scaffolding (project structure exists)
- *   code-gen  - After code generation (source files written)
- *   build     - After build (compiled output exists)
- *   deploy    - Before deploy (trigger configuration validation)
- *
- * EXIT CODES:
- *   0 - All checks pass
- *   1 - Structural gaps found (printed as JSON)
- *   2 - Usage error
- */
-
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { type CliConfig, cliError, parseCliArgs } from "./cli-help.js";
+
+const CLI = {
+  command: "prismatic-tools validate-phase",
+  description: "Verify that a project is ready for the next workflow phase.",
+  positionals: ["<project-dir>"],
+  options: [
+    {
+      name: "phase",
+      type: "string",
+      value: "scaffold|code-gen|build|deploy",
+      description: "Phase to validate (required).",
+    },
+    {
+      name: "type",
+      type: "string",
+      value: "component|integration",
+      description: "Project type (required).",
+    },
+  ],
+} as const satisfies CliConfig;
 
 // --- Shape Definitions ---
 
@@ -597,27 +597,13 @@ function validatePhase(projectDir: string, shape: Shape): ValidationResult {
 }
 
 function main(): number {
-  const args = process.argv.slice(2);
-
-  let projectDir: string | undefined;
-  let phase: string | undefined;
-  let projectType: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--phase" && i + 1 < args.length) {
-      phase = args[++i];
-    } else if (args[i] === "--type" && i + 1 < args.length) {
-      projectType = args[++i];
-    } else if (!args[i].startsWith("-")) {
-      projectDir = args[i];
-    }
-  }
+  const { values, positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  let projectDir: string | undefined = positionals.at(-1);
+  const phase = typeof values.phase === "string" ? values.phase : undefined;
+  const projectType = typeof values.type === "string" ? values.type : undefined;
 
   if (!projectDir || !phase || !projectType) {
-    console.error(
-      "Usage: npx tsx validate-phase.ts <project-dir> --phase <phase> --type <component|integration>",
-    );
-    return 2;
+    cliError(CLI, "project-dir, --phase, and --type are required.");
   }
 
   if (!["scaffold", "code-gen", "build", "deploy"].includes(phase)) {

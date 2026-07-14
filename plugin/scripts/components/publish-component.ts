@@ -1,21 +1,17 @@
 #!/usr/bin/env npx tsx
-/**
- * publish-component.ts
- *
- * PURPOSE: Phase 5 - Publish the component to the platform
- *
- * USAGE: npx tsx publish-component.ts <COMPONENT_DIR>
- *
- * EXIT CODES:
- *   0 - Success: Component published successfully
- *   1 - Error: Publish failed
- */
-
-import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
-import { timedStep, printTimingSummary } from "../shared/timing.js";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
 import { confineToProjectRoot } from "../shared/project-directory.js";
+import { printTimingSummary, timedStep } from "../shared/timing.js";
+
+const CLI = {
+  command: "prismatic-tools publish-component",
+  description: "Publish a built Prismatic component.",
+  positionals: [{ name: "component-dir", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 function publishComponent(componentDir: string): string | null {
   return timedStep("Publish component", () => {
@@ -72,14 +68,11 @@ function publishComponent(componentDir: string): string | null {
 }
 
 function main(): number {
-  if (process.argv.length < 3) {
-    console.log("Usage: npx tsx publish-component.ts <COMPONENT_DIR>");
-    return 1;
-  }
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
 
   let componentDir: string;
   try {
-    componentDir = confineToProjectRoot(process.argv[2]);
+    componentDir = confineToProjectRoot(positionals[0]);
   } catch (e) {
     console.log(`Error: ${(e as Error).message}`);
     return 1;

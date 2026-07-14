@@ -1,57 +1,51 @@
 #!/usr/bin/env npx tsx
-/**
- * update-tasks.ts
- *
- * Bridges the spec's condition/dependency structure with Claude Code's Task system.
- * Reads the spec + current answers, evaluates conditions, and outputs a task
- * manifest describing what the task list SHOULD look like.
- *
- * USAGE:
- *   prismatic-tools update-tasks --session <name> --type <component|integration> --actionable
- *   prismatic-tools update-tasks --session <name> --type <component|integration> --actionable --mode modify --extracted-state <state.json>
- *
- * OPTIONS:
- *   --session <name>        Session name (required)
- *   --type component|integration  Spec type (default: integration)
- *   --mode build|modify     Workflow mode (default: build)
- *   --extracted-state <file> Path to extracted state JSON (modify mode only)
- *   --scope <scope-list>     Comma-separated modification scopes to filter items
- *
- * OUTPUT (JSON):
- *   {
- *     "tasks": [
- *       {
- *         "spec_key": "error_handler_type",
- *         "subject": "Resolve: What should happen when the flow throws an error?",
- *         "description": "...",
- *         "group": "error_handling",
- *         "scope": "flow",
- *         "status": "pending|answered|not_applicable",
- *         "blocked_by_keys": ["trigger_type"],
- *         "flow_id": null,
- *         "inference": "prohibited",
- *         "current_value": null
- *       }
- *     ],
- *     "summary": {
- *       "total_applicable": 14,
- *       "answered": 6,
- *       "pending": 5,
- *       "blocked": 3,
- *       "not_applicable": 22
- *     },
- *     "ready_for_next_phase": false
- *   }
- *
- * EXIT CODES:
- *   0 - Success
- *   2 - Error (bad files, parse issues)
- */
-
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { type CliConfig, cliError, parseCliArgs } from "../shared/cli-help.js";
 import { loadSpec } from "../shared/load-spec.js";
-import { getSessionDirectory, getPluginRoot } from "../shared/project-directory.js";
+import { getPluginRoot, getSessionDirectory } from "../shared/project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools update-tasks",
+  description: "Show requirements progress and actionable next tasks.",
+  positionals: ["[spec-file]", "[answers-file]"],
+  options: [
+    { name: "session", type: "string", value: "name", description: "Requirements session name." },
+    {
+      name: "type",
+      type: "string",
+      value: "component|integration",
+      default: "integration",
+      choices: ["component", "integration"],
+      description: "Session type.",
+    },
+    {
+      name: "mode",
+      type: "string",
+      value: "build|modify",
+      default: "build",
+      choices: ["build", "modify"],
+      description: "Workflow mode.",
+    },
+    {
+      name: "extracted-state",
+      type: "string",
+      value: "file",
+      description: "Extracted state JSON.",
+    },
+    {
+      name: "scope",
+      type: "string",
+      value: "scopes",
+      description: "Comma-separated scope filter.",
+    },
+    {
+      name: "actionable",
+      type: "boolean",
+      description: "Compatibility flag; output is actionable tasks.",
+    },
+  ],
+} as const satisfies CliConfig;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -840,43 +834,19 @@ function inferPhase(answered: number, total: number, ready: boolean): string {
 // ---------------------------------------------------------------------------
 
 function main(): number {
-  const args = process.argv.slice(2);
   let specFile = "";
   let answersFile = "";
-  let mode: "build" | "modify" = "build";
-  let extractedStateFile = "";
-  let scopeFilter: string[] = [];
-  let sessionName = "";
-  let sessionType: "integration" | "component" = "integration";
-
-  const positional: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--session" && i + 1 < args.length) {
-      sessionName = args[i + 1];
-      i++;
-    } else if (args[i] === "--type" && i + 1 < args.length) {
-      sessionType = args[i + 1] as "integration" | "component";
-      i++;
-    } else if (args[i] === "--mode" && i + 1 < args.length) {
-      mode = args[i + 1] as "build" | "modify";
-      i++;
-    } else if (args[i] === "--extracted-state" && i + 1 < args.length) {
-      extractedStateFile = args[i + 1];
-      i++;
-    } else if (args[i] === "--scope" && i + 1 < args.length) {
-      scopeFilter = args[i + 1].split(",").map((s) => s.trim());
-      i++;
-    } else if (!args[i].startsWith("-")) {
-      positional.push(args[i]);
-    }
-  }
+  const { values, positionals: positional } = parseCliArgs(process.argv.slice(2), CLI);
+  const mode = values.mode;
+  const extractedStateFile =
+    typeof values["extracted-state"] === "string" ? values["extracted-state"] : "";
+  const scopeFilter =
+    typeof values.scope === "string" ? values.scope.split(",").map((scope) => scope.trim()) : [];
+  const sessionName = typeof values.session === "string" ? values.session : "";
+  const sessionType = values.type;
 
   if (!sessionName && positional.length < 2) {
-    console.error(
-      "Usage: npx tsx sync-task-list.ts <spec.yaml> <answers.json> [--mode build|modify] [--extracted-state <file>] [--scope <scopes>]\n" +
-        "       npx tsx sync-task-list.ts --session <name> [--type component|integration] --actionable [--mode build|modify]",
-    );
-    return 2;
+    cliError(CLI, "either --session or both spec-file and answers-file are required.");
   }
 
   if (sessionName) {
@@ -945,7 +915,7 @@ function main(): number {
 
   // --actionable mode: output only items the agent should act on NOW
   // (pending items to create as tasks, answered items to mark complete)
-  const actionable = args.includes("--actionable");
+  const actionable = values.actionable === true;
 
   if (actionable) {
     const toCreate = manifest.tasks.filter((t) => t.status === "pending" && t.is_required);

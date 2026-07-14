@@ -1,32 +1,24 @@
 #!/usr/bin/env npx tsx
 /**
- * schema-to-answers.ts
- *
- * Converts a standard integration schema JSON file into a requirements.json
- * file compatible with the prismatic-skills requirements system.
- *
- * Maps migration schema fields to current spec item IDs, validates choice
- * values against the spec, and writes pre-populated answers to the session
- * directory. Component/connection answers are NOT pre-populated — those are
- * left for live discovery during the interactive session.
- *
- * USAGE:
- *   prismatic-tools schema-to-answers <schema-file> <session-name>
- *
- * INPUT:  Path to standard integration schema JSON file.
- * OUTPUT: requirements.json in the session directory.
- *         XML directive to stdout listing what was pre-populated.
- *
- * EXIT CODES:
- *   0 - Success
- *   1 - Schema validation errors (fixable)
- *   2 - Usage / file errors
+ * Maps an integration schema into requirements answers, deliberately leaving
+ * component and connection answers unset for live discovery.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { type CliConfig, cliError, parseCliArgs } from "../shared/cli-help.js";
 import { loadSpec } from "../shared/load-spec.js";
-import { getPluginRoot, ensureSessionDirectory } from "../shared/project-directory.js";
+import { ensureSessionDirectory, getPluginRoot } from "../shared/project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools schema-to-answers",
+  description: "Convert a migration schema into pre-populated requirements answers.",
+  positionals: ["[schema-file]", "[session-name]"],
+  options: [
+    { name: "schema", type: "string", value: "path", description: "Integration schema JSON path." },
+    { name: "session", type: "string", value: "name", description: "Destination session name." },
+  ],
+} as const satisfies CliConfig;
 
 /** Escape a string for safe use in XML attributes and text content. */
 function escapeXml(s: string): string {
@@ -629,32 +621,12 @@ function generateAnswers(
 // ── Main ───────────────────────────────────────────────────────────────
 
 function main(): number {
-  const args = process.argv.slice(2);
-  let schemaFile = "";
-  let sessionName = "";
-
-  // Parse flags: --session <name> --schema <path>, or positional: <schema-file> <session-name>
-  const positional: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--session" && i + 1 < args.length) {
-      sessionName = args[i + 1];
-      i++;
-    } else if (args[i] === "--schema" && i + 1 < args.length) {
-      schemaFile = args[i + 1];
-      i++;
-    } else if (!args[i].startsWith("-")) {
-      positional.push(args[i]);
-    }
-  }
-
-  // Fallback to positional args
-  if (!schemaFile && positional.length >= 1) schemaFile = positional[0];
-  if (!sessionName && positional.length >= 2) sessionName = positional[1];
+  const { values, positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const schemaFile = typeof values.schema === "string" ? values.schema : (positionals[0] ?? "");
+  const sessionName = typeof values.session === "string" ? values.session : (positionals[1] ?? "");
 
   if (!schemaFile || !sessionName) {
-    console.error("Usage: prismatic-tools schema-to-answers --session <name> --schema <path>");
-    console.error("       schema-to-answers <schema-file> <session-name>");
-    return 2;
+    cliError(CLI, "schema and session are required, either as options or positionals.");
   }
 
   // Load the schema

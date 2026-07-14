@@ -1,25 +1,33 @@
 #!/usr/bin/env npx tsx
-/**
- * code-plan.ts
- *
- * Generates a code-gen manifest mapping answered spec items to their
- * cookbook sections, reference files, and implications. The agent runs
- * this as step 1 of code generation so the manifest is fresh in context.
- *
- * USAGE:
- *   prismatic-tools code-plan --session <name> --type component|integration
- *
- * OUTPUT: XML manifest on stdout with <code-plan>, <verify-coverage> blocks.
- *
- * EXIT CODES:
- *   0 - Success
- *   2 - Error (bad files, parse issues)
- */
+/** Builds a fresh mapping from answered spec items to code-generation guidance. */
 
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { type CliConfig, parseCliArgs } from "./cli-help.js";
 import { loadSpec } from "./load-spec.js";
-import { getSessionDirectory, getPluginRoot } from "./project-directory.js";
+import { getPluginRoot, getSessionDirectory } from "./project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools code-plan",
+  description: "Generate a code-generation plan from requirements answers.",
+  options: [
+    {
+      name: "session",
+      type: "string",
+      value: "name",
+      required: true,
+      description: "Requirements session name.",
+    },
+    {
+      name: "type",
+      type: "string",
+      value: "component|integration",
+      default: "integration",
+      choices: ["component", "integration"],
+      description: "Session type.",
+    },
+  ],
+} as const satisfies CliConfig;
 
 function isEmpty(value: unknown): boolean {
   return (
@@ -81,26 +89,9 @@ function parseCookbook(
 }
 
 function main(): number {
-  const args = process.argv.slice(2);
-  let sessionName = "";
-  let sessionType: "integration" | "component" = "integration";
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--session" && i + 1 < args.length) {
-      sessionName = args[i + 1];
-      i++;
-    } else if (args[i] === "--type" && i + 1 < args.length) {
-      sessionType = args[i + 1] as "integration" | "component";
-      i++;
-    }
-  }
-
-  if (!sessionName) {
-    console.error(
-      "Usage: prismatic-tools code-plan --session <name> --type <component|integration>",
-    );
-    return 2;
-  }
+  const { values } = parseCliArgs(process.argv.slice(2), CLI);
+  const sessionName = typeof values.session === "string" ? values.session : "";
+  const sessionType = values.type;
 
   // Load spec
   const specName = sessionType === "component" ? "component.yaml" : "integration.yaml";

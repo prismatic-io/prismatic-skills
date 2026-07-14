@@ -1,24 +1,27 @@
 #!/usr/bin/env npx tsx
-/**
- * prerequisites.ts
- *
- * Unified Phase 1 setup - Verify environment for any Prismatic workflow.
- *
- * USAGE:
- *   npx tsx prerequisites.ts <name> --type component
- *   npx tsx prerequisites.ts <name> --type integration
- *
- * EXIT CODES:
- *   0 - Success
- *   1 - Error: Invalid usage or prerequisites not met
- *   2 - Error: Not authenticated
- */
-
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { type CliConfig, parseCliArgs } from "./shared/cli-help.js";
 import { confineToProjectRoot, ensureSessionDirectory } from "./shared/project-directory.js";
-import { timedStep, printTimingSummary } from "./shared/timing.js";
+import { printTimingSummary, timedStep } from "./shared/timing.js";
+
+const CLI = {
+  command: "prismatic-tools prerequisites",
+  description: "Prepare a component or integration workflow session.",
+  positionals: [{ name: "name", required: true }],
+  options: [
+    {
+      name: "type",
+      type: "string",
+      value: "component|integration",
+      required: true,
+      choices: ["component", "integration"],
+      description: "Workflow type.",
+    },
+    { name: "existing", type: "string", value: "dir", description: "Existing project directory." },
+  ],
+} as const satisfies CliConfig;
 
 const SESSION_TYPE_MAP: Record<string, string> = {
   component: "components",
@@ -89,30 +92,10 @@ function checkLoggedIn(): Record<string, string> | null {
 }
 
 function main(): number {
-  // Parse args manually (matches Python argparse contract)
-  const args = process.argv.slice(2);
-  let name = "";
-  let workflowType = "";
-  let existingDir = "";
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--type" && i + 1 < args.length) {
-      workflowType = args[i + 1];
-      i++;
-    } else if (args[i] === "--existing" && i + 1 < args.length) {
-      existingDir = args[i + 1];
-      i++;
-    } else if (!args[i].startsWith("-")) {
-      name = args[i];
-    }
-  }
-
-  if (!name || !workflowType || !["component", "integration"].includes(workflowType)) {
-    console.error(
-      "Usage: npx tsx prerequisites.ts <name> --type <component|integration> [--existing <dir>]",
-    );
-    return 1;
-  }
+  const { values, positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const name = positionals.at(-1) ?? "";
+  const workflowType = values.type;
+  const existingDir = typeof values.existing === "string" ? values.existing : "";
 
   const typeLabels: Record<string, string> = {
     component: "Prismatic Component Builder",

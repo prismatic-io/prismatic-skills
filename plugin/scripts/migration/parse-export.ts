@@ -1,61 +1,42 @@
 #!/usr/bin/env npx tsx
-/**
- * parse-export.ts
- *
- * Dispatcher that calls the correct platform-specific parser.
- * Writes parsed output to the session directory as parsed-export.json.
- *
- * USAGE:
- *   prismatic-tools parse-export <export-path> --platform <boomi|cyclr> [--summary] [--session <name>]
- *
- * OUTPUT: Parsed export JSON (also written to session if --session provided)
- *
- * EXIT CODES:
- *   0 - Success
- *   1 - Error
- */
-
 import { spawnSync } from "node:child_process";
-import { writeFileSync, existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from "node:fs";
-import { join, dirname, basename } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
 import { getSessionDirectory } from "../shared/project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools parse-export",
+  description: "Parse an integration export into structured JSON.",
+  positionals: [{ name: "export-path", required: true }],
+  options: [
+    {
+      name: "platform",
+      type: "string",
+      value: "boomi|cyclr",
+      required: true,
+      choices: ["boomi", "cyclr"],
+      description: "Source platform.",
+    },
+    { name: "summary", type: "boolean", description: "Emit summary output." },
+    {
+      name: "session",
+      type: "string",
+      value: "name",
+      description: "Session to receive parsed-export.json.",
+    },
+  ],
+} as const satisfies CliConfig;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function main(): number {
-  const args = process.argv.slice(2);
-
-  let exportPath = "";
-  let platform = "";
-  let summary = false;
-  let sessionName = "";
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--platform" && i + 1 < args.length) {
-      platform = args[i + 1];
-      i++;
-    } else if (args[i] === "--summary") {
-      summary = true;
-    } else if (args[i] === "--session" && i + 1 < args.length) {
-      sessionName = args[i + 1];
-      i++;
-    } else if (!args[i].startsWith("-")) {
-      exportPath = args[i];
-    }
-  }
-
-  if (!exportPath || !platform) {
-    console.log(
-      "Usage: prismatic-tools parse-export <export-path> --platform <boomi|cyclr> [--summary] [--session <name>]",
-    );
-    return 1;
-  }
-
-  if (!["boomi", "cyclr"].includes(platform)) {
-    console.error(`Unknown platform: ${platform}. Must be 'boomi' or 'cyclr'.`);
-    return 1;
-  }
+  const { values, positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const exportPath = positionals.at(-1) ?? "";
+  const platform = typeof values.platform === "string" ? values.platform : "";
+  const summary = values.summary === true;
+  const sessionName = typeof values.session === "string" ? values.session : "";
 
   // Resolve the parser script
   const parserScript = join(__dirname, `parse-${platform}-export.ts`);

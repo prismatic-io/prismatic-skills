@@ -1,22 +1,26 @@
 #!/usr/bin/env npx tsx
-/**
- * validate-requirements.ts
- *
- * Lightweight validator: reads a YAML requirements spec + answers JSON,
- * reports what's complete, what's missing, and whether we're ready to proceed.
- *
- * Usage:
- *   prismatic-tools validate-requirements --session <name> --type <component|integration>
- *
- * Exit codes:
- *   0 — validation ran successfully (check output for completeness)
- *   2 — error (bad files, parse issues)
- */
-
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { type CliConfig, cliError, parseCliArgs } from "./shared/cli-help.js";
 import { loadSpec } from "./shared/load-spec.js";
-import { getSessionDirectory, getPluginRoot } from "./shared/project-directory.js";
+import { getPluginRoot, getSessionDirectory } from "./shared/project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools validate-requirements",
+  description: "Validate that required design questions have answers.",
+  positionals: ["[spec-file]", "[answers-file]"],
+  options: [
+    { name: "session", type: "string", value: "name", description: "Requirements session name." },
+    {
+      name: "type",
+      type: "string",
+      value: "component|integration",
+      default: "integration",
+      choices: ["component", "integration"],
+      description: "Session type.",
+    },
+  ],
+} as const satisfies CliConfig;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -212,31 +216,14 @@ function findGroup(spec: Spec, itemId: string): string {
 // ---------------------------------------------------------------------------
 
 function main(): number {
-  const args = process.argv.slice(2);
   let specFile = "";
   let answersFile = "";
-  let sessionName = "";
-  let sessionType: "integration" | "component" = "integration";
-
-  const positional: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--session" && i + 1 < args.length) {
-      sessionName = args[i + 1];
-      i++;
-    } else if (args[i] === "--type" && i + 1 < args.length) {
-      sessionType = args[i + 1] as "integration" | "component";
-      i++;
-    } else if (!args[i].startsWith("-")) {
-      positional.push(args[i]);
-    }
-  }
+  const { values, positionals: positional } = parseCliArgs(process.argv.slice(2), CLI);
+  const sessionName = typeof values.session === "string" ? values.session : "";
+  const sessionType = values.type;
 
   if (!sessionName && positional.length < 2) {
-    console.error(
-      "Usage: npx tsx validate-requirements.ts <spec.yaml> <answers.json>\n" +
-        "       npx tsx validate-requirements.ts --session <name> [--type component|integration]",
-    );
-    return 2;
+    cliError(CLI, "either --session or both spec-file and answers-file are required.");
   }
 
   if (sessionName) {

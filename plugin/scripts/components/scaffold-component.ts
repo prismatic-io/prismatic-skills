@@ -1,33 +1,28 @@
 #!/usr/bin/env npx tsx
-/**
- * scaffold-component.ts
- *
- * PURPOSE: Phase 3 - Create component structure using prism components:init
- *
- * USAGE: npx tsx scaffold-component.ts <COMPONENT_NAME>
- *
- * EXIT CODES:
- *   0 - Success: Component directory created
- *   1 - Error: Invalid usage or directory already exists
- *   3 - Error: Scaffolding failed
- */
-
+import { spawnSync } from "node:child_process";
 import {
   existsSync,
-  readFileSync,
-  writeFileSync,
   mkdirSync,
-  rmSync,
-  renameSync,
+  mkdtempSync,
   readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
   statSync,
   unlinkSync,
+  writeFileSync,
 } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { join, relative } from "node:path";
-import { mkdtempSync } from "node:fs";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
 import { getProjectRoot } from "../shared/project-directory.js";
-import { timedStep, printTimingSummary } from "../shared/timing.js";
+import { printTimingSummary, timedStep } from "../shared/timing.js";
+
+const CLI = {
+  command: "prismatic-tools scaffold-component",
+  description: "Create a new Prismatic component project.",
+  positionals: [{ name: "component-name", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 function toPascalCase(name: string): string {
   return name
@@ -225,17 +220,10 @@ function installNpmDependencies(componentPath: string): boolean {
 }
 
 function main(): number {
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
   console.log("Component Builder - Scaffold Component");
   console.log("");
-
-  if (process.argv.length < 3) {
-    console.log("Missing component name");
-    console.log("");
-    console.log("Usage: npx tsx scaffold-component.ts <COMPONENT_NAME>");
-    return 1;
-  }
-
-  const componentName = process.argv[2];
+  const componentName = positionals[0];
 
   if (!validateComponentName(componentName)) {
     console.log("Invalid component name");

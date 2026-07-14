@@ -1,22 +1,17 @@
 #!/usr/bin/env npx tsx
-/**
- * package-for-download.ts
- *
- * PURPOSE: Package completed integration for user download
- *
- * USAGE: npx tsx package-for-download.ts <project-directory> [version-name]
- *
- * EXIT CODES:
- *   0 - Success: Package created
- *   1 - Error: Project directory not found
- *   2 - Error: Zip creation failed
- */
-
-import { mkdirSync, statSync, readdirSync } from "node:fs";
-import { join, resolve, basename, relative } from "node:path";
-import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
+import { mkdirSync, readdirSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, join, relative, resolve } from "node:path";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
 import { confineToProjectRoot } from "../shared/project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools package-for-download",
+  description: "Create a downloadable integration project archive.",
+  positionals: [{ name: "project-directory", required: true }, { name: "version-name" }],
+  options: [],
+} as const satisfies CliConfig;
 
 const EXCLUDED_PATTERNS = [
   "node_modules",
@@ -190,20 +185,16 @@ function createPackage(projectDir: string, versionName?: string): number {
 }
 
 function main(): number {
-  if (process.argv.length < 3) {
-    console.log("No project directory provided");
-    console.log("Usage: npx tsx package-for-download.ts <project-directory> [version-name]");
-    return 1;
-  }
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
 
   let projectDir: string;
   try {
-    projectDir = confineToProjectRoot(process.argv[2]);
+    projectDir = confineToProjectRoot(positionals[0]);
   } catch (e) {
     console.log((e as Error).message);
     return 1;
   }
-  const versionName = process.argv[3] ?? undefined;
+  const versionName = positionals[1];
 
   return createPackage(projectDir, versionName);
 }

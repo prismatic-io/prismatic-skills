@@ -1,19 +1,15 @@
 #!/usr/bin/env npx tsx
-/**
- * validate-component.ts
- *
- * PURPOSE: Validate component structure and build output
- *
- * USAGE: npx tsx validate-component.ts <COMPONENT_DIR>
- *
- * EXIT CODES:
- *   0 - Success: Component validated and ready for platform testing
- *   1 - Error: Validation failed
- */
-
 import { existsSync } from "node:fs";
-import { join, resolve, basename } from "node:path";
-import { timedStep, printTimingSummary } from "../shared/timing.js";
+import { basename, join, resolve } from "node:path";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
+import { printTimingSummary, timedStep } from "../shared/timing.js";
+
+const CLI = {
+  command: "prismatic-tools validate-component",
+  description: "Validate a Prismatic component project.",
+  positionals: [{ name: "component-dir", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 function validateComponent(componentDir: string): boolean {
   return timedStep("Validate component", () => {
@@ -53,13 +49,8 @@ function validateComponent(componentDir: string): boolean {
 }
 
 function main(): number {
-  if (process.argv.length < 3) {
-    console.log("Missing component directory");
-    console.log("Usage: npx tsx validate-component.ts <COMPONENT_DIR>");
-    return 1;
-  }
-
-  const componentDir = resolve(process.argv[2]);
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const componentDir = resolve(positionals[0]);
 
   if (!existsSync(componentDir)) {
     console.log(`Error: Component directory not found: ${componentDir}`);

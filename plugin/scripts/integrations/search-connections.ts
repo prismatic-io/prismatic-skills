@@ -1,19 +1,13 @@
 #!/usr/bin/env npx tsx
-/**
- * search-connections.ts
- *
- * PURPOSE: Search and list available integration-agnostic connections
- *
- * USAGE:
- *   npx tsx search-connections.ts              # List all connections
- *   npx tsx search-connections.ts slack        # Filter by keyword
- *
- * EXIT CODES:
- *   0 - Success
- *   1 - Error (API call failed, auth issues)
- */
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
+import { GraphQLError, graphql } from "../shared/graphql.js";
 
-import { graphql, GraphQLError } from "../shared/graphql.js";
+const CLI = {
+  command: "prismatic-tools search-connections",
+  description: "Search configured organization connections.",
+  positionals: [{ name: "keyword" }],
+  options: [],
+} as const satisfies CliConfig;
 
 const LIST_CONNECTIONS_QUERY = `
 query availableConnections($managedBy: String) {
@@ -182,7 +176,8 @@ function filterConnections(
 }
 
 function main(): number {
-  const keyword = process.argv[2] ?? undefined;
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const keyword = positionals[0];
 
   try {
     const connections = listConnectionsApi();

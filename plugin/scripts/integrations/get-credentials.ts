@@ -1,15 +1,15 @@
 #!/usr/bin/env npx tsx
-/**
- * get-credential-prompts.ts
- *
- * PURPOSE: Infer credential prompts from a component's connection inputs
- *
- * USAGE: npx tsx get-credential-prompts.ts <component_key> '<connection_json>'
- *
- * EXIT CODES:
- *   0 - Success: Credential prompts generated
- *   1 - Error: Missing arguments or invalid JSON
- */
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
+
+const CLI = {
+  command: "prismatic-tools get-credentials",
+  description: "Show credentials required for a component connection.",
+  positionals: [
+    { name: "component-key", required: true },
+    { name: "connection-json", required: true },
+  ],
+  options: [],
+} as const satisfies CliConfig;
 
 interface ConnectionInput {
   key: string;
@@ -172,14 +172,8 @@ function generateCredentialPrompts(
 }
 
 function main(): number {
-  if (process.argv.length < 4) {
-    console.error("Usage: npx tsx get-credential-prompts.ts <component_key> '<connection_json>'");
-    console.log("[]");
-    return 1;
-  }
-
-  const componentKey = process.argv[2];
-  const connectionJson = process.argv[3];
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const [componentKey, connectionJson] = positionals;
 
   if (!connectionJson || ["", "null", "None", "{}"].includes(connectionJson)) {
     console.error("No connection data provided");

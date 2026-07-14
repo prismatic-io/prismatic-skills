@@ -1,26 +1,22 @@
 #!/usr/bin/env npx tsx
-/**
- * install-manifest.ts
- *
- * Installs a component manifest into a CNI project. Auto-detects whether
- * the component is public or private and passes the correct flag.
- *
- * USAGE:
- *   prismatic-tools install-manifest <component-key> [--project-dir <dir>]
- *
- * EXIT CODES:
- *   0 - Success
- *   1 - Component not found
- *   2 - Usage error
- *   3 - Manifest installation failed
- */
+/** Installs a component manifest after auto-detecting whether it is public or private. */
 
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { graphql, GraphQLError } from "./graphql.js";
+import { type CliConfig, parseCliArgs } from "./cli-help.js";
+import { GraphQLError, graphql } from "./graphql.js";
 import { isValidComponentKey, resolveLocalBin } from "./local-bin.js";
 import { confineToProjectRoot } from "./project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools install-manifest",
+  description: "Install a component manifest into a CNI project.",
+  positionals: ["<component-key>"],
+  options: [
+    { name: "project-dir", type: "string", value: "dir", description: "Target project directory." },
+  ],
+} as const satisfies CliConfig;
 
 const CHECK_COMPONENT_QUERY = `
 query checkComponent($key: String!) {
@@ -58,23 +54,10 @@ function findComponent(key: string): { found: boolean; isPublic: boolean; label:
 }
 
 function main(): number {
-  const args = process.argv.slice(2);
-  let componentKey = "";
-  let projectDir = process.cwd();
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--project-dir" && i + 1 < args.length) {
-      projectDir = args[i + 1];
-      i++;
-    } else if (!args[i].startsWith("-")) {
-      componentKey = args[i];
-    }
-  }
-
-  if (!componentKey) {
-    console.error("Usage: prismatic-tools install-manifest <component-key> [--project-dir <dir>]");
-    return 2;
-  }
+  const { values, positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const componentKey = positionals.at(-1) ?? "";
+  let projectDir =
+    typeof values["project-dir"] === "string" ? values["project-dir"] : process.cwd();
 
   if (!isValidComponentKey(componentKey)) {
     console.error(`Invalid component key: ${componentKey}`);

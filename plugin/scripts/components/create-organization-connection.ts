@@ -1,26 +1,60 @@
 #!/usr/bin/env npx tsx
-/**
- * create-organization-connection.ts
- *
- * PURPOSE: Create reusable connections (SCV) via Prismatic GraphQL API.
- * Supports customer-activated, org-activated-customer, and org-activated-global strategies.
- *
- * USAGE: prismatic-tools create-organization-connection \
- *   --component-key <key> \
- *   --connection-key <key> \
- *   --name <name> \
- *   [--strategy <customer-activated|org-activated-customer|org-activated-global>] \
- *   [--stable-key <key>] \
- *   [--credentials '<json>'] \
- *   [--skip-test-connection]
- *
- * EXIT CODES:
- *   0 - Success
- *   1 - Authentication error
- *   3 - API error
- */
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
+import { ensureAuthenticated, GraphQLError, graphql } from "../shared/graphql.js";
 
-import { graphql, ensureAuthenticated, GraphQLError } from "../shared/graphql.js";
+const CLI = {
+  command: "prismatic-tools create-organization-connection",
+  description: "Create a reusable organization connection.",
+  options: [
+    {
+      name: "component-key",
+      type: "string",
+      value: "key",
+      required: true,
+      description: "Component key.",
+    },
+    {
+      name: "connection-key",
+      type: "string",
+      value: "key",
+      required: true,
+      description: "Connection key.",
+    },
+    {
+      name: "name",
+      type: "string",
+      value: "name",
+      required: true,
+      description: "Connection name.",
+    },
+    {
+      name: "strategy",
+      type: "string",
+      value: "strategy",
+      default: "customer-activated",
+      choices: ["customer-activated", "org-activated-customer", "org-activated-global"],
+      description:
+        "Activation strategy: customer-activated, org-activated-customer, or org-activated-global.",
+    },
+    {
+      name: "stable-key",
+      type: "string",
+      value: "key",
+      description: "Override the generated stable key.",
+    },
+    {
+      name: "credentials",
+      type: "string",
+      value: "json",
+      description: "Test credentials as JSON.",
+    },
+    {
+      name: "skip-test-connection",
+      type: "boolean",
+      description: "Create the connection without test credentials.",
+    },
+  ],
+} as const satisfies CliConfig;
 
 const FIND_CONNECTION_QUERY = `
 query listComponents($key: String) {
@@ -322,75 +356,26 @@ function createCustomerConfigVariable(
 
 type ConnectionStrategy = "customer-activated" | "org-activated-customer" | "org-activated-global";
 
-function parseArgs(args: string[]): {
-  componentKey: string;
-  connectionKey: string;
-  name: string;
-  credentials?: Record<string, string>;
-  stableKey?: string;
-  strategy: ConnectionStrategy;
-  skipTestConnection: boolean;
-} {
-  let componentKey = "";
-  let connectionKey = "";
-  let name = "";
-  let credentials: Record<string, string> | undefined;
-  let stableKey: string | undefined;
-  let strategy: ConnectionStrategy = "customer-activated";
-  let skipTestConnection = false;
-
-  let i = 0;
-  while (i < args.length) {
-    switch (args[i]) {
-      case "--component-key":
-        componentKey = args[++i] ?? "";
-        break;
-      case "--connection-key":
-        connectionKey = args[++i] ?? "";
-        break;
-      case "--name":
-        name = args[++i] ?? "";
-        break;
-      case "--credentials":
-        try {
-          credentials = JSON.parse(args[++i] ?? "{}");
-        } catch {
-          console.error("Invalid JSON for --credentials");
-        }
-        break;
-      case "--stable-key":
-        stableKey = args[++i];
-        break;
-      case "--strategy":
-        strategy = (args[++i] ?? "customer-activated") as ConnectionStrategy;
-        break;
-      case "--skip-test-connection":
-        skipTestConnection = true;
-        break;
-    }
-    i++;
-  }
-
-  return {
-    componentKey,
-    connectionKey,
-    name,
-    credentials,
-    stableKey,
-    strategy,
-    skipTestConnection,
-  };
-}
-
 function main(): number {
-  const parsed = parseArgs(process.argv.slice(2));
+  const { values } = parseCliArgs(process.argv.slice(2), CLI);
 
-  if (!parsed.componentKey || !parsed.connectionKey || !parsed.name) {
-    console.error(
-      "Usage: npx tsx create-organization-connection.ts --component-key <key> --connection-key <key> --name <name> [--strategy <customer-activated|org-activated-customer|org-activated-global>] [--credentials '<json>']",
-    );
-    return 1;
+  let credentials: Record<string, string> | undefined;
+  if (typeof values.credentials === "string") {
+    try {
+      credentials = JSON.parse(values.credentials);
+    } catch {
+      console.error("Invalid JSON for --credentials");
+    }
   }
+  const parsed = {
+    componentKey: typeof values["component-key"] === "string" ? values["component-key"] : "",
+    connectionKey: typeof values["connection-key"] === "string" ? values["connection-key"] : "",
+    name: typeof values.name === "string" ? values.name : "",
+    credentials,
+    stableKey: typeof values["stable-key"] === "string" ? values["stable-key"] : undefined,
+    strategy: values.strategy,
+    skipTestConnection: values["skip-test-connection"] === true,
+  };
 
   const stableKey = parsed.stableKey || `${parsed.componentKey}-${parsed.connectionKey}`;
 

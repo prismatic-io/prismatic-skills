@@ -1,24 +1,28 @@
 #!/usr/bin/env npx tsx
-/**
- * diagnose-build.ts
- *
- * PURPOSE: Parse build errors and produce structural gap descriptions.
- * Maps errors to missing files, broken imports, and incorrect patterns.
- *
- * USAGE:
- *   npx tsx diagnose-build.ts <project-dir> --type <component|integration> [--error <error-text>]
- *
- * If --error is not provided, attempts to re-run the build and capture the error.
- *
- * EXIT CODES:
- *   0 - Diagnosis complete (output is JSON with findings)
- *   2 - Usage error
- */
 
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+/** Maps build errors to structural gaps such as missing files, imports, and patterns. */
+
 import { spawnSync } from "node:child_process";
-import { join, resolve, dirname } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { type CliConfig, cliError, parseCliArgs } from "./cli-help.js";
 import { confineToProjectRoot } from "./project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools diagnose-build",
+  description: "Diagnose a failed component or integration build.",
+  notes: ["When --error is omitted, the command reruns the build and captures its error."],
+  positionals: ["<project-dir>"],
+  options: [
+    {
+      name: "type",
+      type: "string",
+      value: "component|integration",
+      description: "Project type (required).",
+    },
+    { name: "error", type: "string", value: "text", description: "Existing build error text." },
+  ],
+} as const satisfies CliConfig;
 
 interface ErrorPattern {
   pattern: RegExp;
@@ -303,27 +307,13 @@ function runBuildAndCapture(
 }
 
 function main(): number {
-  const args = process.argv.slice(2);
-
-  let projectDir: string | undefined;
-  let projectType: string | undefined;
-  let errorText: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--type" && i + 1 < args.length) {
-      projectType = args[++i];
-    } else if (args[i] === "--error" && i + 1 < args.length) {
-      errorText = args[++i];
-    } else if (!args[i].startsWith("-")) {
-      projectDir = args[i];
-    }
-  }
+  const { values, positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  let projectDir: string | undefined = positionals.at(-1);
+  const projectType = typeof values.type === "string" ? values.type : undefined;
+  let errorText = typeof values.error === "string" ? values.error : undefined;
 
   if (!projectDir || !projectType) {
-    console.error(
-      "Usage: npx tsx diagnose-build.ts <project-dir> --type <component|integration> [--error <error-text>]",
-    );
-    return 2;
+    cliError(CLI, "project-dir and --type are required.");
   }
 
   if (!["component", "integration"].includes(projectType)) {

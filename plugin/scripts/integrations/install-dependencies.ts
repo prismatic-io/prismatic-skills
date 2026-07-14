@@ -1,21 +1,16 @@
 #!/usr/bin/env npx tsx
-/**
- * install-dependencies.ts
- *
- * PURPOSE: Install npm dependencies for CNI project
- *
- * USAGE: npx tsx install-dependencies.ts <project-directory>
- *
- * EXIT CODES:
- *   0 - Success: Dependencies installed
- *   1 - Error: Project directory not found
- *   2 - Error: npm install failed
- */
-
-import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
 import { confineToProjectRoot } from "../shared/project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools install-dependencies",
+  description: "Install an integration project's dependencies.",
+  positionals: [{ name: "project-directory", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 function installDependencies(projectDir: string): number {
   if (!existsSync(join(projectDir, "package.json"))) {
@@ -91,15 +86,11 @@ function installDependencies(projectDir: string): number {
 }
 
 function main(): number {
-  if (process.argv.length < 3) {
-    console.log("No project directory provided");
-    console.log("Usage: npx tsx install-dependencies.ts <project-directory>");
-    return 1;
-  }
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
 
   let projectDir: string;
   try {
-    projectDir = confineToProjectRoot(process.argv[2]);
+    projectDir = confineToProjectRoot(positionals[0]);
   } catch (e) {
     console.log((e as Error).message);
     return 1;

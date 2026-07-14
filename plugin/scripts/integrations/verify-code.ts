@@ -1,23 +1,27 @@
 #!/usr/bin/env npx tsx
-/**
- * verify-code.ts
- *
- * PURPOSE: Read requirements.json, map each answered spec item to an expected
- * code pattern, grep generated source files, and report gaps as XML that the
- * agent can act on directly.
- *
- * USAGE:
- *   prismatic-tools verify-code <project-dir> --session <name> [--type component|integration]
- *
- * EXIT CODES:
- *   0 - All verified (or pass with notes)
- *   1 - Gaps found
- *   2 - Usage error
- */
+/** Maps answered requirements to expected source patterns and reports actionable gaps. */
 
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { type CliConfig, cliError, parseCliArgs } from "../shared/cli-help.js";
 import { getSessionDirectory } from "../shared/project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools verify-code",
+  description: "Check generated code against recorded requirements.",
+  positionals: ["<project-dir>", "[requirements-file]"],
+  options: [
+    { name: "session", type: "string", value: "name", description: "Requirements session name." },
+    {
+      name: "type",
+      type: "string",
+      value: "component|integration",
+      default: "integration",
+      choices: ["component", "integration"],
+      description: "Session type.",
+    },
+  ],
+} as const satisfies CliConfig;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -459,29 +463,12 @@ function formatOutput(gaps: Gap[], notes: Note[], verified: number): string {
 // ---------------------------------------------------------------------------
 
 function main(): number {
-  const args = process.argv.slice(2);
-
-  // Parse flags
-  let sessionName: string | null = null;
-  let sessionType: "integration" | "component" = "integration";
-  const positional: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--session" && i + 1 < args.length) {
-      sessionName = args[i + 1];
-      i++;
-    } else if (args[i] === "--type" && i + 1 < args.length) {
-      sessionType = args[i + 1] as "integration" | "component";
-      i++;
-    } else if (!args[i].startsWith("-")) {
-      positional.push(args[i]);
-    }
-  }
+  const { values, positionals: positional } = parseCliArgs(process.argv.slice(2), CLI);
+  const sessionName = typeof values.session === "string" ? values.session : null;
+  const sessionType = values.type;
 
   if (positional.length < 1 || (!sessionName && positional.length < 2)) {
-    console.error(
-      "Usage: prismatic-tools verify-code <project-dir> --session <name> [--type component|integration]",
-    );
-    return 2;
+    cliError(CLI, "project-dir and either --session or requirements-file are required.");
   }
 
   const projectDir = resolve(positional[0]);

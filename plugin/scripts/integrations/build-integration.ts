@@ -1,21 +1,16 @@
 #!/usr/bin/env npx tsx
-/**
- * build-integration.ts
- *
- * PURPOSE: Compile TypeScript CNI code to JavaScript
- *
- * USAGE: npx tsx build-integration.ts <project-directory>
- *
- * EXIT CODES:
- *   0 - Success: Build completed
- *   1 - Error: Project directory not found
- *   2 - Error: TypeScript compilation failed
- */
-
-import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
 import { confineToProjectRoot } from "../shared/project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools build-integration",
+  description: "Build a Prismatic integration project.",
+  positionals: [{ name: "project-directory", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 function parseTypescriptErrors(stderr: string): string {
   if (!stderr) return "";
@@ -103,15 +98,11 @@ function buildIntegration(projectDir: string): number {
 }
 
 function main(): number {
-  if (process.argv.length < 3) {
-    console.log("No project directory provided");
-    console.log("Usage: npx tsx build-integration.ts <project-directory>");
-    return 1;
-  }
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
 
   let projectDir: string;
   try {
-    projectDir = confineToProjectRoot(process.argv[2]);
+    projectDir = confineToProjectRoot(positionals[0]);
   } catch (e) {
     console.log((e as Error).message);
     return 1;

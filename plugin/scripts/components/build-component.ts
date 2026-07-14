@@ -1,21 +1,17 @@
 #!/usr/bin/env npx tsx
-/**
- * build-component.ts
- *
- * PURPOSE: Phase 4 - Build the component using webpack
- *
- * USAGE: npx tsx build-component.ts <COMPONENT_DIR>
- *
- * EXIT CODES:
- *   0 - Success: Component built successfully
- *   1 - Error: Build failed
- */
-
-import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
-import { timedStep, printTimingSummary } from "../shared/timing.js";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
 import { confineToProjectRoot } from "../shared/project-directory.js";
+import { printTimingSummary, timedStep } from "../shared/timing.js";
+
+const CLI = {
+  command: "prismatic-tools build-component",
+  description: "Build a Prismatic component project.",
+  positionals: [{ name: "component-dir", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 function installDependencies(componentDir: string): boolean {
   return timedStep("Install dependencies", () => {
@@ -78,14 +74,11 @@ function buildComponent(componentDir: string): boolean {
 }
 
 function main(): number {
-  if (process.argv.length < 3) {
-    console.log("Usage: npx tsx build-component.ts <COMPONENT_DIR>");
-    return 1;
-  }
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
 
   let componentDir: string;
   try {
-    componentDir = confineToProjectRoot(process.argv[2]);
+    componentDir = confineToProjectRoot(positionals[0]);
   } catch (e) {
     console.log(`Error: ${(e as Error).message}`);
     return 1;

@@ -1,24 +1,17 @@
 #!/usr/bin/env npx tsx
-/**
- * deploy-integration.ts
- *
- * PURPOSE: Deploy built integration to the platform, then surface the
- *          test instance details so the agent can guide configuration + testing.
- *
- * USAGE: npx tsx deploy-integration.ts <project-directory>
- *
- * EXIT CODES:
- *   0 - Success: Integration deployed
- *   1 - Error: Project directory not found or not built
- *   2 - Error: Authentication failed
- *   3 - Error: Import failed
- */
-
 import { existsSync, readFileSync } from "node:fs";
-import { join, basename } from "node:path";
-import { ensureAuthenticated, graphql, GraphQLError } from "../shared/graphql.js";
+import { basename, join } from "node:path";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
+import { ensureAuthenticated, GraphQLError, graphql } from "../shared/graphql.js";
 import { runPrismMutation, runPrismQuery } from "../shared/prism-retry.js";
 import { confineToProjectRoot } from "../shared/project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools deploy-integration",
+  description: "Deploy a built integration to Prismatic.",
+  positionals: [{ name: "project-directory", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 function sleepSync(ms: number): void {
   const end = Date.now() + ms;
@@ -296,15 +289,11 @@ function deployIntegration(projectDir: string): number {
 }
 
 function main(): number {
-  if (process.argv.length < 3) {
-    console.log("No project directory provided");
-    console.log("Usage: npx tsx deploy-integration.ts <project-directory>");
-    return 1;
-  }
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
 
   let projectDir: string;
   try {
-    projectDir = confineToProjectRoot(process.argv[2]);
+    projectDir = confineToProjectRoot(positionals[0]);
   } catch (e) {
     console.log((e as Error).message);
     return 1;

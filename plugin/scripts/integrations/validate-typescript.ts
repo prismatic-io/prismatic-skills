@@ -1,22 +1,16 @@
 #!/usr/bin/env npx tsx
-/**
- * validate-typescript.ts
- *
- * PURPOSE: Validate TypeScript code without building (fast type checking)
- *
- * USAGE: npx tsx validate-typescript.ts <integration-dir>
- *
- * EXIT CODES:
- *   0 - Success: No TypeScript errors
- *   1 - Error: Invalid parameters or directory
- *   2 - Error: TypeScript validation failed
- *   3 - Error: npx/tsc not found
- */
-
-import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
 import { confineToProjectRoot } from "../shared/project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools validate-typescript",
+  description: "Type-check an integration project without building it.",
+  positionals: [{ name: "integration-dir", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 function validateTypescript(integrationDir: string): number {
   if (!existsSync(join(integrationDir, "tsconfig.json"))) {
@@ -61,19 +55,11 @@ function validateTypescript(integrationDir: string): number {
 }
 
 function main(): number {
-  if (process.argv.length < 3) {
-    console.log("Usage: npx tsx validate-typescript.ts <integration-dir>");
-    console.log("");
-    console.log("Benefits:");
-    console.log("  - Fast validation (5-10 seconds vs full build)");
-    console.log("  - Catches type errors early");
-    console.log("  - Better error messages than webpack");
-    return 1;
-  }
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
 
   let integrationDir: string;
   try {
-    integrationDir = confineToProjectRoot(process.argv[2]);
+    integrationDir = confineToProjectRoot(positionals[0]);
   } catch (e) {
     console.log((e as Error).message);
     return 1;

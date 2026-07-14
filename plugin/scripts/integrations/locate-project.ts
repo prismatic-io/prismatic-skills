@@ -1,39 +1,14 @@
 #!/usr/bin/env npx tsx
-/**
- * locate-project.ts
- *
- * Finds an existing CNI project and extracts its architecture.
- * Used by the modify-integration workflow to understand what exists
- * before making changes.
- *
- * USAGE:
- *   npx tsx locate-project.ts <path-or-name>
- *   npx tsx locate-project.ts .                    # search current directory
- *   npx tsx locate-project.ts my-integration       # search by name
- *   npx tsx locate-project.ts /absolute/path       # use exact path
- *
- * OUTPUT (JSON):
- *   {
- *     "found": true,
- *     "project_dir": "/path/to/project",
- *     "name": "my-integration",
- *     "architecture": {
- *       "flow_structure": "single-file" | "directory",
- *       "flows": [{ "name": "...", "stableKey": "...", "file": "..." }],
- *       "components": ["slack", "salesforce"],
- *       "connections": ["Slack Connection"],
- *       "config_pages": ["Slack Connection", "Channel Settings"],
- *       "has_lifecycle_hooks": false
- *     }
- *   }
- *
- * EXIT CODES:
- *   0 - Project found
- *   1 - Project not found or invalid
- */
-
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
+
+const CLI = {
+  command: "prismatic-tools locate-project",
+  description: "Locate a CNI project by path or name.",
+  positionals: [{ name: "path-or-name", required: true }],
+  options: [],
+} as const satisfies CliConfig;
 
 interface FlowInfo {
   name: string;
@@ -212,14 +187,8 @@ function findProject(pathOrName: string): string | null {
 }
 
 function main(): number {
-  const args = process.argv.slice(2);
-
-  if (args.length < 1) {
-    console.error("Usage: npx tsx locate-project.ts <path-or-name>");
-    return 1;
-  }
-
-  const pathOrName = args[0];
+  const { positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const pathOrName = positionals[0];
   const projectDir = findProject(pathOrName);
 
   if (!projectDir) {

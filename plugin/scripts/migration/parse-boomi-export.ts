@@ -1,30 +1,15 @@
 #!/usr/bin/env npx tsx
-/**
- * parse-boomi-export.ts
- *
- * Deterministic XML parser for Boomi Component export directories.
- * Extracts structured data from all XML files in the export directory
- * and outputs JSON to stdout.
- *
- * Usage:
- *     npx tsx parse-boomi-export.ts <export-directory> [--summary]
- *
- * Input: Path to directory of Boomi Component XML files
- * Output: JSON to stdout with structured component data
- *
- * Flags:
- *     --summary   Output a condensed overview instead of full data.
- *                 Includes component counts, process names, system names,
- *                 connector types, and profile field counts. Useful for
- *                 getting a quick scope assessment before reading full output.
- *
- * NOTE: Requires `@xmldom/xmldom` — install with:
- *     npm install @xmldom/xmldom
- */
-
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
 import { createRequire } from "node:module";
+import { basename, join, resolve } from "node:path";
+import { type CliConfig, cliError, parseCliArgs } from "../shared/cli-help.js";
+
+const CLI = {
+  command: "prismatic-tools parse-boomi-export",
+  description: "Parse a Boomi integration export directory.",
+  positionals: ["<export-directory>"],
+  options: [{ name: "summary", type: "boolean", description: "Emit summarized output." }],
+} as const satisfies CliConfig;
 
 // Resolve @xmldom/xmldom with zero global install: from local node_modules
 // (createRequire since ESM has no bare `require`), else from the npx cache
@@ -56,6 +41,7 @@ function resolveNpxPackage(moduleName: string): unknown {
 }
 
 import type { DOMParser as DOMParserType } from "@xmldom/xmldom";
+
 const { DOMParser } = resolveNpxPackage("@xmldom/xmldom") as { DOMParser: typeof DOMParserType };
 
 // ---------------------------------------------------------------------------
@@ -1756,15 +1742,14 @@ function generateSummary(fullOutput: FullOutput): SummaryOutput {
 // ---------------------------------------------------------------------------
 
 function main(): number {
-  const summaryMode = process.argv.includes("--summary");
-  const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+  const { values, positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const summaryMode = values.summary === true;
 
-  if (args.length !== 1) {
-    console.error("Usage: npx tsx parse-boomi-export.ts <export-directory> [--summary]");
-    return 2;
+  if (positionals.length !== 1) {
+    cliError(CLI, "exactly one export-directory is required.");
   }
 
-  const exportDir = args[0];
+  const exportDir = positionals[0];
 
   try {
     const stat = statSync(exportDir);

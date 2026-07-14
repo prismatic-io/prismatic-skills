@@ -1,25 +1,28 @@
 #!/usr/bin/env npx tsx
-/**
- * test-integration.ts
- *
- * PURPOSE: Run test execution of deployed integration
- *
- * USAGE: npx tsx test-integration.ts <integration-id> [flow-name]
- *   [--payload <file>] [--content-type <type>] [--integration-dir <dir>]
- *
- * EXIT CODES:
- *   0 - Success: Test execution completed
- *   1 - Error: Integration ID not provided
- *   2 - Error: Test execution failed
- *   3 - Error: No flows found or flow listing failed
- */
-
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { type CliConfig, parseCliArgs } from "../shared/cli-help.js";
 import { ensureAuthenticated, GraphQLError } from "../shared/graphql.js";
 import { runPrismQuery } from "../shared/prism-retry.js";
+
+const CLI = {
+  command: "prismatic-tools test-integration",
+  description: "Run a test execution of a deployed integration.",
+  positionals: [{ name: "integration-id", required: true }, { name: "flow-name" }],
+  options: [
+    { name: "payload", type: "string", value: "file", description: "Payload file." },
+    { name: "content-type", type: "string", value: "type", description: "Payload content type." },
+    {
+      name: "integration-dir",
+      type: "string",
+      value: "dir",
+      description: "Local integration directory.",
+    },
+    { name: "flow", type: "string", value: "flow-name", description: "Specific flow to test." },
+  ],
+} as const satisfies CliConfig;
 
 interface TriggerMetadata {
   needs_payload: boolean;
@@ -486,36 +489,13 @@ function testIntegration(
 }
 
 function main(): number {
-  if (process.argv.length < 3) {
-    console.log("No integration ID provided");
-    console.log("");
-    console.log(
-      "Usage: npx tsx test-integration.ts <integration-id> [flow-name] [--payload <file>] [--content-type <type>] [--integration-dir <dir>]",
-    );
-    return 1;
-  }
-
-  const args = process.argv.slice(2);
-  const integrationId = args[0];
-  let specificFlow: string | null = null;
-  let payloadFile: string | null = null;
-  let contentType: string | null = null;
-  let integrationDir: string | null = null;
-
-  let i = 1;
-  while (i < args.length) {
-    const arg = args[i];
-    if (arg === "--payload" && i + 1 < args.length) {
-      payloadFile = args[++i];
-    } else if (arg === "--content-type" && i + 1 < args.length) {
-      contentType = args[++i];
-    } else if (arg === "--integration-dir" && i + 1 < args.length) {
-      integrationDir = args[++i];
-    } else if (!arg.startsWith("--") && specificFlow === null) {
-      specificFlow = arg;
-    }
-    i++;
-  }
+  const { values, positionals } = parseCliArgs(process.argv.slice(2), CLI);
+  const integrationId = positionals[0];
+  const specificFlow = typeof values.flow === "string" ? values.flow : (positionals[1] ?? null);
+  const payloadFile = typeof values.payload === "string" ? values.payload : null;
+  const contentType = typeof values["content-type"] === "string" ? values["content-type"] : null;
+  const integrationDir =
+    typeof values["integration-dir"] === "string" ? values["integration-dir"] : null;
 
   return testIntegration(integrationId, specificFlow, payloadFile, contentType, integrationDir);
 }

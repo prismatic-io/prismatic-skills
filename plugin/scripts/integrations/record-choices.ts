@@ -1,36 +1,54 @@
 #!/usr/bin/env npx tsx
-/**
- * record-choices.ts
- *
- * Writes multiple answers at once to reduce tool call noise.
- * Accepts a JSON object where keys are question IDs and values are answers.
- *
- * USAGE:
- *   prismatic-tools record-choices --session <name> --type <component|integration> key=value [key2=value2 ...]
- *   prismatic-tools record-choices --session <name> --type <component|integration> --flow <flow-id> key=value
- *
- * EXAMPLES:
- *   prismatic-tools record-choices --session my-project --type integration trigger_type=webhook error_handler_type=retry
- *   prismatic-tools record-choices --session my-project --type integration --flow order-sync trigger_type=webhook
- *   prismatic-tools record-choices --session my-component --type component component_type=connector
- *
- * key=value pairs are parsed as: key becomes the question ID, value becomes the answer string.
- * If the value looks like JSON (starts with { or [), it's parsed as JSON automatically.
- * When --flow is provided, answers are written under answers.flows[flowId].
- * When omitted, answers are written at the root level (backward compatible).
- * --input-file reads batch JSON from a file (preferred for complex objects).
- * When neither key=value, --input-file, nor inline JSON is provided, reads from stdin.
- *
- * EXIT CODES:
- *   0 - Success
- *   1 - Error
- */
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+/** Persists batches of validated choices while enforcing requirements and connection gates. */
+
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadSpec, type LoadedSpec } from "../shared/load-spec.js";
-import { getSessionDirectory, getPluginRoot } from "../shared/project-directory.js";
+import { type CliConfig, cliError, parseCliArgs } from "../shared/cli-help.js";
+import { type LoadedSpec, loadSpec } from "../shared/load-spec.js";
+import { getPluginRoot, getSessionDirectory } from "../shared/project-directory.js";
+
+const CLI = {
+  command: "prismatic-tools record-choices",
+  description: "Record one or more requirements design decisions.",
+  notes: [
+    "Accepts key=value pairs, inline JSON, --input-file, or JSON from stdin.",
+    "Values that look like JSON are decoded automatically.",
+    "--flow writes under answers.flows[flow-id]; otherwise choices are written at the root.",
+  ],
+  examples: [
+    "prismatic-tools record-choices --session my-project trigger_type=webhook error_handler_type=retry",
+    "prismatic-tools record-choices --session my-project --flow order-sync trigger_type=webhook",
+    "prismatic-tools record-choices --session my-component --type component component_type=connector",
+  ],
+  positionals: [{ name: "answers-file-or-choice" }, { name: "choices", variadic: true }],
+  options: [
+    { name: "session", type: "string", value: "name", description: "Requirements session name." },
+    {
+      name: "type",
+      type: "string",
+      value: "component|integration",
+      default: "integration",
+      choices: ["component", "integration"],
+      description: "Session type.",
+    },
+    {
+      name: "flow",
+      type: "string",
+      value: "flow-id",
+      description: "Record flow-specific choices.",
+    },
+    { name: "input-file", type: "string", value: "file", description: "Read choices from a file." },
+    {
+      name: "sync",
+      type: "string",
+      value: "spec-file",
+      description: "Synchronize against a spec file.",
+    },
+    { name: "confirmed", type: "boolean", description: "Confirm a gated choice." },
+  ],
+} as const satisfies CliConfig;
 
 /** Find the spec file using getPluginRoot (same resolution as update-tasks and validate-requirements). */
 function findSpecPath(type: string = "integration"): string | null {
@@ -40,75 +58,30 @@ function findSpecPath(type: string = "integration"): string | null {
 }
 
 function main(): number {
-  const args = process.argv.slice(2);
+  const { values, positionals: parsedPositionals } = parseCliArgs(process.argv.slice(2), CLI);
 
-  if (args.length < 1) {
-    console.log(
-      "Usage: npx tsx record-choices.ts <answers-file> [--flow <flow-id>] '<json-object>'\n" +
-        "       npx tsx record-choices.ts --session <name> [--type component|integration] key=value [--flow <flow-id>]",
-    );
-    return 1;
+  if (parsedPositionals.length < 1 && !values["input-file"]) {
+    cliError(CLI, "at least one choice or --input-file is required.");
   }
 
   // Parse flags and key=value pairs from ALL args (flags can appear anywhere)
-  let flowId: string | null = null;
-  let inputFile: string | null = null;
-  let syncSpec: string | null = null;
-  let sessionName: string | null = null;
-  let sessionType: "integration" | "component" = "integration";
+  const flowId = typeof values.flow === "string" ? values.flow : null;
+  const inputFile = typeof values["input-file"] === "string" ? values["input-file"] : null;
+  const syncSpec = typeof values.sync === "string" ? values.sync : null;
+  const sessionName = typeof values.session === "string" ? values.session : null;
+  const sessionType = values.type;
   let batchRaw: string | undefined;
   const kvPairs: Array<[string, string]> = [];
   const positional: string[] = [];
-
-  let i = 0;
-  while (i < args.length) {
-    if (args[i] === "--session") {
-      if (i + 1 >= args.length) {
-        console.error("--session requires a session name");
-        return 1;
-      }
-      sessionName = args[i + 1];
-      i += 2;
-    } else if (args[i] === "--type") {
-      if (i + 1 >= args.length) {
-        console.error("--type requires a value (component or integration)");
-        return 1;
-      }
-      sessionType = args[i + 1] as "integration" | "component";
-      i += 2;
-    } else if (args[i] === "--flow") {
-      if (i + 1 >= args.length) {
-        console.error("--flow requires a flow ID");
-        return 1;
-      }
-      flowId = args[i + 1];
-      i += 2;
-    } else if (args[i] === "--input-file") {
-      if (i + 1 >= args.length) {
-        console.error("--input-file requires a file path");
-        return 1;
-      }
-      inputFile = args[i + 1];
-      i += 2;
-    } else if (args[i] === "--sync") {
-      if (i + 1 >= args.length) {
-        console.error("--sync requires a spec file path");
-        return 1;
-      }
-      syncSpec = args[i + 1];
-      i += 2;
-    } else if (args[i].includes("=") && !args[i].startsWith("{") && !args[i].startsWith("-")) {
+  for (const argument of parsedPositionals) {
+    if (argument.includes("=") && !argument.startsWith("{")) {
       // key=value pair
-      const eqIdx = args[i].indexOf("=");
-      const key = args[i].slice(0, eqIdx);
-      const val = args[i].slice(eqIdx + 1);
+      const eqIdx = argument.indexOf("=");
+      const key = argument.slice(0, eqIdx);
+      const val = argument.slice(eqIdx + 1);
       kvPairs.push([key, val]);
-      i++;
-    } else if (!args[i].startsWith("-")) {
-      positional.push(args[i]);
-      i++;
     } else {
-      i++;
+      positional.push(argument);
     }
   }
 
@@ -283,7 +256,7 @@ function main(): number {
   // Gate: component fallback requires user confirmation (integrations only)
   // When writing *_component with a key that doesn't match the system name (e.g., http for dacra),
   // reject unless --confirmed flag is present.
-  const isConfirmed = process.argv.includes("--confirmed");
+  const isConfirmed = values.confirmed === true;
   if (sessionType !== "component" && !isConfirmed) {
     const componentKeys = Object.keys(batch).filter((k) =>
       /^(source|destination|connector_\d+)_component$/.test(k),
