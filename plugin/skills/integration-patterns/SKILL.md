@@ -30,7 +30,7 @@ Do NOT use these MCP tools — they return incomplete data that causes broken sc
 ## Component Manifest Pattern
 
 All components are accessed via manifests:
-1. Install: `npx cni-component-manifest <component-key>`
+1. Install: `prismatic-tools install-manifest <component-key>`
 2. Register in componentRegistry.ts with `componentManifests()`
 3. Import actions and call `.perform()`: `import slackActions from "./manifests/slack/actions"; await slackActions.postMessage.perform({...})`
 - See `references/manifest-pattern.md`

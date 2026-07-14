@@ -9,7 +9,7 @@
  * passthrough output could override the first hook's updatedInput.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -27,6 +27,54 @@ function deny(reason) {
   };
   process.stderr.write(JSON.stringify(out));
   process.exit(2);
+}
+
+/** Split dispatched args into argv, rejecting unquoted shell metacharacters. */
+function tokenizeArgs(raw) {
+  const META = new Set(["|", "&", ";", "<", ">", "(", ")", "$", "`", "\n"]);
+  const tokens = [];
+  let current = "";
+  let hasToken = false;
+  let quote = null;
+
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (quote === "'") {
+      if (ch === "'") quote = null;
+      else current += ch;
+    } else if (quote === '"') {
+      if (ch === '"') quote = null;
+      else if (ch === "\\" && i + 1 < raw.length && '"\\$`'.includes(raw[i + 1]))
+        current += raw[++i];
+      else current += ch;
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+      hasToken = true;
+    } else if (ch === "\\" && i + 1 < raw.length) {
+      current += raw[++i];
+      hasToken = true;
+    } else if (META.has(ch)) {
+      const shown = ch === "\n" ? "\\n" : ch;
+      return {
+        error:
+          `Shell operator '${shown}' is not supported in prismatic-tools arguments. ` +
+          "Quote it if it is part of a value, or run each command as a separate Bash command.",
+      };
+    } else if (/\s/.test(ch)) {
+      if (hasToken) {
+        tokens.push(current);
+        current = "";
+        hasToken = false;
+      }
+    } else {
+      current += ch;
+      hasToken = true;
+    }
+  }
+
+  if (quote) return { error: "Unbalanced quotes in prismatic-tools arguments." };
+  if (hasToken) tokens.push(current);
+  return { tokens };
 }
 
 function ask(reason) {
@@ -79,6 +127,12 @@ if (command.startsWith(PREFIX)) {
     );
   }
 
+  // Trim so trailing whitespace doesn't become an empty argument.
+  const parsed = tokenizeArgs(toolArgs.trim());
+  if (parsed.error) {
+    deny(parsed.error);
+  }
+
   // Load manifest
   let manifest;
   try {
@@ -103,16 +157,12 @@ if (command.startsWith(PREFIX)) {
   const scriptName = entry.script;
   const timeout = (entry.timeout ?? 30) * 1000;
 
-  // Execute via run.ts
   const runScript = join(PLUGIN_ROOT, "scripts", "run.ts");
-  const cmd = toolArgs
-    ? `npx tsx "${runScript}" ${scriptName} ${toolArgs}`
-    : `npx tsx "${runScript}" ${scriptName}`;
 
   const startMs = Date.now();
   let stdout;
   try {
-    stdout = execSync(cmd, {
+    stdout = execFileSync("npx", ["tsx", runScript, scriptName, ...parsed.tokens], {
       timeout,
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],

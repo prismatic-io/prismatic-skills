@@ -41,14 +41,13 @@ This creates:
 After scaffolding, install additional manifests:
 
 ```bash
-cd <project-dir>
-npx cni-component-manifest <component-key>
+prismatic-tools install-manifest <component-key> --project-dir <project-dir>
 ```
 
 **Example:**
 
 ```bash
-npx cni-component-manifest hubspot
+prismatic-tools install-manifest hubspot
 # Creates: src/manifests/hubspot/
 ```
 
@@ -637,7 +636,7 @@ logger.info("Message posted successfully");
 
 **Fix:** Install the manifest:
 ```bash
-npx cni-component-manifest slack
+prismatic-tools install-manifest slack
 ```
 
 ### Component Not Registered

@@ -12,21 +12,12 @@
  *   2 - Error: npm install failed
  */
 
-import { existsSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { confineToProjectRoot } from "../shared/project-directory.js";
 
 function installDependencies(projectDir: string): number {
-  try {
-    if (!statSync(projectDir).isDirectory()) {
-      console.log(`Project directory not found: ${projectDir}`);
-      return 1;
-    }
-  } catch {
-    console.log(`Project directory not found: ${projectDir}`);
-    return 1;
-  }
-
   if (!existsSync(join(projectDir, "package.json"))) {
     console.log(`package.json not found in ${projectDir}`);
     console.log("");
@@ -106,7 +97,15 @@ function main(): number {
     return 1;
   }
 
-  return installDependencies(process.argv[2]);
+  let projectDir: string;
+  try {
+    projectDir = confineToProjectRoot(process.argv[2]);
+  } catch (e) {
+    console.log((e as Error).message);
+    return 1;
+  }
+
+  return installDependencies(projectDir);
 }
 
 process.exit(main());

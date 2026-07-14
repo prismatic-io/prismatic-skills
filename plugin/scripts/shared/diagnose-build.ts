@@ -18,6 +18,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join, resolve, dirname } from "node:path";
+import { confineToProjectRoot } from "./project-directory.js";
 
 interface ErrorPattern {
   pattern: RegExp;
@@ -44,7 +45,7 @@ const ERROR_PATTERNS: ErrorPattern[] = [
   {
     pattern: /Cannot find module ['"](\.+\/[\w.-]+Manifest\.json)['"]/g,
     diagnosis: "Missing component manifest",
-    fix: "Run `npx cni-component-manifest <component-key>` to generate the manifest, or check componentRegistry.ts imports",
+    fix: "Run `prismatic-tools install-manifest <component-key>` to generate the manifest, or check componentRegistry.ts imports",
   },
   {
     pattern: /Property ['"](\w+)['"] does not exist on type/g,
@@ -229,7 +230,7 @@ function checkStructuralIssues(projectDir: string, projectType: string): Finding
             issues.push({
               diagnosis: "Missing manifest file",
               match: `src/${m[1]}`,
-              fix: "Generate manifest: `npx cni-component-manifest <component-key>` or check import path",
+              fix: "Generate manifest: `prismatic-tools install-manifest <component-key>` or check import path",
             });
           }
         }
@@ -330,14 +331,10 @@ function main(): number {
     return 2;
   }
 
-  projectDir = resolve(projectDir);
   try {
-    if (!statSync(projectDir).isDirectory()) {
-      console.log(JSON.stringify({ error: `Directory not found: ${projectDir}` }));
-      return 2;
-    }
-  } catch {
-    console.log(JSON.stringify({ error: `Directory not found: ${projectDir}` }));
+    projectDir = confineToProjectRoot(projectDir);
+  } catch (e) {
+    console.log(JSON.stringify({ error: (e as Error).message }));
     return 2;
   }
 

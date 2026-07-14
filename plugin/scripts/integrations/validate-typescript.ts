@@ -13,21 +13,12 @@
  *   3 - Error: npx/tsc not found
  */
 
-import { existsSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { confineToProjectRoot } from "../shared/project-directory.js";
 
 function validateTypescript(integrationDir: string): number {
-  try {
-    if (!statSync(integrationDir).isDirectory()) {
-      console.log(`Directory not found: ${integrationDir}`);
-      return 1;
-    }
-  } catch {
-    console.log(`Directory not found: ${integrationDir}`);
-    return 1;
-  }
-
   if (!existsSync(join(integrationDir, "tsconfig.json"))) {
     console.log(`Not a TypeScript project: ${integrationDir}`);
     console.log("");
@@ -80,7 +71,15 @@ function main(): number {
     return 1;
   }
 
-  return validateTypescript(process.argv[2]);
+  let integrationDir: string;
+  try {
+    integrationDir = confineToProjectRoot(process.argv[2]);
+  } catch (e) {
+    console.log((e as Error).message);
+    return 1;
+  }
+
+  return validateTypescript(integrationDir);
 }
 
 process.exit(main());

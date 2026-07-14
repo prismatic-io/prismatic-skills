@@ -341,7 +341,7 @@ try {
 
 **Workflow:**
 
-1. Install manifest: `npx cni-component-manifest <component>`
+1. Install manifest: `prismatic-tools install-manifest <component>`
 2. Import connection helper: `import { slackOauth2 } from "./manifests/slack/connections/oauth2"`
 3. Configure in `configPages.ts` with appropriate visibility settings
 4. Pass connection to component actions: `connection: configVars["Connection Name"]`

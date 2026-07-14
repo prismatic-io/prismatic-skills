@@ -28,14 +28,14 @@ npx tsx scripts/prerequisites.ts <INTEGRATION_NAME> --type integration
 
 The script:
 1. Validates the integration name (lowercase, hyphens, no leading numbers)
-2. Checks if Prism CLI is installed (auto-installs if not)
+2. Checks that the Prism CLI is installed
 3. Verifies Prismatic authentication
 4. Creates session directory at `.prismatic/sessions/integration/<name>/`
 5. Initializes `requirements.json`
 
 ### Error Resolution
 
-- **Prism not installed** → Script auto-installs, or run `npm install -g @prismatic-io/prism`
+- **Prism not installed** → Ask the user to run `npm install -g @prismatic-io/prism`
 - **Not logged in** → Run `prism login` to authenticate via browser
 - **npm not found** → Install Node.js from nodejs.org
 - **Network or auth failure** → Run `prismatic-tools check-prism-access` for structured diagnosis (exit 1=network, exit 2=auth, exit 3=other) with environment-specific remediation steps

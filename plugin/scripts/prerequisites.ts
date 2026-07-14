@@ -16,8 +16,8 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { ensureSessionDirectory } from "./shared/project-directory.js";
+import { join } from "node:path";
+import { confineToProjectRoot, ensureSessionDirectory } from "./shared/project-directory.js";
 import { timedStep, printTimingSummary } from "./shared/timing.js";
 
 const SESSION_TYPE_MAP: Record<string, string> = {
@@ -53,39 +53,6 @@ function checkPrismInstalled(): string | null {
       /* not installed */
     }
     return null;
-  });
-}
-
-function _installPrism(): boolean {
-  return timedStep("Install Prism CLI", () => {
-    console.log("Installing Prism CLI...");
-    try {
-      const result = spawnSync(
-        "npm",
-        ["install", "-g", "--no-audit", "--no-fund", "--no-update-notifier", "@prismatic-io/prism"],
-        { encoding: "utf-8", timeout: 120000 },
-      );
-      if (result.status === 0) {
-        const verify = spawnSync("prism", ["--version"], {
-          encoding: "utf-8",
-          timeout: 10000,
-        });
-        if (verify.status === 0) {
-          console.log(`Prism CLI installed: ${verify.stdout.trim()}`);
-          return true;
-        }
-      }
-      console.log("Installation failed");
-      if (result.stderr) {
-        for (const line of result.stderr.trim().split("\n").slice(0, 5)) {
-          console.log(`   ${line}`);
-        }
-      }
-      return false;
-    } catch {
-      console.log("npm not found - Node.js must be installed first");
-      return false;
-    }
   });
 }
 
@@ -162,15 +129,18 @@ function main(): number {
   }
 
   // Validate --existing project if provided
+  let existingProject = "";
   if (existingDir) {
-    const resolvedDir = resolve(existingDir);
-    const pkgPath = join(resolvedDir, "package.json");
-    const indexPath = join(resolvedDir, "src/index.ts");
-
-    if (!existsSync(resolvedDir)) {
-      console.log(`\nExisting project directory not found: ${resolvedDir}`);
+    let resolvedDir: string;
+    try {
+      resolvedDir = confineToProjectRoot(existingDir);
+    } catch (e) {
+      console.log(`\n${(e as Error).message}`);
       return 1;
     }
+    existingProject = resolvedDir;
+    const pkgPath = join(resolvedDir, "package.json");
+    const indexPath = join(resolvedDir, "src/index.ts");
 
     if (!existsSync(pkgPath)) {
       console.log(`\nNot a valid project: missing package.json in ${resolvedDir}`);
@@ -250,8 +220,8 @@ function main(): number {
       user: userInfo,
     };
 
-    if (existingDir) {
-      output.existing_project = resolve(existingDir);
+    if (existingProject) {
+      output.existing_project = existingProject;
     }
 
     console.log("Ready for Phase 2 - Requirements Gathering!");

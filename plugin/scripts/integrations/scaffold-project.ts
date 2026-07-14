@@ -18,6 +18,7 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { mkdtempSync } from "node:fs";
 import { getProjectRoot, getSessionDirectory } from "../shared/project-directory.js";
+import { isValidComponentKey, resolveLocalBin } from "../shared/local-bin.js";
 import { timedStep, printTimingSummary } from "../shared/timing.js";
 
 function printSection(title: string): void {
@@ -150,9 +151,17 @@ function installManifest(component: string, projectPath: string, isPrivate = fal
     console.log(`Installing manifest for: ${component}${isPrivate ? " (private)" : ""}`);
 
     try {
-      const args = ["cni-component-manifest", component];
+      // Use the project's lockfile-pinned spectral install.
+      const bin = resolveLocalBin(projectPath, "@prismatic-io/spectral", "cni-component-manifest");
+      if (!bin) {
+        console.log("cni-component-manifest not found in the project's dependencies.");
+        console.log("Install @prismatic-io/spectral (>= 10.6.0) in the project, then re-run.");
+        return false;
+      }
+
+      const args = [...bin.args, component];
       if (isPrivate) args.push("--private");
-      const result = spawnSync("npx", args, {
+      const result = spawnSync(bin.command, args, {
         cwd: projectPath,
         encoding: "utf-8",
         timeout: 120000,
@@ -347,6 +356,15 @@ function main(): number {
   if (!validateIntegrationName(name)) {
     console.log("Invalid integration name");
     console.log("   Name must be lowercase with hyphens (e.g., 'salesforce-slack-sync')");
+    return 1;
+  }
+
+  const invalidKeys = [...new Set([...components, ...privateComponents])].filter(
+    (key) => !isValidComponentKey(key),
+  );
+  if (invalidKeys.length > 0) {
+    console.log(`Invalid component key(s): ${invalidKeys.join(", ")}`);
+    console.log("   Keys contain only letters, digits, hyphens, and underscores.");
     return 1;
   }
 

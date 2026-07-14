@@ -232,7 +232,7 @@ Use Prismatic component manifests to access pre-built actions:
 ```typescript
 // 1. Install manifest during scaffolding or manually
 // Run: npx tsx scripts/integrations/scaffold-project.ts <name> --components slack
-// Or: npx cni-component-manifest slack
+// Or: prismatic-tools install-manifest slack
 
 // 2. Register manifest in src/componentRegistry.ts:
 import { componentManifests } from "@prismatic-io/spectral";

@@ -7,7 +7,7 @@
 **For development, use component manifests:**
 
 - See: [manifest-pattern.md](../manifest-pattern.md) for complete guide
-- Install manifests with `npx cni-component-manifest <component>`
+- Install manifests with `prismatic-tools install-manifest <component>`
 - Register in `componentRegistry.ts`
 - Import manifest actions and call `<component>Actions.<action>.perform()`
 

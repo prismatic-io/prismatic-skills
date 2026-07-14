@@ -387,8 +387,7 @@ Install the component manifest and register it:
 
 ```bash
 # Install manifest
-cd <project-dir>
-npx cni-component-manifest slack
+prismatic-tools install-manifest slack --project-dir <project-dir>
 
 # Ensure componentRegistry.ts includes the manifest
 # See: references/manifest-pattern.md
@@ -407,8 +406,7 @@ Also verify:
 Install the component manifest:
 
 ```bash
-cd <project-dir>
-npx cni-component-manifest slack
+prismatic-tools install-manifest slack --project-dir <project-dir>
 
 # Or scaffold with manifests from the start
 npx tsx scripts/integrations/scaffold-project.ts <name> --components slack
