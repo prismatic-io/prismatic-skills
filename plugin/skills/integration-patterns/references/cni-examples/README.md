@@ -127,7 +127,7 @@
 
 **using-components.md** - Component manifest usage (RECOMMENDED)
 
-- Installing component manifests with `npx cni-component-manifest`
+- Installing component manifests with `prismatic-tools install-manifest`
 - Registering components in `componentRegistry.ts`
 - Using connection helpers from manifests
 - Using data source helpers from manifests

@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-# Deterministic, idempotent linking of an unpublished lux checkout into this
-# eval suite. Since the lux overhaul, lux ships as a SINGLE package
-# (`@prismatic-io/lux`); this just symlinks that package (and its `lux` bin)
-# into node_modules, pointing at a built lux checkout.
+# Link a built Lux checkout into this eval suite.
 #
 # Usage:
 #   LUX_DIR=/path/to/lux evals/scripts/link-lux.sh
 # Defaults LUX_DIR to a sibling checkout: <parent-of-prismatic-skills>/lux
 #
-# Prereq: the lux repo has been `bun install`ed and `bun run build`t, so
-# packages/lux/lib exists and its deps resolve from lux's own node_modules.
+# Run `bun install && bun run build` in the Lux checkout first.
 set -euo pipefail
 
 EVALS_DIR="$(cd "$(dirname "$0")/.." && pwd)"

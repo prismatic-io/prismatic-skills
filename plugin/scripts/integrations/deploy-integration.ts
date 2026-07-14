@@ -18,6 +18,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, basename } from "node:path";
 import { ensureAuthenticated, graphql, GraphQLError } from "../shared/graphql.js";
 import { runPrismMutation, runPrismQuery } from "../shared/prism-retry.js";
+import { confineToProjectRoot } from "../shared/project-directory.js";
 
 function sleepSync(ms: number): void {
   const end = Date.now() + ms;
@@ -301,7 +302,15 @@ function main(): number {
     return 1;
   }
 
-  return deployIntegration(process.argv[2]);
+  let projectDir: string;
+  try {
+    projectDir = confineToProjectRoot(process.argv[2]);
+  } catch (e) {
+    console.log((e as Error).message);
+    return 1;
+  }
+
+  return deployIntegration(projectDir);
 }
 
 process.exit(main());

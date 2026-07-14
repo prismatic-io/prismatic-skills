@@ -10,11 +10,7 @@ export const PLUGIN_DIR = resolve(REPO_ROOT, "plugin");
 export const SKILLS_DIR = resolve(PLUGIN_DIR, "skills");
 export const AGENTS_DIR = resolve(PLUGIN_DIR, "agents");
 
-/**
- * Spread into every deterministic case: the "scripted" answerer with its pinned
- * fixture. Needs no API key. For cases graded on interaction quality, use the
- * persona answerer instead (`answerer: { name: "persona" }` with a `persona`).
- */
+/** Default response fixture for non-HITL cases. */
 export const scripted = {
   answerer: {
     name: "scripted" as const,
@@ -60,6 +56,7 @@ export const withAgent = (agent: string, task: string): string =>
 
 type DriverOverrides = {
   model?: string;
+  effort?: "low" | "medium" | "high" | "max";
   idleTimeoutMs?: number;
   maxInterrupts?: number;
   extraArgs?: string[];
@@ -74,9 +71,10 @@ type DriverOverrides = {
   readDirs?: string[];
 };
 
-/** Shared claude-code driver ref. Permissions bypassed so file writes / Bash don't stall on approval. */
+/** Shared model and permission defaults. */
 export const claudeCode = ({
-  model,
+  model = "claude-sonnet-5",
+  effort = "medium",
   idleTimeoutMs = 300_000,
   maxInterrupts = 8,
   extraArgs = [],
@@ -90,7 +88,8 @@ export const claudeCode = ({
     askToolName: "AskUserQuestion",
     idleTimeoutMs,
     maxInterrupts,
-    ...(model ? { model } : {}),
+    model,
+    effort,
     ...(plugin || agent ? { pluginDirs: [PLUGIN_DIR] } : {}),
     ...(agent ? { agent } : {}),
     ...(readDirs.length > 0 ? { addDirs: readDirs } : {}),

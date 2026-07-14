@@ -681,7 +681,7 @@ When generating test artifacts:
 
 ### What Are Component Manifests?
 
-Component manifests are auto-generated TypeScript wrappers that provide type-safe access to Prismatic's pre-built components. They are installed with `npx cni-component-manifest <component>`.
+Component manifests are auto-generated TypeScript wrappers that provide type-safe access to Prismatic's pre-built components. They are installed with `prismatic-tools install-manifest <component>`.
 
 **Why component manifests are preferred:**
 
@@ -719,9 +719,8 @@ scripts/integrations/scaffold-project.ts my-integration --components slack,sales
 **Or manually:**
 
 ```bash
-cd <project-dir>
-npx cni-component-manifest slack
-npx cni-component-manifest salesforce
+prismatic-tools install-manifest slack --project-dir <project-dir>
+prismatic-tools install-manifest salesforce --project-dir <project-dir>
 ```
 
 ### Registering Components

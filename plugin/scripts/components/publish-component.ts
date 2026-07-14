@@ -13,8 +13,9 @@
 
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { resolve, basename, join } from "node:path";
+import { basename, join } from "node:path";
 import { timedStep, printTimingSummary } from "../shared/timing.js";
+import { confineToProjectRoot } from "../shared/project-directory.js";
 
 function publishComponent(componentDir: string): string | null {
   return timedStep("Publish component", () => {
@@ -76,10 +77,11 @@ function main(): number {
     return 1;
   }
 
-  const componentDir = resolve(process.argv[2]);
-
-  if (!existsSync(componentDir)) {
-    console.log(`Error: Component directory not found: ${componentDir}`);
+  let componentDir: string;
+  try {
+    componentDir = confineToProjectRoot(process.argv[2]);
+  } catch (e) {
+    console.log(`Error: ${(e as Error).message}`);
     return 1;
   }
 

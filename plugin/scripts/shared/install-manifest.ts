@@ -17,8 +17,10 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { graphql, GraphQLError } from "./graphql.js";
+import { isValidComponentKey, resolveLocalBin } from "./local-bin.js";
+import { confineToProjectRoot } from "./project-directory.js";
 
 const CHECK_COMPONENT_QUERY = `
 query checkComponent($key: String!) {
@@ -62,7 +64,7 @@ function main(): number {
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--project-dir" && i + 1 < args.length) {
-      projectDir = resolve(args[i + 1]);
+      projectDir = args[i + 1];
       i++;
     } else if (!args[i].startsWith("-")) {
       componentKey = args[i];
@@ -71,6 +73,19 @@ function main(): number {
 
   if (!componentKey) {
     console.error("Usage: prismatic-tools install-manifest <component-key> [--project-dir <dir>]");
+    return 2;
+  }
+
+  if (!isValidComponentKey(componentKey)) {
+    console.error(`Invalid component key: ${componentKey}`);
+    console.error("Keys contain only letters, digits, hyphens, and underscores.");
+    return 2;
+  }
+
+  try {
+    projectDir = confineToProjectRoot(projectDir);
+  } catch (e) {
+    console.error((e as Error).message);
     return 2;
   }
 
@@ -94,8 +109,15 @@ function main(): number {
   const isPrivate = !component.isPublic;
   console.log(`Found: ${component.label} (${isPrivate ? "private" : "public"})`);
 
-  // Run cni-component-manifest
-  const manifestArgs = ["cni-component-manifest", componentKey];
+  // Use the project's lockfile-pinned spectral install.
+  const bin = resolveLocalBin(projectDir, "@prismatic-io/spectral", "cni-component-manifest");
+  if (!bin) {
+    console.error("cni-component-manifest not found in the project's dependencies.");
+    console.error("Install @prismatic-io/spectral (>= 10.6.0) in the project, then re-run.");
+    return 3;
+  }
+
+  const manifestArgs = [...bin.args, componentKey];
   if (isPrivate) {
     manifestArgs.push("--private");
     console.log("Using --private flag (component is not public)");
@@ -103,7 +125,7 @@ function main(): number {
 
   console.log(`Installing manifest to: ${join(projectDir, "src", "manifests", componentKey)}/`);
 
-  const result = spawnSync("npx", manifestArgs, {
+  const result = spawnSync(bin.command, manifestArgs, {
     cwd: projectDir,
     encoding: "utf-8",
     timeout: 120000,

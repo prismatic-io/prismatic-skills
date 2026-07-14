@@ -16,6 +16,7 @@ import { mkdirSync, statSync, readdirSync } from "node:fs";
 import { join, resolve, basename, relative } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
+import { confineToProjectRoot } from "../shared/project-directory.js";
 
 const EXCLUDED_PATTERNS = [
   "node_modules",
@@ -195,7 +196,13 @@ function main(): number {
     return 1;
   }
 
-  const projectDir = process.argv[2];
+  let projectDir: string;
+  try {
+    projectDir = confineToProjectRoot(process.argv[2]);
+  } catch (e) {
+    console.log((e as Error).message);
+    return 1;
+  }
   const versionName = process.argv[3] ?? undefined;
 
   return createPackage(projectDir, versionName);

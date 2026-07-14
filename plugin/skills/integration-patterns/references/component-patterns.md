@@ -49,9 +49,8 @@ scripts/integrations/scaffold-project.ts my-integration --components salesforce,
 Or manually after scaffolding:
 
 ```bash
-cd <project-dir>
-npx cni-component-manifest salesforce
-npx cni-component-manifest slack
+prismatic-tools install-manifest salesforce --project-dir <project-dir>
+prismatic-tools install-manifest slack --project-dir <project-dir>
 ```
 
 ### 3. Register Components
