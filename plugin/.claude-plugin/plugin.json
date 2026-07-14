@@ -9,12 +9,5 @@
   "homepage": "https://www.prismatic.io",
   "repository": "https://github.com/prismatic-io/prismatic-skills",
   "license": "MIT",
-  "keywords": [
-    "prismatic",
-    "integrations",
-    "components",
-    "code-native",
-    "embedded",
-    "marketplace"
-  ]
+  "keywords": ["prismatic", "integrations", "components", "code-native", "embedded", "marketplace"]
 }
