@@ -14,11 +14,16 @@
         "source": "git-subdir",
         "url": "https://github.com/prismatic-io/prismatic-skills.git",
         "path": "plugin",
-        "ref": "main"
+        "ref": "v2.5.0"
       },
       "description": "Build and deploy Prismatic custom components and Code Native Integrations",
       "category": "development",
-      "tags": ["prismatic", "integrations", "components", "cni"]
+      "tags": [
+        "prismatic",
+        "integrations",
+        "components",
+        "cni"
+      ]
     }
   ]
 }

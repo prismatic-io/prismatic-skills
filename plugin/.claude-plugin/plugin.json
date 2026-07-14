@@ -1,6 +1,6 @@
 {
   "name": "prismatic-skills",
-  "version": "2.4.1",
+  "version": "2.5.0",
   "description": "Build and deploy Prismatic custom components, Code Native Integrations, and embedded marketplace experiences",
   "author": {
     "name": "Prismatic",
@@ -9,5 +9,12 @@
   "homepage": "https://www.prismatic.io",
   "repository": "https://github.com/prismatic-io/prismatic-skills",
   "license": "MIT",
-  "keywords": ["prismatic", "integrations", "components", "code-native", "embedded", "marketplace"]
+  "keywords": [
+    "prismatic",
+    "integrations",
+    "components",
+    "code-native",
+    "embedded",
+    "marketplace"
+  ]
 }
