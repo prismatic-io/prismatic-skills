@@ -325,8 +325,16 @@ The `src/flows.ts` file contains the actual integration logic - what happens whe
   - Import the trigger from the manifest: e.g., `import { shopifyEventTopicWebhookGql } from "./manifests/shopify/triggers/eventTopicWebhookGql"`
   - Pattern: `onTrigger: shopifyEventTopicWebhookGql({ input: { configVar: "..." } })`
 - **Manual flows** → Simple `onExecution` handler (no schedule, no onTrigger)
+- **Batched flows** (CNI-only) → `batchConfig` + `trigger: batchFlowTrigger(...)` + `onExecution`
+  - Use when one trigger fetch yields many records that should each (or in small groups) be a separate execution — independent retries, isolated failures, parallelism
+  - The trigger fire returns `{ items, paginationState? }`; the platform chunks `items` by `batchConfig.batchSize` and dispatches each batch. `onExecution` sees `params.onTrigger.results.body.data` as `TItem | TItem[]`
+  - Return `paginationState` to page through a source (re-invoked with it on `payload.paginationState`); `null`/omit stops. This replaces manual `instanceState` cursor tracking
+  - Pair with a `schedule` (periodic pull) or a webhook (split an incoming array). Requires spectral 10.22.0+
+  - See [answer-to-code-cookbook.md](answer-to-code-cookbook.md) → "batch_config" and [cni-examples/batch-flows.md](cni-examples/batch-flows.md)
 
-> **⚠️ IMPORTANT:** `pollingTrigger` (the Spectral helper) is NOT supported in CNI. If a component uses `pollingTrigger`, use a webhook trigger if the API supports it (preferred), or a scheduled trigger with polling logic in `onExecution`.
+> **⚠️ IMPORTANT:** `pollingTrigger` (the Spectral helper) is NOT supported in CNI. If a component uses `pollingTrigger`, use a webhook trigger if the API supports it (preferred), or a scheduled trigger with polling logic in `onExecution`. For a scheduled pull that fans records out into independent executions, prefer a **batched flow** (`batchConfig` + `batchFlowTrigger`) over hand-rolled chunking.
+
+> **⚠️ CRITICAL (batched flows):** `batchConfig` and the batched `trigger` are a coupled pair. `batchConfig` present **requires** a `trigger` built with `batchFlowTrigger`, and the flat `onTrigger`/`onDeployTrigger` are **forbidden** — the fire lives inside the trigger. `batchSize` must be an integer ≥ 1.
 
 ### Trigger Decision Tree
 
@@ -336,6 +344,7 @@ Use this to determine the correct trigger pattern for each flow:
 2. **Scheduled** (runs on cron) → Add `schedule: { value: "cron expression" }` or `schedule: { configVar: "Schedule Config Var" }`. No `onTrigger`.
 3. **Component trigger** (e.g., Shopify managed webhooks, HMAC verification) → Add `onTrigger` with component trigger reference imported from manifest. No custom webhook parsing needed.
 4. **Component trigger + schedule** (polling via component) → Add BOTH `onTrigger` with component reference AND `schedule` property.
+5. **Batched** (one fetch → many per-batch executions) → Add `batchConfig: { batchSize }` AND `trigger: batchFlowTrigger<TItem, TPaginationState>({ onTrigger, onDeploy? })`. Add a `schedule` to fire the pull (or use a webhook to split an array). Do NOT add a flat `onTrigger` — it is forbidden on batched flows.
 
 ### Flow Definition Structure
 

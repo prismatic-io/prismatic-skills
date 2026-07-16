@@ -24,6 +24,10 @@ The requirements spec uses a split-file architecture. Load progressively — not
   <domain file="integration/queue-config.yaml" group="queue_config">
     <skip-when>Defaults to concurrency 1. Load for FIFO, throttling, or singleton.</skip-when>
   </domain>
+  <domain file="integration/batch-config.yaml" group="batch_config">
+    <skip-when answer="trigger_type" equals="ai_agent">Batching does not apply to ai_agent flows.</skip-when>
+    <skip-when>CNI-only. Load when one trigger fetch yields many records to dispatch as per-batch executions (batchConfig + batchFlowTrigger).</skip-when>
+  </domain>
   <domain file="integration/lifecycle-hooks.yaml" group="lifecycle_hooks">
     <skip-when>Load if webhook auto-registration or resource setup is needed.</skip-when>
   </domain>

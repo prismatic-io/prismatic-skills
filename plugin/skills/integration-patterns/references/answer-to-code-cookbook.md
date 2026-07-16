@@ -226,6 +226,133 @@ queueConfig: {
 
 ---
 
+## answer: batch_config → `flow.batchConfig` / `batchFlowTrigger`
+
+CNI-only. A batched flow turns one trigger fetch into many per-batch executions. Set
+`batchConfig` and build the flow's `trigger` with `batchFlowTrigger`. The two are coupled:
+`batchConfig` present **requires** a batched `trigger`, and the flat `onTrigger`/`onDeployTrigger`
+are **forbidden** — the fetch logic lives inside the batched trigger.
+
+Import: `import { flow, batchFlowTrigger } from "@prismatic-io/spectral";`
+
+Each fire returns `{ items, paginationState? }`. The platform chunks `items` into batches of
+`batchConfig.batchSize`, dispatches each batch as its own execution, and (when
+`paginationState` is returned) re-invokes the trigger for the next page until it returns
+`null`. Supply the item and pagination-state types explicitly:
+`batchFlowTrigger<TItem, TPaginationState>({ ... })`.
+
+### batch_enabled: "No" (default)
+
+```typescript
+// Omit batchConfig and trigger entirely — the flow uses its normal trigger and
+// processes the whole payload in one execution.
+```
+
+### Paginating scheduled/polling flow (most common)
+
+Uses: `batch_size`, `batch_pagination`. A batched flow still needs a `schedule` to fire the
+pull periodically. `paginationState` replaces manual instanceState cursor bookkeeping.
+
+```typescript
+interface Order { id: string; total: number; }
+
+export const syncOrders = flow({
+  name: "Sync Orders",
+  stableKey: "sync-orders",
+  description: "Fetches orders page by page and dispatches each as its own execution",
+  schedule: { value: "*/15 * * * *" },     // the pull cadence
+  batchConfig: { batchSize: 1 },            // from batch_size — 1 = one execution per order
+  trigger: batchFlowTrigger<Order, { cursor: string }>({
+    onTrigger: async (context, payload) => {
+      const page = await fetchOrders(payload.paginationState?.cursor);
+      return {
+        items: page.orders,
+        // Return the next cursor to keep paginating; null/omit to stop (from batch_pagination)
+        paginationState: page.nextCursor ? { cursor: page.nextCursor } : null,
+      };
+    },
+  }),
+  onExecution: async (context, params) => {
+    // batchSize 1 → a single Order; batchSize > 1 → Order[]
+    const order = params.onTrigger.results.body.data as Order;
+    // ... process one order
+    return { data: order.id };
+  },
+});
+```
+
+### Grouped batches (batchSize > 1)
+
+Uses: `batch_size`. onExecution receives an **array** — use for bulk operations.
+
+```typescript
+  batchConfig: { batchSize: 50 },
+  // ...
+  onExecution: async (context, params) => {
+    const orders = params.onTrigger.results.body.data as Order[];  // up to 50 per execution
+    await bulkInsert(orders);
+    return { data: { count: orders.length } };
+  },
+```
+
+### Concurrency cap
+
+Uses: `batch_concurrent_limit`. Caps how many of a fire's batches run at once — respect a
+downstream rate limit. Omit for unlimited.
+
+```typescript
+  batchConfig: { batchSize: 10, concurrentBatchLimit: 5 },
+```
+
+### Initial-deploy backfill
+
+Uses: `batch_backfill`. Add `onDeploy` — same `{ items, paginationState? }` shape, run once on
+initial instance deploy. Page through the full history so the destination starts synced.
+
+```typescript
+  trigger: batchFlowTrigger<Order, { cursor: string }>({
+    onTrigger: async (context, payload) => {
+      const page = await fetchOrders(payload.paginationState?.cursor, { since: "now" });
+      return { items: page.orders, paginationState: page.nextCursor ? { cursor: page.nextCursor } : null };
+    },
+    onDeploy: async (context, payload) => {
+      // Backfill: page through everything that already exists
+      const page = await fetchOrders(payload.paginationState?.cursor, { since: "beginning" });
+      return { items: page.orders, paginationState: page.nextCursor ? { cursor: page.nextCursor } : null };
+    },
+  }),
+```
+
+### Webhook array-splitting
+
+For a webhook flow, the batched trigger receives the incoming payload and returns the items to
+split into per-batch executions (no pagination — a webhook is a single push).
+
+```typescript
+  batchConfig: { batchSize: 1 },
+  trigger: batchFlowTrigger<Order>({
+    onTrigger: async (context, payload) => {
+      const body = payload.body.data as unknown as { orders: Order[] };
+      return { items: body.orders };
+    },
+  }),
+```
+
+### Common mistakes
+
+```typescript
+// ❌ WRONG — batchConfig without a batched trigger (type error + build failure)
+flow({ batchConfig: { batchSize: 10 }, onExecution: async () => ({ data: null }) });
+
+// ❌ WRONG — flat onTrigger on a batched flow (forbidden — the fire lives in the trigger)
+flow({ batchConfig: { batchSize: 10 }, trigger: batchFlowTrigger({ ... }), onTrigger: async (c, p) => ({ payload: p }) });
+
+// ❌ WRONG — batchSize 0 (must be an integer >= 1; throws at build)
+batchConfig: { batchSize: 0 }
+```
+
+---
+
 ## answer: is_synchronous → `flow.isSynchronous`
 
 ### is_synchronous: "No"

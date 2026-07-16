@@ -1,0 +1,134 @@
+# Batch configuration — CNI-only batched flows (batchFlowTrigger + flow.batchConfig)
+#
+# A batched flow's trigger fetches a page of records and returns `{ items, paginationState? }`
+# instead of a raw payload. The platform chunks `items` into batches of `batchConfig.batchSize`
+# and dispatches each batch as its own execution; returning `paginationState` re-invokes the
+# trigger for the next page until it returns null. This is CNI-only — it maps to
+# `flow.batchConfig` plus a `trigger` built with `batchFlowTrigger` (see spectral 10.22.0+).
+#
+# Platform / SDK constraints:
+#   - batchConfig requires a batched `trigger`; the flat onTrigger/onDeployTrigger are forbidden.
+#   - batchSize must be an integer >= 1 (1 = one execution per item; > 1 = grouped TItem[]).
+#   - concurrentBatchLimit must be an integer >= 1 when set; omit for unlimited.
+#   - The trigger fires on the flow's schedule (a pull) or its webhook — batching pairs with
+#     scheduled/polling (paginated fetch) or webhook (split an array payload). Not ai_agent.
+
+batch_enabled:
+  question: "Should this flow batch-dispatch its records? (one trigger fetch → many executions)"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: allowed
+  scope: flow
+  default: "No"
+  maps_to: "flow.batchConfig + flow.trigger (batchFlowTrigger)"
+  skippable: true
+  condition:
+    trigger_type: { in: [webhook, scheduled, polling] }
+  note: >
+    Batching turns a single trigger fetch into many smaller executions. The trigger returns
+    `{ items, paginationState? }`; the platform chunks `items` by batchSize and runs each
+    chunk as its own execution. CNI-only — maps to flow.batchConfig + a batchFlowTrigger.
+  agent_context: >
+    Batching is for flows that pull or receive a large set of records at once and want each
+    record (or small group of records) handled as its own execution — independent retries,
+    isolated failures, and parallelism instead of one giant run. Instead of a raw onTrigger
+    payload, the trigger returns `{ items, paginationState? }`: the records to dispatch and,
+    when paginating a source, the cursor for the next page. Best when one fetch yields hundreds
+    or thousands of records that should be processed independently.
+  implications:
+    "Yes": >
+      The flow gains a `batchConfig` and a `trigger` built with batchFlowTrigger. Its onExecution
+      receives a single item (batchSize 1) or an array of items (batchSize > 1) rather than the raw
+      payload. Each batch is a separate execution with its own retry and error handling. The flat
+      onTrigger/onDeployTrigger are forbidden — the fetch logic lives inside the batched trigger.
+    "No": >
+      Default. The flow uses the normal trigger and processes the whole payload in one execution.
+      Application-level chunking inside onExecution is still available if needed.
+  docs:
+    - https://prismatic.io/docs/integrations/code-native/flows.md
+  cookbook_section: "answer: batch_config → `flow.batchConfig` / `batchFlowTrigger`"
+
+batch_size:
+  question: "How many records per batch?"
+  type: text
+  inference: allowed
+  scope: flow
+  default: "1"
+  maps_to: "flow.batchConfig.batchSize"
+  condition:
+    batch_enabled: "Yes"
+  note: >
+    Integer >= 1. `1` dispatches each record to its own execution (onExecution receives one item).
+    `> 1` groups records into slices of that size (onExecution receives an array). This value is
+    authoritative for CNI — what is written here is what the platform uses.
+  suggestions: ["1", "10", "25", "50", "100"]
+  agent_context: >
+    batchSize is the trade-off between isolation and throughput. batchSize 1 gives the strongest
+    isolation — one record fails, only that execution retries — at the cost of more executions.
+    A larger batchSize (e.g., 50) processes records in slices, reducing execution count and
+    per-execution overhead, but a failure retries the whole slice. Pick 1 for independent
+    per-record work (e.g., one API call per record); pick larger for bulk operations that accept
+    an array (e.g., a bulk insert).
+
+batch_concurrent_limit:
+  question: "Max batches dispatched concurrently? (blank = unlimited)"
+  type: text
+  inference: allowed
+  scope: flow
+  skippable: true
+  maps_to: "flow.batchConfig.concurrentBatchLimit"
+  condition:
+    batch_enabled: "Yes"
+  note: >
+    Integer >= 1 when set; omit for unlimited. Caps how many of a single trigger fire's batches
+    run at the same time — use it to respect a downstream API's rate limit or connection pool.
+  suggestions: ["1", "2", "5", "10"]
+  agent_context: >
+    When a fetch yields many batches, the platform can dispatch them in parallel. concurrentBatchLimit
+    caps that parallelism. Leave it unset for maximum throughput; set it (e.g., 5) when the
+    destination system has rate limits or limited concurrency and would reject a flood of
+    simultaneous executions.
+
+batch_pagination:
+  question: "Does the source paginate? If so, what identifies the next page? (e.g., a cursor, page number, or updated-since timestamp)"
+  type: text
+  inference: allowed
+  scope: flow
+  skippable: true
+  maps_to: "batchFlowTrigger TPaginationState + returned paginationState"
+  condition:
+    batch_enabled: "Yes"
+    trigger_type: { in: [scheduled, polling] }
+  note: >
+    Describes the pagination cursor the trigger returns to fetch the next page. Shapes the
+    TPaginationState type parameter (e.g., `{ cursor: string }`, `{ page: number }`). The trigger
+    reads it back from `payload.paginationState` on the next fire and returns the next cursor to
+    keep paginating, or null/omit to stop. This replaces manual instanceState cursor bookkeeping.
+  agent_context: >
+    A batched trigger paginates by returning `paginationState` — a small object holding the next
+    page's cursor. The platform re-invokes the trigger with that object on `payload.paginationState`
+    until the trigger returns null, then the run is complete. This is the CNI-native replacement for
+    tracking a cursor in instanceState across polling runs. Describe the source's paging mechanism
+    (cursor token, page number, or a last-updated timestamp) so the cursor type and stop condition
+    can be generated correctly. If the source returns everything in one fetch, skip this.
+
+batch_backfill:
+  question: "Backfill existing records once when the instance is first deployed?"
+  type: choice
+  choices: ["Yes", "No"]
+  inference: allowed
+  scope: flow
+  default: "No"
+  skippable: true
+  maps_to: "batchFlowTrigger onDeploy"
+  condition:
+    batch_enabled: "Yes"
+  note: >
+    Maps to the batched trigger's optional `onDeploy` fire, run once on initial instance deploy.
+    Same `{ items, paginationState? }` shape as onTrigger — return paginationState to page through
+    the full history. Use it to load pre-existing records before ongoing runs pick up new ones.
+  agent_context: >
+    onDeploy runs a single time when an instance is first deployed, before the regular schedule
+    takes over. It is the backfill hook — page through and dispatch the source's existing records
+    so the destination starts fully synced, then let onTrigger handle only new records going forward.
+    Skip it when only new-going-forward records matter.

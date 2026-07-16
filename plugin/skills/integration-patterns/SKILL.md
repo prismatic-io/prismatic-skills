@@ -90,6 +90,7 @@ The references below are the full set available — load per the agent's guidanc
 
 **Conditional references for Phase 5 (load based on requirements):**
 - If webhook trigger: `references/cni-examples/webhook-patterns.md`, `references/cni-examples/webhook-payload-access.md`
+- If batched flow (one fetch → many per-batch executions): `references/cni-examples/batch-flows.md`
 - If lifecycle hooks needed: `references/cni-examples/lifecycle-events.md`
 - If state persistence needed: `references/cni-examples/state-persistence.md`
 - If OAuth connection: `references/cni-examples/oauth-connection.md`
@@ -134,6 +135,7 @@ Full reference list for manual lookup:
 - `references/cni-examples/data-sources.md` - Data source patterns
 - `references/cni-examples/json-forms.md` - JSON Forms for complex config
 - `references/cni-examples/multi-flow.md` - Multi-flow integrations
+- `references/cni-examples/batch-flows.md` - Batched flows (batchConfig + batchFlowTrigger)
 - `references/cni-examples/oauth-connection.md` - OAuth connection setup
 - `references/cni-examples/using-components.md` - Component usage patterns
 - `references/cni-examples/error-handling.md` - Error handling patterns

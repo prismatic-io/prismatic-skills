@@ -10,7 +10,7 @@
 //   - Webhook flows WITH lifecycle hooks: MUST include pass-through onTrigger (Spectral validation requires it)
 //   - NEVER use instanceState in onInstanceDeploy/onInstanceDelete — use crossFlowState
 
-import { flow, util } from "@prismatic-io/spectral";
+import { flow, batchFlowTrigger, util } from "@prismatic-io/spectral";
 import slackActions from "../manifests/slack/actions";
 
 // --- Webhook Flow (most common) ---
@@ -125,6 +125,51 @@ const flowWithWebhookLifecycle = flow({
     const payload = params.onTrigger.results;
     const body = payload.body.data as unknown as MyPayload;
     return { data: null };
+  },
+});
+
+// --- Batched Flow (CNI-only: one trigger fetch → many per-batch executions) ---
+// Use batchConfig + trigger(batchFlowTrigger) when a fetch yields many records that should each
+// (or in small groups) be a separate execution. The fire returns { items, paginationState? }:
+// the platform chunks items by batchSize and dispatches each batch. Return paginationState to
+// page through the source; null/omit stops.
+//
+// CRITICAL:
+//   - batchConfig REQUIRES a batched trigger; the flat onTrigger/onDeployTrigger are FORBIDDEN.
+//   - batchSize must be an integer >= 1. 1 = one execution per item; > 1 = onExecution gets TItem[].
+//   - Pair with a `schedule` (periodic pull) or a webhook (split an incoming array).
+//   - paginationState replaces manual instanceState cursor tracking. Requires spectral 10.22.0+.
+
+interface Order {
+  id: string;
+  total: number;
+}
+
+const batchedFlow = flow({
+  name: "Sync Orders",
+  stableKey: "sync-orders",
+  description: "Fetches orders page by page and dispatches each as its own execution",
+  schedule: { value: "*/15 * * * *" },
+  batchConfig: { batchSize: 1 }, // 1 = one execution per order; concurrentBatchLimit?: caps parallelism
+  trigger: batchFlowTrigger<Order, { cursor: string }>({
+    onTrigger: async (context, payload) => {
+      // Read the current cursor from payload.paginationState; fetch a page.
+      // const page = await fetchOrders(payload.paginationState?.cursor);
+      const page = { orders: [] as Order[], nextCursor: undefined as string | undefined };
+      return {
+        items: page.orders,
+        paginationState: page.nextCursor ? { cursor: page.nextCursor } : null,
+      };
+    },
+    // Optional one-time backfill on initial instance deploy (same shape as onTrigger):
+    // onDeploy: async (context, payload) => ({ items: [], paginationState: null }),
+  }),
+
+  onExecution: async (context, params) => {
+    // batchSize 1 → a single Order; batchSize > 1 → Order[]
+    const order = params.onTrigger.results.body.data as Order;
+    context.logger.info(`Processing order ${order.id}`);
+    return { data: order.id };
   },
 });
 
