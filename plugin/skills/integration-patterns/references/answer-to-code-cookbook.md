@@ -226,6 +226,174 @@ queueConfig: {
 
 ---
 
+## answer: batch_config → `flow.batchConfig` / `batchFlowTrigger`
+
+CNI-only. A batched flow turns one trigger fetch into many per-batch executions. Set
+`batchConfig` and build the flow's `trigger` with `batchFlowTrigger`. The two are coupled:
+`batchConfig` present **requires** a batched `trigger`, and the flat `onTrigger`/`onDeployTrigger`
+are **forbidden** — the fetch logic lives inside the batched trigger.
+
+Import: `import { flow, batchFlowTrigger } from "@prismatic-io/spectral";`
+
+Each fire returns `{ items, paginationState? }`. The platform chunks `items` into batches of
+`batchConfig.batchSize`, dispatches each batch as its own execution, and (when
+`paginationState` is returned) re-invokes the trigger for the next page until it returns
+`null`. Supply the item and pagination-state types explicitly:
+`batchFlowTrigger<TItem, TPaginationState>({ ... })`.
+
+### batch_enabled: "No" (default)
+
+```typescript
+// Omit batchConfig and trigger entirely — the flow uses its normal trigger and
+// processes the whole payload in one execution.
+```
+
+### Paginating scheduled/polling flow (most common)
+
+Uses: `batch_size`, `batch_pagination`. A batched flow still needs a `schedule` to fire the pull
+periodically. `paginationState` pages WITHIN a single fire (recursively re-invokes the trigger
+until it returns null); it is not a watermark that persists across scheduled runs. On the first
+poll the cursor is empty, so the trigger returns the large initial set (the "initial sync" falls
+out of this — no separate mechanism needed). Incremental "only new since last run" filtering is
+the flow's own concern — a time-windowed query or author-managed state, not `paginationState`.
+
+```typescript
+interface Order { id: string; total: number; }
+
+export const syncOrders = flow({
+  name: "Sync Orders",
+  stableKey: "sync-orders",
+  description: "Fetches orders page by page and dispatches each as its own execution",
+  schedule: { value: "*/15 * * * *" },              // the pull cadence
+  batchConfig: { batchSize: 1, concurrentBatchLimit: 5 }, // one execution per order,
+                                                    // at most 5 batches running at once
+  trigger: batchFlowTrigger<Order, { cursor: string }>({
+    onTrigger: async (context, payload) => {
+      const page = await fetchOrders(payload.paginationState?.cursor);
+      return {
+        items: page.orders,
+        // Next cursor keeps the fire paginating; null/omit ends it
+        paginationState: page.nextCursor ? { cursor: page.nextCursor } : null,
+      };
+    },
+  }),
+  onExecution: async (context, params) => {
+    // batchSize 1 → a single Order; batchSize > 1 → Order[]
+    const order = params.onTrigger.results.body.data as Order;
+    // ... process one order
+    return { data: order.id };
+  },
+});
+```
+
+### Grouped batches (batchSize > 1)
+
+Uses: `batch_size`. onExecution receives an **array** — use for bulk operations.
+
+```typescript
+  batchConfig: { batchSize: 50, concurrentBatchLimit: 5 },
+  // ...
+  onExecution: async (context, params) => {
+    const orders = params.onTrigger.results.body.data as Order[];  // up to 50 per execution
+    await bulkInsert(orders);
+    return { data: { count: orders.length } };
+  },
+```
+
+### Concurrency cap — strongly recommended (`batch_concurrent_limit`)
+
+**Set this whenever you batch.** Omitting it means *unlimited* concurrency: one fire that produces
+hundreds of batches can consume the tenant's/instance's concurrent execution slots and starve
+every other flow and instance in that tenant — not just this one. It is a tenant-safety guardrail,
+not throughput tuning. Size the bound to what the destination can absorb (rate limit, connection
+pool); when unsure, a small bound is far safer than unbounded.
+
+```typescript
+  // ✅ bounded — at most 5 of this fire's batches run at once
+  batchConfig: { batchSize: 10, concurrentBatchLimit: 5 },
+
+  // ⚠️ unbounded — every batch of the fire dispatches at once
+  batchConfig: { batchSize: 10 },
+```
+
+**Related — long-running polls:** a large first sync can outlast the schedule interval. For a
+scheduled/polling batched flow, consider `queueConfig.singletonExecutions: true` so the next poll
+waits for the current run instead of overlapping it (recommended for long syncs, not forced;
+scheduled/polling only, mutually exclusive with FIFO). See "answer: queue config".
+
+### Initial / historical sync
+
+For a scheduled/polling flow this is **usually not a separate mechanism**. The deciding question is
+whether the initial load and the ongoing poll read the **same source**:
+
+- **Same source** (common): the first invocation runs the big sync — with an empty cursor the
+  trigger paginates through everything that exists and batching fans it out — and later runs are
+  smaller/incremental. "Sync all existing records" is a reason to enable batching + pagination for
+  that large first pull, not a reason to add anything extra.
+- **Different source**: e.g. the initial sync reads a `users` table, but the ongoing poll reads a
+  change/audit table and resolves users from it. The backfill genuinely differs from steady state,
+  so it needs its own fetch → `onDeploy` (below).
+- **Ambiguous**: ask the user whether the initial load and the ongoing poll come from the same
+  source before deciding — don't add `onDeploy` speculatively.
+
+(Incremental filtering across runs is the flow's own query/state — see "batch_pagination".)
+
+### `onDeploy` — distinct-source/query backfills and webhook initial sync
+
+`onDeploy` is an **optional** second fire, run once on initial instance deploy. Use it when the
+initial sync can't just be the first poll: the backfill reads a **different source or query** than
+steady state, or the flow is a **webhook** flow (no poll exists to do the first big pull). It
+paginates + batches exactly like `onTrigger`. When the initial load and the ongoing poll share one
+source, skip `onDeploy` — the first poll already does the big sync.
+
+```typescript
+  // Webhook flow: ongoing events arrive via the webhook; onDeploy backfills history once, paginated.
+  batchConfig: { batchSize: 1, concurrentBatchLimit: 5 },
+  trigger: batchFlowTrigger<Order, { cursor: string }>({
+    onTrigger: async (context, payload) => {
+      // Each inbound webhook delivers records to split into per-batch executions
+      const body = payload.body.data as unknown as { orders: Order[] };
+      return { items: body.orders };
+    },
+    onDeploy: async (context, payload) => {
+      // One-time at deploy: page through everything that already exists
+      const page = await fetchOrders(payload.paginationState?.cursor, { since: "beginning" });
+      return { items: page.orders, paginationState: page.nextCursor ? { cursor: page.nextCursor } : null };
+    },
+  }),
+```
+
+### Webhook array-splitting
+
+For a webhook flow, the batched trigger receives the incoming payload and returns the items to
+split into per-batch executions. The webhook push itself is a single payload (no pagination), but
+the flow's initial sync — if it needs one — lives in `onDeploy` and *does* paginate (above).
+
+```typescript
+  batchConfig: { batchSize: 1, concurrentBatchLimit: 5 },
+  trigger: batchFlowTrigger<Order>({
+    onTrigger: async (context, payload) => {
+      const body = payload.body.data as unknown as { orders: Order[] };
+      return { items: body.orders };
+    },
+  }),
+```
+
+### Common mistakes
+
+```typescript
+// ❌ WRONG — batchConfig without a batched trigger (type error + build failure)
+flow({ batchConfig: { batchSize: 10 }, onExecution: async () => ({ data: null }) });
+
+// ❌ WRONG — flat onTrigger on a batched flow (forbidden — the fire lives in the trigger)
+flow({ batchConfig: { batchSize: 10 }, trigger: batchFlowTrigger({ ... }), onTrigger: async (c, p) => ({ payload: p }) });
+
+// ❌ WRONG — batchSize 0 (must be an integer >= 1; throws at build)
+batchConfig: { batchSize: 0 }
+```
+
+---
+
 ## answer: is_synchronous → `flow.isSynchronous`
 
 ### is_synchronous: "No"

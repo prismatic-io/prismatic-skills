@@ -49,6 +49,14 @@
 - **Use for**: Any integration needing OAuth or API key connections
 - **Search available**: `prismatic-tools search-connections [keyword]`
 
+**batch-flows.md** - One trigger fetch dispatched as many per-batch executions
+
+- batchConfig + a trigger built with batchFlowTrigger
+- batchSize (per-item vs grouped) and concurrentBatchLimit
+- Paginating a fetch with the returned paginationState
+- onDeploy backfills, and when a flow does not need one
+- **Use for**: High-volume record syncs, initial/historical loads, per-record isolation
+
 **multi-flow.md** - Multiple flows in one integration
 
 - Defining multiple flows
@@ -252,6 +260,11 @@ Sections: All - manifest installation, registration, connection helpers, data so
 Files: `lifecycle-events.md`
 Sections: "When to Use onInstanceDeploy vs onExecution" section with baseline data collection pattern
 
+### Task: Sync a large or historical set of records
+
+Files: `batch-flows.md`, `data-sources.md`
+Sections: batch-flows.md (batchConfig, pagination, onDeploy), data-sources.md (paginated fetches)
+
 ### Task: Build multiple flows
 
 Files: `multi-flow.md`, `lifecycle-events.md`, `state-persistence.md`
@@ -336,17 +349,18 @@ Sections: All - links to 6 official examples with pattern breakdowns
 **componentRegistry**: using-components.md
 **context.components**: using-components.md
 **Baseline data collection**: lifecycle-events.md
-**Initial sync**: lifecycle-events.md
+**Initial sync**: batch-flows.md, lifecycle-events.md
 **onInstanceDeploy vs onExecution**: lifecycle-events.md
 **State availability**: lifecycle-events.md, code-generation-guide.md, state-persistence.md
 **Components**: using-components.md, component-auth-patterns.md
+**Batching**: batch-flows.md
 **Multi-flow**: multi-flow.md
 **Multi-tenant**: templated-connections.md, data-sources.md
 **Debugging**: testing-debugging.md, error-handling.md
 **OAuth**: oauth-connection.md, integration-agnostic-connections.md, component-auth-patterns.md
 **connectionConfigVar**: oauth-connection.md, templated-connections.md
 **Security**: webhook-patterns.md, component-auth-patterns.md
-**Pagination**: data-sources.md
+**Pagination**: data-sources.md, batch-flows.md
 **Retries**: error-handling.md
 **Logging**: basic-api-to-slack.md, testing-debugging.md
 **TypeScript**: All files use TypeScript
