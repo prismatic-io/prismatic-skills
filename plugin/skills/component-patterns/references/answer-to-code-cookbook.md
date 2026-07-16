@@ -280,10 +280,32 @@ export default { webhookTrigger };
 
 ---
 
-## answer: polling_support → not a component feature
+## answer: polling_support → pollingTrigger()
 
-Polling is integration-level (via `triggerType: "polling"` on a flow with `context.polling.getState/setState`).
-Component triggers do not poll. If the spec says "polling", note this and handle it in the integration, not the component.
+`polling_support: yes` adds a component polling trigger built with `pollingTrigger()` — a
+separate factory from `trigger()`. It tracks a cursor across runs with
+`context.polling.getState()/setState()` and emits new/changed records each poll. Low-code and
+EWB (workflow) builders consume these triggers directly.
+
+```typescript
+const pollNewRecords = pollingTrigger({
+  display: { label: "New Records", description: "Poll for records created since the last check." },
+  inputs: { connection: connectionInput },
+  perform: async (context, payload, { connection }) => {
+    const client = createClient(connection, context.debug.enabled);
+    const state = context.polling.getState();
+    const since = (state.lastChecked as string) || new Date(0).toISOString();
+    const { data } = await client.get("/records", { params: { since } });
+    context.polling.setState({ lastChecked: new Date().toISOString() });
+    const hasNew = Array.isArray(data) && data.length > 0;
+    return { payload: { ...payload, body: { data } }, polledNoChanges: !hasNew };
+  },
+});
+```
+
+Full pattern and the component-vs-CNI choice: [trigger-patterns.md](trigger-patterns.md) →
+"Polling Triggers" and "Where does polling live?". Writing a CNI rather than a reusable
+component? A CNI flow cannot use `pollingTrigger()` — follow the CNI path in that decision.
 
 ---
 
