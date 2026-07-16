@@ -81,6 +81,49 @@ interface PollingFlow extends FlowBase {
 }
 ```
 
+### BatchFlow (CNI-only — `batchConfig` + `batchFlowTrigger`)
+
+A batched flow turns one trigger fetch into many per-batch executions. `batchConfig` and the
+batched `trigger` are a coupled pair (discriminated union): when `batchConfig` is present a
+batched `trigger` is **required**, and the flat `onTrigger`/`onDeployTrigger` are **forbidden**.
+Requires spectral **10.22.0+**. Pair with a `schedule` so the pull fires periodically (or a
+webhook to split an incoming array).
+
+```typescript
+interface BatchFlow extends FlowBase {
+  batchConfig: BatchConfig;                             // REQUIRED for a batched flow
+  trigger: BatchTrigger<TItem, TPaginationState>;       // REQUIRED — built with batchFlowTrigger
+  schedule?: { value: string; timezone?: string } | { configVar: string };  // fires the pull
+  onTrigger?: never;                                    // forbidden — fire lives in `trigger`
+  onDeployTrigger?: never;                              // forbidden — use trigger.onDeploy
+  // onExecution's payload: params.onTrigger.results.body.data is TItem | TItem[]
+}
+
+interface BatchConfig {
+  batchSize: number;                                    // integer >= 1. 1 = one execution per item; > 1 = grouped TItem[]
+  concurrentBatchLimit?: number;                        // integer >= 1 when set; omit for unlimited
+}
+
+// Built with batchFlowTrigger<TItem, TPaginationState>({ onTrigger, onDeploy? })
+interface BatchTrigger<TItem, TPaginationState extends Record<string, unknown> = Record<string, unknown>> {
+  onTrigger: (context, payload) => Promise<BatchedTriggerReturn<TItem, TPaginationState>>;
+  onDeploy?: (context, payload) => Promise<BatchedTriggerReturn<TItem, TPaginationState>>;  // one-time backfill on deploy
+}
+
+interface BatchedTriggerReturn<TItem, TPaginationState> {
+  items: TItem[];                                       // records to dispatch (chunked by batchSize)
+  paginationState?: TPaginationState | null;            // next-page cursor; null/omit stops the pagination loop
+  response?: HttpResponse;                              // optional HTTP response to the invoking request
+}
+```
+
+**Behavior:** the platform chunks `items` into batches of `batchSize`, dispatches each batch as
+its own execution (independent retry/error handling), and re-invokes the trigger with the
+returned `paginationState` on `payload.paginationState` until it returns `null`. `paginationState`
+is the CNI-native replacement for tracking a cursor in `instanceState` across polling runs.
+`concurrentBatchLimit` caps how many batches of a single fire run concurrently. Invalid
+`batchSize`/`concurrentBatchLimit` (< 1) throw at build.
+
 ## StepErrorConfig (flow.errorConfig)
 
 Controls what happens when `onExecution` throws. Despite the name "Step", in CNI this applies to the entire flow — a CNI flow IS one step.

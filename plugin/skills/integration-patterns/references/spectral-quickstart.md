@@ -37,6 +37,11 @@ export const myFlow = flow({
 });
 ```
 
+**Batched flows** (CNI-only, spectral 10.22.0+): to fan one trigger fetch out into many
+per-batch executions, add `batchConfig: { batchSize }` and build the flow's `trigger` with
+`batchFlowTrigger` (import it alongside `flow`). Each fire returns `{ items, paginationState? }`.
+See `references/cni-examples/batch-flows.md`.
+
 ### Configuration Pages
 
 UI for end users to configure your integration.

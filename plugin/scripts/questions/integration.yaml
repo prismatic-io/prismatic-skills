@@ -36,6 +36,7 @@
 #   integration/error-handling.yaml     — immediate retry (errorConfig)
 #   integration/execution-retry.yaml    — delayed retry (retryConfig)
 #   integration/queue-config.yaml       — concurrency control (queueConfig) — flat shape
+#   integration/batch-config.yaml       — batched flows (batchConfig + batchFlowTrigger) — CNI-only
 #   integration/lifecycle-hooks.yaml    — deploy/delete handlers, webhook lifecycle
 #   integration/state-management.yaml   — persistent state across executions
 #
@@ -94,6 +95,8 @@ required:
       items: [preprocess_flow_routing, routing_flow_name_field]
     - condition: { endpoint_type: shared_instance }
       items: [routing_external_customer_id_field]
+    - condition: { batch_enabled: "Yes" }
+      items: [batch_size]
 
 groups:
   # Overview first — "what are you building?" before "how many flows?"
@@ -215,6 +218,22 @@ groups:
       - queue_singleton_executions
       - queue_dedupe_field
 
+  - id: batch_config
+    label: "Batched Flows"
+    docs:
+      - https://prismatic.io/docs/integrations/code-native/flows.md
+    info: >
+      CNI-only. Turns one trigger fetch into many per-batch executions. Maps to
+      flow.batchConfig ({ batchSize, concurrentBatchLimit? }) plus a `trigger` built with
+      batchFlowTrigger, whose fires return { items, paginationState? }. batchConfig requires
+      the batched trigger; the flat onTrigger/onDeployTrigger are forbidden on a batched flow.
+    items:
+      - batch_enabled
+      - batch_size
+      - batch_concurrent_limit
+      - batch_pagination
+      - batch_backfill
+
   - id: lifecycle_hooks
     label: "Lifecycle Hooks"
     docs:
@@ -268,6 +287,7 @@ items:
     - integration/error-handling.yaml
     - integration/execution-retry.yaml
     - integration/queue-config.yaml
+    - integration/batch-config.yaml
     - integration/lifecycle-hooks.yaml
     - integration/state-management.yaml
     - integration/payload-and-behavior.yaml
