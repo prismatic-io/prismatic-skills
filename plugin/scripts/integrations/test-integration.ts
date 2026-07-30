@@ -1,10 +1,10 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * test-integration.ts
  *
  * PURPOSE: Run test execution of deployed integration
  *
- * USAGE: npx tsx test-integration.ts <integration-id> [flow-name]
+ * USAGE: node test-integration.ts <integration-id> [flow-name]
  *   [--payload <file>] [--content-type <type>] [--integration-dir <dir>]
  *
  * EXIT CODES:
@@ -15,11 +15,11 @@
  */
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureAuthenticated, GraphQLError } from "../shared/graphql.js";
-import { runPrismQuery } from "../shared/prism-retry.js";
+import { exec } from "../../vendor/tinyexec/main.mjs";
+import { ensureAuthenticated, GraphQLError } from "../shared/graphql.ts";
+import { runPrismQuery } from "../shared/prism-retry.ts";
 
 interface TriggerMetadata {
   needs_payload: boolean;
@@ -158,9 +158,9 @@ interface FlowInfo {
   testUrl?: string;
 }
 
-function listFlows(integrationId: string): FlowInfo[] {
+const listFlows = async (integrationId: string): Promise<FlowInfo[]> => {
   try {
-    const result = runPrismQuery(
+    const result = await runPrismQuery(
       ["prism", "integrations:flows:list", integrationId, "--extended", "--output", "json"],
       30,
     );
@@ -174,14 +174,14 @@ function listFlows(integrationId: string): FlowInfo[] {
     console.log(`Warning: Could not list flows: ${e}`);
     return [];
   }
-}
+};
 
-function testSingleFlow(
+const testSingleFlow = async (
   flowName: string,
   testUrl: string,
   payloadFile?: string | null,
   contentType?: string | null,
-): boolean {
+): Promise<boolean> => {
   console.log(`Testing flow: ${flowName}`);
   if (payloadFile) {
     console.log(`   Using payload: ${payloadFile} (${contentType})`);
@@ -211,8 +211,7 @@ function testSingleFlow(
     console.log("Test Output:");
     console.log("-".repeat(60));
 
-    const result = spawnSync(cmd[0], cmd.slice(1), {
-      encoding: "utf-8",
+    const result = await exec(cmd[0], cmd.slice(1), {
       timeout: 90000,
     });
 
@@ -222,13 +221,12 @@ function testSingleFlow(
     console.log("-".repeat(60));
     console.log("");
 
-    if (result.status === 0) {
+    if (result.exitCode === 0) {
       console.log(`Flow '${flowName}' completed successfully`);
       console.log("");
       return true;
     } else {
-      console.log(`Flow '${flowName}' failed with exit code ${result.status}`);
-      if (result.error) console.log(`Error: ${result.error.message}`);
+      console.log(`Flow '${flowName}' failed with exit code ${result.exitCode}`);
       console.log("");
       return false;
     }
@@ -236,15 +234,15 @@ function testSingleFlow(
     console.log(`Error testing flow '${flowName}': ${e}`);
     return false;
   }
-}
+};
 
-function testIntegration(
+const testIntegration = async (
   integrationId: string,
   specificFlow: string | null,
   payloadFile: string | null,
   contentType: string | null,
   integrationDir: string | null,
-): number {
+): Promise<number> => {
   // Validate integration ID format (base64 decoding to "Integration:{uuid}")
   try {
     const decoded = Buffer.from(integrationId, "base64").toString("utf-8");
@@ -275,7 +273,7 @@ function testIntegration(
   console.log("");
 
   try {
-    ensureAuthenticated();
+    await ensureAuthenticated();
   } catch (e) {
     if (e instanceof GraphQLError) console.log(e.message);
     return 2;
@@ -283,7 +281,7 @@ function testIntegration(
 
   // Check if connections are configured before attempting test
   try {
-    const configResult = runPrismQuery(
+    const configResult = await runPrismQuery(
       ["prism", "integrations:flows:list", integrationId, "--output", "json"],
       15,
     );
@@ -330,7 +328,7 @@ function testIntegration(
   // If specific flow provided, test only that flow
   if (specificFlow) {
     console.log(`Finding flow: ${specificFlow}`);
-    const flows = listFlows(integrationId);
+    const flows = await listFlows(integrationId);
 
     if (flows.length === 0) {
       console.log("Could not list flows");
@@ -354,7 +352,7 @@ function testIntegration(
       return 2;
     }
 
-    const success = testSingleFlow(
+    const success = await testSingleFlow(
       specificFlow,
       matchingFlow.testUrl,
       finalPayload,
@@ -378,7 +376,7 @@ function testIntegration(
 
   // Otherwise, list flows for user to choose
   console.log("Discovering flows...");
-  const flows = listFlows(integrationId);
+  const flows = await listFlows(integrationId);
 
   if (flows.length === 0) {
     console.log("No flows found or could not list flows");
@@ -421,7 +419,7 @@ function testIntegration(
 
     console.log("Testing automatically...");
     console.log("");
-    const success = testSingleFlow(flowName, testUrl, fp, fct);
+    const success = await testSingleFlow(flowName, testUrl, fp, fct);
     if (success) {
       console.log("");
       console.log("Next steps:");
@@ -465,7 +463,7 @@ function testIntegration(
       }
     }
 
-    const success = testSingleFlow(flowName, testUrl, fp, fct);
+    const success = await testSingleFlow(flowName, testUrl, fp, fct);
     results.push({ name: flowName, success });
     console.log("");
   }
@@ -483,14 +481,14 @@ function testIntegration(
   console.log(`${passed} passed, ${failed} failed out of ${results.length} flows`);
 
   return failed > 0 ? 2 : 0;
-}
+};
 
-function main(): number {
+const main = async (): Promise<number> => {
   if (process.argv.length < 3) {
     console.log("No integration ID provided");
     console.log("");
     console.log(
-      "Usage: npx tsx test-integration.ts <integration-id> [flow-name] [--payload <file>] [--content-type <type>] [--integration-dir <dir>]",
+      "Usage: node test-integration.ts <integration-id> [flow-name] [--payload <file>] [--content-type <type>] [--integration-dir <dir>]",
     );
     return 1;
   }
@@ -518,6 +516,6 @@ function main(): number {
   }
 
   return testIntegration(integrationId, specificFlow, payloadFile, contentType, integrationDir);
-}
+};
 
-process.exit(main());
+process.exit(await main());

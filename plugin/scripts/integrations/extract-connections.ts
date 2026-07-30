@@ -1,10 +1,10 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * extract-connections.ts
  *
  * PURPOSE: Extract and format connection types from a stored component object
  *
- * USAGE: npx tsx extract-connections.ts '<json-connections-array>'
+ * USAGE: node extract-connections.ts '<json-connections-array>'
  *
  * EXIT CODES:
  *   0 - Success: Connections formatted and displayed
@@ -43,7 +43,7 @@ function formatConnections(connections: Connection[]): unknown[] {
 function main(): number {
   if (process.argv.length < 3) {
     console.error("No connections data provided");
-    console.error("Usage: npx tsx extract-connections.ts '<json-connections-array>'");
+    console.error("Usage: node extract-connections.ts '<json-connections-array>'");
     console.log("[]");
     return 0;
   }

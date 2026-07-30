@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * validate-phase.ts
  *
@@ -6,7 +6,7 @@
  * directory contains the expected files and patterns for the completed phase.
  *
  * USAGE:
- *   npx tsx validate-phase.ts <project-dir> --phase <phase> --type <component|integration>
+ *   node validate-phase.ts <project-dir> --phase <phase> --type <component|integration>
  *
  * PHASES:
  *   scaffold  - After scaffolding (project structure exists)
@@ -36,13 +36,17 @@ interface Shape {
 
 const COMPONENT_SHAPES: Record<string, Shape> = {
   scaffold: {
-    required_files: ["package.json", "tsconfig.json", "webpack.config.js", "src/index.ts"],
+    required_files: ["package.json", "tsconfig.json", "src/index.ts"],
+    required_one_of: [["webpack.config.js", "tsdown.config.mts"]],
     required_dirs: ["src", "node_modules"],
     description: "Scaffolded component project",
   },
   "code-gen": {
-    required_files: ["package.json", "tsconfig.json", "webpack.config.js", "src/index.ts"],
-    required_one_of: [["src/actions.ts", "src/actions/index.ts"]],
+    required_files: ["package.json", "tsconfig.json", "src/index.ts"],
+    required_one_of: [
+      ["webpack.config.js", "tsdown.config.mts"],
+      ["src/actions.ts", "src/actions/index.ts"],
+    ],
     optional_files: ["src/connections.ts", "src/triggers.ts", "src/client.ts", "assets/icon.png"],
     file_patterns: {
       "src/index.ts": ["export\\s+default\\s+component\\(", "component\\(\\s*\\{"],
@@ -615,7 +619,7 @@ function main(): number {
 
   if (!projectDir || !phase || !projectType) {
     console.error(
-      "Usage: npx tsx validate-phase.ts <project-dir> --phase <phase> --type <component|integration>",
+      "Usage: node validate-phase.ts <project-dir> --phase <phase> --type <component|integration>",
     );
     return 2;
   }

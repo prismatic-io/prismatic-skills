@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * create-organization-connection.ts
  *
@@ -20,7 +20,7 @@
  *   3 - API error
  */
 
-import { graphql, ensureAuthenticated, GraphQLError } from "../shared/graphql.js";
+import { graphql, ensureAuthenticated, GraphQLError } from "../shared/graphql.ts";
 
 const FIND_CONNECTION_QUERY = `
 query listComponents($key: String) {
@@ -150,12 +150,14 @@ interface ScopedConfigVar {
   customerConfigVariables?: { nodes: Array<{ id: string; isTest: boolean; status: string }> };
 }
 
-function findConnection(
+const findConnection = async (
   componentKey: string,
   connectionKey: string,
-): { connection: ConnectionDef | null; error: string | null } {
+): Promise<{ connection: ConnectionDef | null; error: string | null }> => {
   try {
-    const data = graphql(FIND_CONNECTION_QUERY, { key: componentKey }) as Record<string, unknown>;
+    const data = (await graphql(FIND_CONNECTION_QUERY, {
+      key: componentKey,
+    })) as Record<string, unknown>;
     const components = ((data.components as Record<string, unknown>)?.nodes ?? []) as Array<
       Record<string, unknown>
     >;
@@ -181,11 +183,13 @@ function findConnection(
     connection: null,
     error: `Connection '${connectionKey}' not found in component '${componentKey}'`,
   };
-}
+};
 
-function checkExistingScopedConfigVariable(stableKey: string): ScopedConfigVar | null {
+const checkExistingScopedConfigVariable = async (
+  stableKey: string,
+): Promise<ScopedConfigVar | null> => {
   try {
-    const data = graphql(CHECK_EXISTING_QUERY, { stableKey }) as Record<string, unknown>;
+    const data = (await graphql(CHECK_EXISTING_QUERY, { stableKey })) as Record<string, unknown>;
     const configs = ((data.scopedConfigVariables as Record<string, unknown>)?.nodes ??
       []) as ScopedConfigVar[];
     for (const config of configs) {
@@ -195,7 +199,7 @@ function checkExistingScopedConfigVariable(stableKey: string): ScopedConfigVar |
     // ignore
   }
   return null;
-}
+};
 
 // Inputs that the org provides for OAuth connections (not customer-provided)
 const ORG_MANAGED_INPUTS = [
@@ -209,13 +213,13 @@ const ORG_MANAGED_INPUTS = [
   "audience",
 ];
 
-function createScopedConfigVariable(
+const createScopedConfigVariable = async (
   connectionDef: ConnectionDef,
   name: string,
   stableKey: string,
   strategy: ConnectionStrategy,
   description?: string,
-): { result: Record<string, unknown> | null; error: string | null } {
+): Promise<{ result: Record<string, unknown> | null; error: string | null }> => {
   const variableScope = strategy === "org-activated-global" ? "org" : "customer";
   const managedBy = strategy === "customer-activated" ? "customer" : "org";
 
@@ -250,7 +254,7 @@ function createScopedConfigVariable(
   };
 
   try {
-    const data = graphql(CREATE_SCOPED_MUTATION, variables, 60) as Record<string, unknown>;
+    const data = (await graphql(CREATE_SCOPED_MUTATION, variables, 60)) as Record<string, unknown>;
     const mutationResult = (data.createScopedConfigVariable ?? {}) as Record<string, unknown>;
 
     const errors = mutationResult.errors as
@@ -266,7 +270,7 @@ function createScopedConfigVariable(
     if (e instanceof GraphQLError) return { result: null, error: e.message };
     return { result: null, error: String(e) };
   }
-}
+};
 
 function findExistingTestCustomerConfigVariable(
   scopedConfigVar: ScopedConfigVar,
@@ -278,10 +282,10 @@ function findExistingTestCustomerConfigVariable(
   return null;
 }
 
-function createCustomerConfigVariable(
+const createCustomerConfigVariable = async (
   scopedConfigVarId: string,
   fieldValues?: Record<string, string>,
-): { result: Record<string, unknown> | null; error: string | null } {
+): Promise<{ result: Record<string, unknown> | null; error: string | null }> => {
   const inputs: Array<{ name: string; type: string; value: string }> = [];
   if (fieldValues) {
     for (const [name, value] of Object.entries(fieldValues)) {
@@ -299,7 +303,10 @@ function createCustomerConfigVariable(
   };
 
   try {
-    const data = graphql(CREATE_CUSTOMER_MUTATION, variables, 60) as Record<string, unknown>;
+    const data = (await graphql(CREATE_CUSTOMER_MUTATION, variables, 60)) as Record<
+      string,
+      unknown
+    >;
     const mutationResult = (data.createCustomerConfigVariable ?? {}) as Record<string, unknown>;
 
     const errors = mutationResult.errors as
@@ -318,7 +325,7 @@ function createCustomerConfigVariable(
     if (e instanceof GraphQLError) return { result: null, error: e.message };
     return { result: null, error: String(e) };
   }
-}
+};
 
 type ConnectionStrategy = "customer-activated" | "org-activated-customer" | "org-activated-global";
 
@@ -382,12 +389,12 @@ function parseArgs(args: string[]): {
   };
 }
 
-function main(): number {
+const main = async (): Promise<number> => {
   const parsed = parseArgs(process.argv.slice(2));
 
   if (!parsed.componentKey || !parsed.connectionKey || !parsed.name) {
     console.error(
-      "Usage: npx tsx create-organization-connection.ts --component-key <key> --connection-key <key> --name <name> [--strategy <customer-activated|org-activated-customer|org-activated-global>] [--credentials '<json>']",
+      "Usage: node create-organization-connection.ts --component-key <key> --connection-key <key> --name <name> [--strategy <customer-activated|org-activated-customer|org-activated-global>] [--credentials '<json>']",
     );
     return 1;
   }
@@ -407,7 +414,7 @@ function main(): number {
 
   // Verify authentication
   try {
-    ensureAuthenticated();
+    await ensureAuthenticated();
   } catch {
     console.log("Error: Not authenticated with Prismatic");
     console.log("Run 'prism login' first");
@@ -423,7 +430,7 @@ function main(): number {
 
   // Check if scoped config variable already exists
   console.log("Checking for existing scoped config variable...");
-  const existingScoped = checkExistingScopedConfigVariable(stableKey);
+  const existingScoped = await checkExistingScopedConfigVariable(stableKey);
 
   if (existingScoped) {
     console.log(
@@ -442,7 +449,7 @@ function main(): number {
     console.log(
       `Finding connection '${parsed.connectionKey}' in component '${parsed.componentKey}'...`,
     );
-    const { connection, error } = findConnection(parsed.componentKey, parsed.connectionKey);
+    const { connection, error } = await findConnection(parsed.componentKey, parsed.connectionKey);
 
     if (error || !connection) {
       console.log(`Error: ${error}`);
@@ -452,7 +459,7 @@ function main(): number {
     console.log(`Found connection: ${connection.label}`);
 
     console.log("Creating scoped config variable...");
-    const createResult = createScopedConfigVariable(
+    const createResult = await createScopedConfigVariable(
       connection,
       parsed.name,
       stableKey,
@@ -477,7 +484,7 @@ function main(): number {
       console.log("Customers will provide their own credentials during instance configuration.");
     } else {
       console.log("Creating test customer config variable...");
-      const { result, error } = createCustomerConfigVariable(
+      const { result, error } = await createCustomerConfigVariable(
         scopedConfigVar.id as string,
         fieldValues,
       );
@@ -543,6 +550,6 @@ function main(): number {
   }
 
   return 0;
-}
+};
 
-process.exit(main());
+process.exit(await main());

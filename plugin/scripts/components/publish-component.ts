@@ -1,10 +1,10 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * publish-component.ts
  *
  * PURPOSE: Phase 5 - Publish the component to the platform
  *
- * USAGE: npx tsx publish-component.ts <COMPONENT_DIR>
+ * USAGE: node publish-component.ts <COMPONENT_DIR>
  *
  * EXIT CODES:
  *   0 - Success: Component published successfully
@@ -12,26 +12,31 @@
  */
 
 import { existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { basename, join } from "node:path";
-import { timedStep, printTimingSummary } from "../shared/timing.js";
-import { confineToProjectRoot } from "../shared/project-directory.js";
+import { exec, type Output } from "../../vendor/tinyexec/main.mjs";
+import { printTimingSummary, timedStepAsync } from "../shared/timing.ts";
+import { confineToProjectRoot } from "../shared/project-directory.ts";
 
-function publishComponent(componentDir: string): string | null {
-  return timedStep("Publish component", () => {
+const publishComponent = async (componentDir: string): Promise<string | null> =>
+  timedStepAsync("Publish component", async () => {
     console.log("Publishing component...");
 
-    const result = spawnSync(
-      "prism",
-      ["components:publish", "--no-confirm", "--skip-on-signature-match"],
-      {
-        cwd: componentDir,
-        encoding: "utf-8",
-        timeout: 120000,
-      },
-    );
+    let result: Output;
+    try {
+      result = await exec(
+        "prism",
+        ["components:publish", "--no-confirm", "--skip-on-signature-match"],
+        {
+          timeout: 120000,
+          nodeOptions: { cwd: componentDir },
+        },
+      );
+    } catch (error) {
+      console.log(`Publish failed: ${error}`);
+      return null;
+    }
 
-    if (result.status !== 0) {
+    if (result.exitCode !== 0) {
       console.log("Publish failed");
       if (result.stderr) {
         console.log("Errors:");
@@ -69,11 +74,10 @@ function publishComponent(componentDir: string): string | null {
 
     return componentId ?? "unknown";
   });
-}
 
-function main(): number {
+const main = async (): Promise<number> => {
   if (process.argv.length < 3) {
-    console.log("Usage: npx tsx publish-component.ts <COMPONENT_DIR>");
+    console.log("Usage: node publish-component.ts <COMPONENT_DIR>");
     return 1;
   }
 
@@ -88,7 +92,7 @@ function main(): number {
   const distFile = join(componentDir, "dist", "index.js");
   if (!existsSync(distFile)) {
     console.log("Error: Component not built (dist/index.js not found)");
-    console.log("   Run build first: npx tsx scripts/components/build-component.ts <dir>");
+    console.log("   Run build first: node scripts/components/build-component.ts <dir>");
     return 1;
   }
 
@@ -97,7 +101,7 @@ function main(): number {
   console.log(`Directory: ${componentDir}`);
   console.log("");
 
-  const componentId = publishComponent(componentDir);
+  const componentId = await publishComponent(componentDir);
   if (componentId === null) return 1;
 
   printTimingSummary();
@@ -110,10 +114,10 @@ function main(): number {
   console.log(`Component '${componentName}' is now available.`);
   console.log("");
   console.log("Next steps:");
-  console.log(`   1. Validate: npx tsx scripts/shared/validate-component.ts ${componentDir}`);
+  console.log(`   1. Validate: node scripts/components/validate-component.ts ${componentDir}`);
   console.log("   2. Test functionality in the platform");
 
   return 0;
-}
+};
 
-process.exit(main());
+process.exit(await main());

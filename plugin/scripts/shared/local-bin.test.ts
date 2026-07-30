@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { isValidComponentKey, resolveLocalBin } from "./local-bin.js";
+import { isValidComponentKey, resolveLocalBin } from "./local-bin.ts";
 
 const SPECTRAL = "@prismatic-io/spectral";
 const BIN = "cni-component-manifest";
@@ -33,28 +34,32 @@ function installFakeSpectral(bin?: string | Record<string, string>, writeBinFile
 }
 
 describe("resolveLocalBin", () => {
-  test("resolves the bin from the project's own install, run under the current Node", () => {
+  test("resolves the bin from the project's own install, run under the current Node", async () => {
     installFakeSpectral({ [BIN]: `bin/${BIN}.js` });
-    const bin = resolveLocalBin(project, SPECTRAL, BIN);
+    const bin = await resolveLocalBin(project, SPECTRAL, BIN);
     expect(bin).toEqual({
       command: process.execPath,
-      args: [join(project, "node_modules", "@prismatic-io", "spectral", "bin", `${BIN}.js`)],
+      args: [
+        await realpath(
+          join(project, "node_modules", "@prismatic-io", "spectral", "bin", `${BIN}.js`),
+        ),
+      ],
     });
   });
 
-  test("returns null when the package exposes no such bin", () => {
+  test("returns null when the package exposes no such bin", async () => {
     installFakeSpectral(undefined);
-    expect(resolveLocalBin(project, SPECTRAL, BIN)).toBeNull();
+    expect(await resolveLocalBin(project, SPECTRAL, BIN)).toBeNull();
   });
 
-  test("returns null when the bin entry points at a missing file", () => {
+  test("returns null when the bin entry points at a missing file", async () => {
     installFakeSpectral({ [BIN]: `bin/${BIN}.js` }, false);
-    expect(resolveLocalBin(project, SPECTRAL, BIN)).toBeNull();
+    expect(await resolveLocalBin(project, SPECTRAL, BIN)).toBeNull();
   });
 
-  test("returns null when the package is not installed", () => {
+  test("returns null when the package is not installed", async () => {
     rmSync(join(project, "node_modules"), { recursive: true, force: true });
-    expect(resolveLocalBin(project, SPECTRAL, BIN)).toBeNull();
+    expect(await resolveLocalBin(project, SPECTRAL, BIN)).toBeNull();
   });
 });
 

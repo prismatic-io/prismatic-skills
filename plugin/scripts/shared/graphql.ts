@@ -2,7 +2,7 @@
  * graphql.ts — Thin wrapper around `prism graphql:query`.
  */
 
-import { runPrismQuery } from "./prism-retry.js";
+import { runPrismQuery } from "./prism-retry.ts";
 
 export class GraphQLError extends Error {
   constructor(message: string) {
@@ -11,12 +11,16 @@ export class GraphQLError extends Error {
   }
 }
 
-export function graphql(query: string, variables?: Record<string, unknown>, timeout = 30): unknown {
+export const graphql = async (
+  query: string,
+  variables?: Record<string, unknown>,
+  timeout = 30,
+): Promise<unknown> => {
   const cmd = ["prism", "graphql:query", query];
   if (variables) {
     cmd.push("--variables", JSON.stringify(variables));
   }
-  const result = runPrismQuery(cmd, timeout);
+  const result = await runPrismQuery(cmd, timeout);
   if (result.returncode !== 0) {
     throw new GraphQLError(`Query failed: ${result.stderr.trim() || "Unknown error"}`);
   }
@@ -28,11 +32,11 @@ export function graphql(query: string, variables?: Record<string, unknown>, time
   } catch (e) {
     throw new GraphQLError(`Failed to parse response: ${e}`);
   }
-}
+};
 
-export function ensureAuthenticated(): void {
-  const result = runPrismQuery(["prism", "me"], 15);
+export const ensureAuthenticated = async (): Promise<void> => {
+  const result = await runPrismQuery(["prism", "me"], 15);
   if (result.returncode !== 0) {
     throw new GraphQLError("Not authenticated with Prismatic. Run 'prism login' first.");
   }
-}
+};

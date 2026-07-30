@@ -1,10 +1,10 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * get-credential-prompts.ts
  *
  * PURPOSE: Infer credential prompts from a component's connection inputs
  *
- * USAGE: npx tsx get-credential-prompts.ts <component_key> '<connection_json>'
+ * USAGE: node get-credential-prompts.ts <component_key> '<connection_json>'
  *
  * EXIT CODES:
  *   0 - Success: Credential prompts generated
@@ -173,7 +173,7 @@ function generateCredentialPrompts(
 
 function main(): number {
   if (process.argv.length < 4) {
-    console.error("Usage: npx tsx get-credential-prompts.ts <component_key> '<connection_json>'");
+    console.error("Usage: node get-credential-prompts.ts <component_key> '<connection_json>'");
     console.log("[]");
     return 1;
   }

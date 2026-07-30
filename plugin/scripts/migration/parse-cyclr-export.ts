@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * parse-cyclr-export.ts
  *
@@ -6,7 +6,7 @@
  * Extracts structured data from Cyclr JSON export(s) and outputs JSON to stdout.
  *
  * Usage:
- *     npx tsx parse-cyclr-export.ts <export-path> [--summary]
+ *     node parse-cyclr-export.ts <export-path> [--summary]
  *
  * Input: Path to a single Cyclr JSON file or a directory containing .json files
  * Output: JSON to stdout with structured cycle data
@@ -932,7 +932,7 @@ function main(): void {
   const args = argv.filter((a) => !a.startsWith("--"));
 
   if (args.length !== 1) {
-    process.stderr.write("Usage: npx tsx parse-cyclr-export.ts <export-path> [--summary]\n");
+    process.stderr.write("Usage: node parse-cyclr-export.ts <export-path> [--summary]\n");
     process.stderr.write("\nInput: Path to a single Cyclr JSON file or directory of JSON files\n");
     process.exit(2);
   }

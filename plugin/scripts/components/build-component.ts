@@ -1,10 +1,10 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * build-component.ts
  *
  * PURPOSE: Phase 4 - Build the component using webpack
  *
- * USAGE: npx tsx build-component.ts <COMPONENT_DIR>
+ * USAGE: node build-component.ts <COMPONENT_DIR>
  *
  * EXIT CODES:
  *   0 - Success: Component built successfully
@@ -12,13 +12,13 @@
  */
 
 import { existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { basename, join } from "node:path";
-import { timedStep, printTimingSummary } from "../shared/timing.js";
-import { confineToProjectRoot } from "../shared/project-directory.js";
+import { exec, type Output } from "../../vendor/tinyexec/main.mjs";
+import { printTimingSummary, timedStepAsync } from "../shared/timing.ts";
+import { confineToProjectRoot } from "../shared/project-directory.ts";
 
-function installDependencies(componentDir: string): boolean {
-  return timedStep("Install dependencies", () => {
+const installDependencies = async (componentDir: string): Promise<boolean> =>
+  timedStepAsync("Install dependencies", async () => {
     const nodeModules = join(componentDir, "node_modules");
     if (existsSync(nodeModules)) {
       console.log("Dependencies already installed");
@@ -26,13 +26,18 @@ function installDependencies(componentDir: string): boolean {
     }
 
     console.log("Installing dependencies...");
-    const result = spawnSync("npm", ["install", "--no-audit", "--no-fund"], {
-      cwd: componentDir,
-      encoding: "utf-8",
-      timeout: 300000,
-    });
+    let result: Output;
+    try {
+      result = await exec("npm", ["install", "--no-audit", "--no-fund"], {
+        timeout: 300_000,
+        nodeOptions: { cwd: componentDir },
+      });
+    } catch (error) {
+      console.log(`Failed to install dependencies: ${error}`);
+      return false;
+    }
 
-    if (result.status !== 0) {
+    if (result.exitCode !== 0) {
       console.log("Failed to install dependencies");
       if (result.stderr) console.log(result.stderr.slice(0, 500));
       return false;
@@ -41,18 +46,22 @@ function installDependencies(componentDir: string): boolean {
     console.log("Dependencies installed successfully");
     return true;
   });
-}
 
-function buildComponent(componentDir: string): boolean {
-  return timedStep("Build component", () => {
+const buildComponent = async (componentDir: string): Promise<boolean> =>
+  timedStepAsync("Build component", async () => {
     console.log("Building component...");
-    const result = spawnSync("npm", ["run", "build"], {
-      cwd: componentDir,
-      encoding: "utf-8",
-      timeout: 120000,
-    });
+    let result: Output;
+    try {
+      result = await exec("npm", ["run", "build"], {
+        timeout: 120_000,
+        nodeOptions: { cwd: componentDir },
+      });
+    } catch (error) {
+      console.log(`Build failed: ${error}`);
+      return false;
+    }
 
-    if (result.status !== 0) {
+    if (result.exitCode !== 0) {
       console.log("Build failed");
       if (result.stderr) {
         console.log("Errors:");
@@ -75,11 +84,10 @@ function buildComponent(componentDir: string): boolean {
     console.log(`   Output: ${distFile}`);
     return true;
   });
-}
 
-function main(): number {
+const main = async (): Promise<number> => {
   if (process.argv.length < 3) {
-    console.log("Usage: npx tsx build-component.ts <COMPONENT_DIR>");
+    console.log("Usage: node build-component.ts <COMPONENT_DIR>");
     return 1;
   }
 
@@ -100,8 +108,8 @@ function main(): number {
   console.log(`Directory: ${componentDir}`);
   console.log("");
 
-  if (!installDependencies(componentDir)) return 1;
-  if (!buildComponent(componentDir)) return 1;
+  if (!(await installDependencies(componentDir))) return 1;
+  if (!(await buildComponent(componentDir))) return 1;
 
   printTimingSummary();
 
@@ -111,9 +119,9 @@ function main(): number {
   console.log("=".repeat(60));
   console.log("");
   console.log("Next: Publish the component");
-  console.log(`   npx tsx scripts/components/publish-component.ts ${componentDir}`);
+  console.log(`   node scripts/components/publish-component.ts ${componentDir}`);
 
   return 0;
-}
+};
 
-process.exit(main());
+process.exit(await main());

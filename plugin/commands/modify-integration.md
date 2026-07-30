@@ -14,15 +14,15 @@ Narrate every step with educational depth — explain what you're doing and why.
 
 ## STOP — Read Before Proceeding
 
-- **NEVER run `npx webpack` or `npx tsc`** — build with `npm run build --prefix <project-dir>`
-- **NEVER cd into the project directory** — use `--prefix` for npm, `directory` param for MCP tools
+- **NEVER run `npx webpack` or `npx tsc`** — build with `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts build-integration <project-dir>`
+- **NEVER cd into the project directory** — pass it to the build tool or use the `directory` param for MCP tools
 - **Read the answer-to-code cookbook BEFORE writing ANY new code**
 
 ## Phase 1: Setup & Extract State
 
 First, create a session to store modification decisions:
 ```bash
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <integration-name> --type integration
+node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <integration-name> --type integration
 ```
 
 Then run the state extractor to build a "before" snapshot:
@@ -130,7 +130,7 @@ When `ready_for_next_phase` is true, proceed.
 
 ## Phase 4: Build, Deploy, Test
 
-1. **Build:** `npm run build --prefix <project-dir>`
+1. **Build:** `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts build-integration <project-dir>`
 2. If build fails: `prismatic-tools diagnose-build <project-dir> --type integration`
-3. **Deploy:** `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>`
-4. **Test:** Guide the user through configuring the test instance, then run tests via `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts test-integration <integration-id> --integration-dir <project-dir>`
+3. **Deploy:** `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>`
+4. **Test:** Guide the user through configuring the test instance, then run tests via `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts test-integration <integration-id> --integration-dir <project-dir>`

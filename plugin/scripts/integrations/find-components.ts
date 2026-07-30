@@ -1,10 +1,10 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * find-components.ts
  *
  * PURPOSE: Search for components by keyword
  *
- * USAGE: npx tsx find-components.ts <search-term>
+ * USAGE: node find-components.ts <search-term>
  *
  * EXIT CODES:
  *   0 - Success: Components found and displayed
@@ -12,7 +12,7 @@
  *   2 - Error: API call failed
  */
 
-import { graphql, GraphQLError } from "../shared/graphql.js";
+import { graphql, GraphQLError } from "../shared/graphql.ts";
 
 const SEARCH_COMPONENTS_QUERY = `
 query searchComponents($filterQuery: JSONString, $after: String) {
@@ -72,7 +72,7 @@ interface ComponentNode {
   };
 }
 
-function searchComponentsApi(searchTerm: string): ComponentNode[] {
+const searchComponentsApi = async (searchTerm: string): Promise<ComponentNode[]> => {
   const filterQuery = JSON.stringify([
     "or",
     ["in", "key", searchTerm],
@@ -86,7 +86,7 @@ function searchComponentsApi(searchTerm: string): ComponentNode[] {
     const variables: Record<string, unknown> = { filterQuery };
     if (cursor) variables.after = cursor;
 
-    const data = graphql(SEARCH_COMPONENTS_QUERY, variables) as Record<string, unknown>;
+    const data = (await graphql(SEARCH_COMPONENTS_QUERY, variables)) as Record<string, unknown>;
     const componentsData = (data.components ?? {}) as Record<string, unknown>;
     const nodes = (componentsData.nodes ?? []) as ComponentNode[];
     allComponents.push(...nodes);
@@ -97,7 +97,7 @@ function searchComponentsApi(searchTerm: string): ComponentNode[] {
   }
 
   return allComponents;
-}
+};
 
 function inferAuthType(key: string, label: string): string {
   const kl = key.toLowerCase();
@@ -145,10 +145,10 @@ function formatForRequirements(components: ComponentNode[]): unknown[] {
   });
 }
 
-function main(): number {
+const main = async (): Promise<number> => {
   if (process.argv.length < 3) {
     console.error("No search term provided");
-    console.error("Usage: npx tsx find-components.ts <search-term>");
+    console.error("Usage: node find-components.ts <search-term>");
     return 1;
   }
 
@@ -156,7 +156,7 @@ function main(): number {
   console.error(`Searching for '${searchTerm}'...`);
 
   try {
-    const components = searchComponentsApi(searchTerm);
+    const components = await searchComponentsApi(searchTerm);
 
     if (components.length === 0) {
       console.error(`No components found for '${searchTerm}'`);
@@ -178,6 +178,6 @@ function main(): number {
     console.error(`Unexpected error: ${e}`);
     return 2;
   }
-}
+};
 
-process.exit(main());
+process.exit(await main());

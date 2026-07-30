@@ -235,7 +235,7 @@ from the integration-patterns skill during requirements.
 <step name="setup">
 Greet the user as Orby. Introduce yourself briefly.
 Read `references/tool-catalog.md` from the integration-patterns skill.
-Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <name> --type integration`.
+Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <name> --type integration`.
 Verify CLI auth and org access. If it fails, run `prismatic-tools check-prism-access`.
 </step>
 
@@ -279,7 +279,7 @@ Wait for confirmation.
 </step>
 
 <step name="scaffold">
-Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <name> --components <comp1,comp2,comp3> [--private-components <comp1>] [--credentials '<json>']`.
+Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <name> --components <comp1,comp2,comp3> [--private-components <comp1>] [--credentials '<json>']`.
 Include ALL component keys from ALL connectors (source, destination, AND additional connectors).
 If any selected component has `public: false`, include it in `--private-components`.
 Do not create directories or install manifests manually. Do not use MCP tools for scaffolding.
@@ -323,7 +323,7 @@ Verify values: `prismatic-tools verify-code <dir> --session <name>`
 </step>
 
 <step name="build">
-Build: `npm run build --prefix <project-dir>`
+Build: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts build-integration <project-dir>`
 On failure: `prismatic-tools diagnose-build <project-dir> --type integration`
 </step>
 
@@ -333,7 +333,7 @@ Pre-deploy validate: `prismatic-tools validate-phase <dir> --phase deploy --type
 </step>
 
 <step name="deploy">
-Deploy: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>`
+Deploy: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>`
 Verify with `prism_integrations_flows_list`. On failure, request Orby to investigate.
 </step>
 
@@ -342,7 +342,7 @@ After deploy, guide the user through getting to a working test.
 1. Request Orby to check test instance status and surface designer URL.
 2. Walk through unconfigured connections and config variables.
 3. Confirm readiness with the user.
-4. Run test: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts test-integration <integration-id> --integration-dir <project-dir>`
+4. Run test: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts test-integration <integration-id> --integration-dir <project-dir>`
 5. Report results. If failures, request Orby for execution logs.
 </step>
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * record-choices.ts
  *
@@ -27,10 +27,11 @@
  */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { loadSpec, type LoadedSpec } from "../shared/load-spec.js";
-import { getSessionDirectory, getPluginRoot } from "../shared/project-directory.js";
+import { fileURLToPath } from "node:url";
+import { exec } from "../../vendor/tinyexec/main.mjs";
+import { loadSpec, type LoadedSpec } from "../shared/load-spec.ts";
+import { getSessionDirectory, getPluginRoot } from "../shared/project-directory.ts";
 
 /** Find the spec file using getPluginRoot (same resolution as update-tasks and validate-requirements). */
 function findSpecPath(type: string = "integration"): string | null {
@@ -39,13 +40,13 @@ function findSpecPath(type: string = "integration"): string | null {
   return existsSync(specPath) ? specPath : null;
 }
 
-function main(): number {
+const main = async (): Promise<number> => {
   const args = process.argv.slice(2);
 
   if (args.length < 1) {
     console.log(
-      "Usage: npx tsx record-choices.ts <answers-file> [--flow <flow-id>] '<json-object>'\n" +
-        "       npx tsx record-choices.ts --session <name> [--type component|integration] key=value [--flow <flow-id>]",
+      "Usage: node record-choices.ts <answers-file> [--flow <flow-id>] '<json-object>'\n" +
+        "       node record-choices.ts --session <name> [--type component|integration] key=value [--flow <flow-id>]",
     );
     return 1;
   }
@@ -692,26 +693,29 @@ function main(): number {
     return 1;
   }
 
-  // If --sync was provided, run sync-task-list.ts and output its result
+  // If --sync was provided, run update-tasks.ts and output its result
   if (syncSpec) {
     console.log("\n--- sync ---");
     try {
-      const syncScript = new URL("./integrations/sync-task-list.ts", import.meta.url).pathname;
-      const result = execFileSync(
-        "npx",
-        ["tsx", syncScript, syncSpec, answersFile, "--actionable"],
-        { encoding: "utf-8", timeout: 30000 },
+      const syncScript = fileURLToPath(new URL("./update-tasks.ts", import.meta.url));
+      const result = await exec(
+        process.execPath,
+        [syncScript, syncSpec, answersFile, "--actionable"],
+        {
+          timeout: 30000,
+        },
       );
-      console.log(result);
-    } catch (e) {
-      const err = e as { stdout?: string; stderr?: string };
-      if (err.stdout) console.log(err.stdout);
-      if (err.stderr) console.error(err.stderr);
+      if (result.stdout) console.log(result.stdout);
+      if (result.exitCode !== 0) {
+        if (result.stderr) console.error(result.stderr);
+        console.error("Sync failed — answers were written successfully but sync could not run.");
+      }
+    } catch {
       console.error("Sync failed — answers were written successfully but sync could not run.");
     }
   }
 
   return 0;
-}
+};
 
-process.exit(main());
+process.exit(await main());

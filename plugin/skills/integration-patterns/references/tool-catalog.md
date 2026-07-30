@@ -31,13 +31,13 @@ prismatic-tools record-choices --session <name> key=value [key2=value2] [--flow 
 prismatic-tools write-answer --session <name> <question_id> <value>
 prismatic-tools code-plan --session <name> --type <component|integration>
 prismatic-tools install-manifest <component-key> [--project-dir <dir>]
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>
 prismatic-tools test-integration <integration-id> [--integration-dir <dir>] [--flow <flow-name>]
 ```
 
 ## Explicit scripts (require confirmation or visibility)
 
-Invoke with: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts <script-name> [args...]`
+Invoke with: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts <script-name> [args...]`
 
 ```
 # Setup & requirements:
@@ -45,7 +45,7 @@ run.ts prerequisites <name> --type integration [--existing <dir>]
 
 # Build lifecycle:
 run.ts scaffold-project <name> --components <comp1,comp2> [--private-components <comp1>] [--credentials '<json>']
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>
 run.ts test-integration <integration-id> [--integration-dir <project-dir>]
 
 # Component development:

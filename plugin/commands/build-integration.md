@@ -15,9 +15,9 @@ Voice and narration style are defined in the agent instructions. Follow them.
     <never>Pre-decide what components or answers are needed. Never search for components or write answers before the sync script tells you to.</never>
   </rule>
   <rule name="build-commands">
-    <always>Use `npm run build --prefix &lt;project-dir&gt;` for builds</always>
+    <always>Use `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts build-integration &lt;project-dir&gt;` for builds</always>
     <never>Run `npx webpack` or `npx tsc` directly</never>
-    <never>cd into the project directory — use `--prefix` for npm</never>
+    <never>cd into the project directory — pass it to the build tool</never>
   </rule>
   <rule name="answer-writing" critical="true">
     <always>Write ALL answers with key=value pairs in one command: `prismatic-tools record-choices {requirements_file} key=value key2=value2`. JSON values are auto-parsed — pass directly: `'source_component={"key":"shopify",...}'`</always>
@@ -34,7 +34,7 @@ Voice and narration style are defined in the agent instructions. Follow them.
 <procedure name="workflow">
 
   <step name="setup">
-    Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/prerequisites.ts <name> --type integration`. Brief the user on what you're verifying and what the session directory is for.
+    Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/prerequisites.ts <name> --type integration`. Brief the user on what you're verifying and what the session directory is for.
   </step>
 
   <step name="run-sync-script">
@@ -97,7 +97,7 @@ Voice and narration style are defined in the agent instructions. Follow them.
 
   <step name="scaffold">
     TaskCreate(subject: "Scaffold project") and mark in_progress.
-    Run: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <name> --components <comp1,comp2> [--private-components <comp1>]`
+    Run: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-project <name> --components <comp1,comp2> [--private-components <comp1>]`
     <rules>
       <always>Include ALL components selected during requirements — source_component, destination_component, AND any connector_N_component answers</always>
       <always>If a component has `public: false` in the find-components result, include it in --private-components</always>
@@ -139,7 +139,7 @@ Voice and narration style are defined in the agent instructions. Follow them.
 
   <step name="build">
     TaskCreate(subject: "Build integration") and mark in_progress.
-    Build: `npm run build --prefix <project-dir>`
+    Build: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts build-integration <project-dir>`
     Validate: `prismatic-tools validate-phase <project-dir> --phase build --type integration`
     If build fails: run `prismatic-tools diagnose-build <project-dir> --type integration` before attempting manual fixes.
     Mark completed.
@@ -155,7 +155,7 @@ Voice and narration style are defined in the agent instructions. Follow them.
   <step name="import">
     TaskCreate(subject: "Import to Prismatic") and mark in_progress.
     Pre-import validation: `prismatic-tools validate-phase <project-dir> --phase deploy --type integration`
-    Import: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>`
+    Import: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts deploy-integration <project-dir>`
     This opens the designer in the browser so the user can configure the test instance.
     Mark completed.
   </step>

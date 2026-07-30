@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Lux eval suite for the prismatic-skills Claude Code plugin.",
   "scripts": {
-    "lux": "lux"
+    "lux": "node node_modules/@prismatic-io/lux/lib/cli/bin.js"
   },
   "dependencies": {
     "@prismatic-io/lux": "*"

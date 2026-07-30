@@ -8,15 +8,22 @@
  * Combined into one hook to avoid chaining issues where a second hook's
  * passthrough output could override the first hook's updatedInput.
  */
-import { readFileSync, writeFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
+import { exec } from "../vendor/tinyexec/main.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = dirname(__dirname);
 const MANIFEST_PATH = join(__dirname, "tool-manifest.json");
+
+const readStdin = async () => {
+  process.stdin.setEncoding("utf8");
+  let input = "";
+  for await (const chunk of process.stdin) input += chunk;
+  return input;
+};
 
 function deny(reason) {
   const out = {
@@ -91,7 +98,7 @@ function ask(reason) {
 // --- Read stdin ---
 let input;
 try {
-  input = JSON.parse(readFileSync(0, "utf-8"));
+  input = JSON.parse(await readStdin());
 } catch {
   process.stdout.write("{}");
   process.exit(0);
@@ -136,7 +143,7 @@ if (command.startsWith(PREFIX)) {
   // Load manifest
   let manifest;
   try {
-    manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
+    manifest = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
   } catch {
     deny(`Tool manifest not found at ${MANIFEST_PATH}`);
   }
@@ -147,7 +154,7 @@ if (command.startsWith(PREFIX)) {
   if (!entry) {
     const explicitReason = manifest.explicit?.[toolName];
     if (explicitReason) {
-      deny(`'${toolName}' requires explicit invocation via npx tsx. Reason: ${explicitReason}`);
+      deny(`'${toolName}' requires explicit invocation via node. Reason: ${explicitReason}`);
     }
     deny(
       `Unknown synthetic tool: '${toolName}'. Use prismatic-tools <name> where name is a registered synthetic tool.`,
@@ -162,32 +169,35 @@ if (command.startsWith(PREFIX)) {
   const startMs = Date.now();
   let stdout;
   try {
-    stdout = execFileSync("npx", ["tsx", runScript, scriptName, ...parsed.tokens], {
+    const result = await exec(process.execPath, [runScript, scriptName, ...parsed.tokens], {
       timeout,
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"],
-      maxBuffer: 10 * 1024 * 1024,
+      nodeOptions: { stdio: ["ignore", "pipe", "pipe"] },
     });
+    stdout = result.stdout;
+    if (result.exitCode !== 0) {
+      const output = result.stdout + result.stderr;
+      if (entry.allowNonZeroExit) {
+        stdout = output;
+      } else {
+        const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
+        const preview = output.split("\n").slice(0, 5).join(" ").slice(0, 500);
+        deny(
+          `Tool '${toolName}' failed (exit ${result.exitCode ?? 1}) after ${elapsed}s: ${preview}`,
+        );
+      }
+    }
   } catch (err) {
     const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
-    if (err.killed) {
+    if (err.name === "AbortError" && err.cause?.name === "TimeoutError") {
       deny(`Tool '${toolName}' timed out after ${entry.timeout ?? 30}s`);
     }
-    // Tools with allowNonZeroExit return their output even on non-zero exit
-    // (e.g., validate-phase exits 1 with structured JSON about gaps — that's informational)
-    if (entry.allowNonZeroExit && !err.killed) {
-      stdout = (err.stdout || "") + (err.stderr || "");
-    } else {
-      const output = (err.stdout || "") + (err.stderr || "");
-      const preview = output.split("\n").slice(0, 5).join(" ").slice(0, 500);
-      deny(`Tool '${toolName}' failed (exit ${err.status ?? 1}) after ${elapsed}s: ${preview}`);
-    }
+    deny(`Tool '${toolName}' failed after ${elapsed}s: ${err.message ?? String(err)}`);
   }
   const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
 
   // Write result to temp file with plain header, rewrite command to cat it
   const pluginManifest = JSON.parse(
-    readFileSync(join(PLUGIN_ROOT, ".claude-plugin", "plugin.json"), "utf8"),
+    await readFile(join(PLUGIN_ROOT, ".claude-plugin", "plugin.json"), "utf8"),
   );
   const version = pluginManifest.version || "N/A";
   const desc = entry.desc || "";
@@ -203,7 +213,7 @@ if (command.startsWith(PREFIX)) {
     (desc ? `${desc}\n` : "") +
     `${"─".repeat(40)}\n`;
   const tmpFile = join(tmpdir(), `tool-result-${process.pid}.txt`);
-  writeFileSync(tmpFile, header + stdout);
+  await writeFile(tmpFile, header + stdout);
 
   const result = {
     hookSpecificOutput: {

@@ -1,19 +1,19 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * search-connections.ts
  *
  * PURPOSE: Search and list available integration-agnostic connections
  *
  * USAGE:
- *   npx tsx search-connections.ts              # List all connections
- *   npx tsx search-connections.ts slack        # Filter by keyword
+ *   node search-connections.ts              # List all connections
+ *   node search-connections.ts slack        # Filter by keyword
  *
  * EXIT CODES:
  *   0 - Success
  *   1 - Error (API call failed, auth issues)
  */
 
-import { graphql, GraphQLError } from "../shared/graphql.js";
+import { graphql, GraphQLError } from "../shared/graphql.ts";
 
 const LIST_CONNECTIONS_QUERY = `
 query availableConnections($managedBy: String) {
@@ -75,17 +75,16 @@ interface EnrichedConnection {
   category: string;
 }
 
-function listConnectionsApi(): ConnectionNode[] {
-  const data = graphql(LIST_CONNECTIONS_QUERY, {}) as Record<string, unknown>;
+const listConnectionsApi = async (): Promise<ConnectionNode[]> => {
+  const data = (await graphql(LIST_CONNECTIONS_QUERY, {})) as Record<string, unknown>;
   const nodes = ((data.scopedConfigVariables as Record<string, unknown>)?.nodes ??
     []) as ConnectionNode[];
   return nodes;
-}
+};
 
-function listAllComponentsApi(): Record<
-  string,
-  { label: string; description: string; category: string }
-> {
+const listAllComponentsApi = async (): Promise<
+  Record<string, { label: string; description: string; category: string }>
+> => {
   const allComponents: Array<{
     key: string;
     label: string;
@@ -98,7 +97,7 @@ function listAllComponentsApi(): Record<
     const variables: Record<string, unknown> = {};
     if (cursor) variables.after = cursor;
 
-    const data = graphql(LIST_COMPONENTS_QUERY, variables) as Record<string, unknown>;
+    const data = (await graphql(LIST_COMPONENTS_QUERY, variables)) as Record<string, unknown>;
     const componentsData = (data.components ?? {}) as Record<string, unknown>;
     const nodes = (componentsData.nodes ?? []) as typeof allComponents;
     allComponents.push(...nodes);
@@ -119,7 +118,7 @@ function listAllComponentsApi(): Record<
     }
   }
   return lookup;
-}
+};
 
 function enrichConnections(
   connections: ConnectionNode[],
@@ -181,15 +180,15 @@ function filterConnections(
   );
 }
 
-function main(): number {
+const main = async (): Promise<number> => {
   const keyword = process.argv[2] ?? undefined;
 
   try {
-    const connections = listConnectionsApi();
+    const connections = await listConnectionsApi();
 
     let componentLabels: Record<string, { label: string; description: string; category: string }>;
     try {
-      componentLabels = listAllComponentsApi();
+      componentLabels = await listAllComponentsApi();
     } catch {
       componentLabels = {};
     }
@@ -215,6 +214,6 @@ function main(): number {
     console.error(`Unexpected error: ${e}`);
     return 1;
   }
-}
+};
 
-process.exit(main());
+process.exit(await main());

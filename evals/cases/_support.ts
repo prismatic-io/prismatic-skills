@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Run, toolCalls } from "@prismatic-io/lux";
@@ -9,6 +9,7 @@ export const REPO_ROOT = resolve(here, "..", "..");
 export const PLUGIN_DIR = resolve(REPO_ROOT, "plugin");
 export const SKILLS_DIR = resolve(PLUGIN_DIR, "skills");
 export const AGENTS_DIR = resolve(PLUGIN_DIR, "agents");
+export const TSC_PATH = resolve(REPO_ROOT, "node_modules", "typescript", "bin", "tsc");
 
 /** Default response fixture for non-HITL cases. */
 export const scripted = {
@@ -60,6 +61,8 @@ type DriverOverrides = {
   idleTimeoutMs?: number;
   maxInterrupts?: number;
   extraArgs?: string[];
+  /** Tool grants beyond Lux's baseline and the shared eval capabilities. */
+  additionalTools?: string[];
   /** Load the real plugin (`--plugin-dir`): skill activation, subagents, commands, hooks. */
   plugin?: boolean;
   /** Route the session to a plugin subagent by name (`--agent`). */
@@ -71,25 +74,27 @@ type DriverOverrides = {
   readDirs?: string[];
 };
 
-/** Shared model and permission defaults. */
+/** Shared model and tool defaults. Lux owns the permission mode for isolated runs. */
 export const claudeCode = ({
   model = "claude-sonnet-5",
   effort = "medium",
   idleTimeoutMs = 300_000,
   maxInterrupts = 8,
   extraArgs = [],
+  additionalTools = [],
   plugin = false,
   agent,
   readDirs = [],
 }: DriverOverrides = {}) => ({
   name: "claude-code" as const,
   config: {
-    permissionMode: "bypassPermissions" as const,
+    ...(additionalTools.length > 0 ? { allowedTools: [...new Set(additionalTools)] } : {}),
     askToolName: "AskUserQuestion",
     idleTimeoutMs,
     maxInterrupts,
     model,
     effort,
+    isolation: {},
     ...(plugin || agent ? { pluginDirs: [PLUGIN_DIR] } : {}),
     ...(agent ? { agent } : {}),
     ...(readDirs.length > 0 ? { addDirs: readDirs } : {}),
@@ -101,9 +106,9 @@ export const claudeCode = ({
 export const skillDir = (skill: string): string => resolve(SKILLS_DIR, skill);
 
 /** The version plugin.json pins. Read, not hardcoded, so it can't rot at the next bump. */
-export const pluginVersion = (): string =>
+export const pluginVersion = async (): Promise<string> =>
   (
-    JSON.parse(readFileSync(resolve(PLUGIN_DIR, ".claude-plugin", "plugin.json"), "utf-8")) as {
+    JSON.parse(await readFile(resolve(PLUGIN_DIR, ".claude-plugin", "plugin.json"), "utf-8")) as {
       version: string;
     }
   ).version;

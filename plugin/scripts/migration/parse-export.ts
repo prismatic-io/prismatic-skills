@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * parse-export.ts
  *
@@ -15,15 +15,16 @@
  *   1 - Error
  */
 
-import { spawnSync } from "node:child_process";
-import { writeFileSync, existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { copyFile, mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getSessionDirectory } from "../shared/project-directory.js";
+import { exec, type Output } from "../../vendor/tinyexec/main.mjs";
+import { getSessionDirectory } from "../shared/project-directory.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-function main(): number {
+const main = async (): Promise<number> => {
   const args = process.argv.slice(2);
 
   let exportPath = "";
@@ -68,20 +69,18 @@ function main(): number {
   const parserArgs = [parserScript, exportPath];
   if (summary) parserArgs.push("--summary");
 
-  // Boomi's parser needs @xmldom/xmldom, pinned via npx --package.
-  const npxArgs =
-    platform === "boomi"
-      ? ["--yes", "--package=@xmldom/xmldom@0.8.13", "--package=tsx@4.22.4", "tsx", ...parserArgs]
-      : ["tsx", ...parserArgs];
+  let result: Output;
+  try {
+    result = await exec(process.execPath, parserArgs, {
+      timeout: 120000,
+    });
+  } catch (error) {
+    console.error(`Parser failed: ${error}`);
+    return 1;
+  }
 
-  const result = spawnSync("npx", npxArgs, {
-    encoding: "utf-8",
-    timeout: 120000,
-    maxBuffer: 256 * 1024 * 1024, // exports can be tens of MB
-  });
-
-  if (result.status !== 0) {
-    console.error(`Parser failed with exit code ${result.status}`);
+  if (result.exitCode !== 0) {
+    console.error(`Parser failed with exit code ${result.exitCode}`);
     if (result.stderr) console.error(result.stderr);
     return 1;
   }
@@ -100,20 +99,20 @@ function main(): number {
   if (sessionName) {
     const sessionDir = getSessionDirectory(sessionName, "integrations");
     const outputPath = join(sessionDir, "parsed-export.json");
-    writeFileSync(outputPath, output);
+    await writeFile(outputPath, output);
     console.error(`Parsed export written to: ${outputPath}`);
 
     // Copy raw export into session so it's preserved alongside parsed output
     const exportDir = join(sessionDir, "raw-export");
-    mkdirSync(exportDir, { recursive: true });
+    await mkdir(exportDir, { recursive: true });
     try {
-      const stat = statSync(exportPath);
-      if (stat.isDirectory()) {
-        for (const f of readdirSync(exportPath)) {
-          copyFileSync(join(exportPath, f), join(exportDir, f));
+      const exportStat = await stat(exportPath);
+      if (exportStat.isDirectory()) {
+        for (const f of await readdir(exportPath)) {
+          await copyFile(join(exportPath, f), join(exportDir, f));
         }
       } else {
-        copyFileSync(exportPath, join(exportDir, basename(exportPath)));
+        await copyFile(exportPath, join(exportDir, basename(exportPath)));
       }
       console.error(`Raw export copied to: ${exportDir}`);
     } catch (e) {
@@ -124,6 +123,6 @@ function main(): number {
   // Output to stdout (the hook captures this)
   console.log(output);
   return 0;
-}
+};
 
-process.exit(main());
+process.exit(await main());

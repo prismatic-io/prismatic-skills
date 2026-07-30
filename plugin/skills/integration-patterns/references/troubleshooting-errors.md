@@ -409,7 +409,7 @@ Install the component manifest:
 prismatic-tools install-manifest slack --project-dir <project-dir>
 
 # Or scaffold with manifests from the start
-npx tsx scripts/integrations/scaffold-project.ts <name> --components slack
+node scripts/integrations/scaffold-project.ts <name> --components slack
 ```
 
 Example package.json update:

@@ -1,10 +1,10 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * scaffold-project.ts
  *
  * PURPOSE: Initialize integration project using Prism CLI and install component manifests
  *
- * USAGE: npx tsx scaffold-project.ts <INTEGRATION_NAME> [--components <comp1,comp2,...>] [--credentials '<json>']
+ * USAGE: node scaffold-project.ts <INTEGRATION_NAME> [--components <comp1,comp2,...>] [--credentials '<json>']
  *
  * EXIT CODES:
  *   0 - Success: Project scaffolded and dependencies installed
@@ -14,12 +14,13 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, rmSync, renameSync, unlinkSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { mkdtempSync } from "node:fs";
-import { getProjectRoot, getSessionDirectory } from "../shared/project-directory.js";
-import { isValidComponentKey, resolveLocalBin } from "../shared/local-bin.js";
-import { timedStep, printTimingSummary } from "../shared/timing.js";
+import { exec } from "../../vendor/tinyexec/main.mjs";
+import { getProjectRoot, getSessionDirectory } from "../shared/project-directory.ts";
+import { isValidComponentKey, resolveLocalBin } from "../shared/local-bin.ts";
+import { isTimeoutError } from "../lib/subprocess.ts";
+import { printTimingSummary, timedStep, timedStepAsync } from "../shared/timing.ts";
 
 function printSection(title: string): void {
   console.log("");
@@ -44,6 +45,7 @@ function removeTestFiles(projectPath: string): void {
     "src/componentRegistry.ts",
     "src/client.ts",
     "jest.config.js",
+    "vitest.config.ts",
     ".npmrc",
   ];
 
@@ -69,7 +71,7 @@ function removeTestFiles(projectPath: string): void {
 
     if (pkg.scripts?.test) delete pkg.scripts.test;
 
-    const testDeps = ["@types/jest", "jest", "ts-jest", "dotenv"];
+    const testDeps = ["@types/jest", "jest", "ts-jest", "vitest", "dotenv"];
     if (pkg.devDependencies) {
       for (const dep of testDeps) {
         if (dep in pkg.devDependencies) delete pkg.devDependencies[dep];
@@ -80,8 +82,8 @@ function removeTestFiles(projectPath: string): void {
   }
 }
 
-function scaffoldProject(name: string): string | null {
-  return timedStep("Scaffold Project", () => {
+const scaffoldProject = async (name: string): Promise<string | null> =>
+  timedStepAsync("Scaffold Project", async () => {
     const projectDir = getProjectRoot();
     const projectPath = join(projectDir, name);
 
@@ -97,13 +99,12 @@ function scaffoldProject(name: string): string | null {
 
     const tempDir = mkdtempSync(join(projectDir, ".tmp-"));
     try {
-      const result = spawnSync("prism", ["integrations:init", name, "--clean"], {
-        cwd: tempDir,
-        encoding: "utf-8",
+      const result = await exec("prism", ["integrations:init", name, "--clean"], {
         timeout: 120000,
+        nodeOptions: { cwd: tempDir },
       });
 
-      if (result.status !== 0) {
+      if (result.exitCode !== 0) {
         console.log("Project scaffolding failed");
         if (result.stderr) console.log("Error:", result.stderr.slice(0, 500));
         if (result.stdout) console.log("Output:", result.stdout.slice(0, 500));
@@ -134,7 +135,7 @@ function scaffoldProject(name: string): string | null {
       console.log("Project scaffolded");
       return projectPath;
     } catch (e: unknown) {
-      if (e instanceof Error && e.message.includes("TIMEOUT")) {
+      if (isTimeoutError(e)) {
         console.log("Scaffolding timed out (2 minutes)");
       } else {
         console.log(`Error: ${e}`);
@@ -144,15 +145,22 @@ function scaffoldProject(name: string): string | null {
       if (existsSync(tempDir)) rmSync(tempDir, { recursive: true });
     }
   });
-}
 
-function installManifest(component: string, projectPath: string, isPrivate = false): boolean {
-  return timedStep("Install Component Manifest", () => {
+const installManifest = async (
+  component: string,
+  projectPath: string,
+  isPrivate = false,
+): Promise<boolean> =>
+  timedStepAsync("Install Component Manifest", async () => {
     console.log(`Installing manifest for: ${component}${isPrivate ? " (private)" : ""}`);
 
     try {
       // Use the project's lockfile-pinned spectral install.
-      const bin = resolveLocalBin(projectPath, "@prismatic-io/spectral", "cni-component-manifest");
+      const bin = await resolveLocalBin(
+        projectPath,
+        "@prismatic-io/spectral",
+        "cni-component-manifest",
+      );
       if (!bin) {
         console.log("cni-component-manifest not found in the project's dependencies.");
         console.log("Install @prismatic-io/spectral (>= 10.6.0) in the project, then re-run.");
@@ -161,13 +169,12 @@ function installManifest(component: string, projectPath: string, isPrivate = fal
 
       const args = [...bin.args, component];
       if (isPrivate) args.push("--private");
-      const result = spawnSync(bin.command, args, {
-        cwd: projectPath,
-        encoding: "utf-8",
+      const result = await exec(bin.command, args, {
         timeout: 120000,
+        nodeOptions: { cwd: projectPath },
       });
 
-      if (result.status !== 0) {
+      if (result.exitCode !== 0) {
         console.log(`Failed to install manifest for ${component}`);
         if (result.stderr) console.log(`   ${result.stderr.slice(0, 200)}`);
         return false;
@@ -185,13 +192,12 @@ function installManifest(component: string, projectPath: string, isPrivate = fal
       return false;
     }
   });
-}
 
-function installAllManifests(
+const installAllManifests = async (
   components: string[],
   projectPath: string,
   privateComponents: Set<string> = new Set(),
-): boolean {
+): Promise<boolean> => {
   if (components.length === 0) return true;
 
   console.log(`Installing ${components.length} component manifest(s)...`);
@@ -199,11 +205,11 @@ function installAllManifests(
 
   let allSuccess = true;
   for (const component of components) {
-    if (!installManifest(component, projectPath, privateComponents.has(component)))
+    if (!(await installManifest(component, projectPath, privateComponents.has(component))))
       allSuccess = false;
   }
   return allSuccess;
-}
+};
 
 function writeCredentialsToEnv(credentials: Record<string, string>, projectPath: string): boolean {
   return timedStep("Write Credentials", () => {
@@ -243,16 +249,15 @@ function writeCredentialsToEnv(credentials: Record<string, string>, projectPath:
   });
 }
 
-function installNpmDependencies(projectPath: string): boolean {
-  return timedStep("Install Dependencies", () => {
+const installNpmDependencies = async (projectPath: string): Promise<boolean> =>
+  timedStepAsync("Install Dependencies", async () => {
     console.log("Installing npm dependencies...");
     try {
-      const result = spawnSync("npm", ["install"], {
-        cwd: projectPath,
-        encoding: "utf-8",
+      const result = await exec("npm", ["install"], {
         timeout: 180000,
+        nodeOptions: { cwd: projectPath },
       });
-      if (result.status === 0) {
+      if (result.exitCode === 0) {
         console.log("Dependencies installed");
         return true;
       }
@@ -269,7 +274,6 @@ function installNpmDependencies(projectPath: string): boolean {
       return false;
     }
   });
-}
 
 function parseArgs(args: string[]): {
   name: string | null;
@@ -331,7 +335,7 @@ function parseArgs(args: string[]): {
   return { name, components, privateComponents, credentials, sessionName, sessionType };
 }
 
-function main(): number {
+const main = async (): Promise<number> => {
   console.log("Integration Builder - Scaffold Project");
   console.log("");
 
@@ -339,7 +343,7 @@ function main(): number {
     console.log("Missing integration name");
     console.log("");
     console.log(
-      "Usage: npx tsx scaffold-project.ts <INTEGRATION_NAME> [--components <comp1,comp2,...>] [--credentials '<json>']",
+      "Usage: node scaffold-project.ts <INTEGRATION_NAME> [--components <comp1,comp2,...>] [--credentials '<json>']",
     );
     return 1;
   }
@@ -389,7 +393,7 @@ function main(): number {
   }
 
   printSection("Scaffolding Project");
-  const projectPath = scaffoldProject(name);
+  const projectPath = await scaffoldProject(name);
   if (!projectPath) {
     printTimingSummary();
     return 3;
@@ -415,11 +419,11 @@ function main(): number {
   }
 
   printSection("Installing Dependencies");
-  installNpmDependencies(projectPath);
+  await installNpmDependencies(projectPath);
 
   if (components.length > 0) {
     printSection("Installing Component Manifests");
-    if (!installAllManifests(components, projectPath, privateComponents)) {
+    if (!(await installAllManifests(components, projectPath, privateComponents))) {
       printTimingSummary();
       return 4;
     }
@@ -445,6 +449,6 @@ function main(): number {
   console.log("Next: Phase 3 - Generate Code");
 
   return 0;
-}
+};
 
-process.exit(main());
+process.exit(await main());

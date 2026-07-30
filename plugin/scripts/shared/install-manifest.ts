@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * install-manifest.ts
  *
@@ -15,12 +15,12 @@
  *   3 - Manifest installation failed
  */
 
-import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { graphql, GraphQLError } from "./graphql.js";
-import { isValidComponentKey, resolveLocalBin } from "./local-bin.js";
-import { confineToProjectRoot } from "./project-directory.js";
+import { exec, type Output } from "../../vendor/tinyexec/main.mjs";
+import { graphql, GraphQLError } from "./graphql.ts";
+import { isValidComponentKey, resolveLocalBin } from "./local-bin.ts";
+import { confineToProjectRoot } from "./project-directory.ts";
 
 const CHECK_COMPONENT_QUERY = `
 query checkComponent($key: String!) {
@@ -34,9 +34,11 @@ query checkComponent($key: String!) {
 }
 `;
 
-function findComponent(key: string): { found: boolean; isPublic: boolean; label: string } {
+const findComponent = async (
+  key: string,
+): Promise<{ found: boolean; isPublic: boolean; label: string }> => {
   try {
-    const data = graphql(CHECK_COMPONENT_QUERY, { key }) as Record<string, unknown>;
+    const data = (await graphql(CHECK_COMPONENT_QUERY, { key })) as Record<string, unknown>;
     const nodes = ((data.components as Record<string, unknown>)?.nodes ?? []) as Array<
       Record<string, unknown>
     >;
@@ -55,9 +57,9 @@ function findComponent(key: string): { found: boolean; isPublic: boolean; label:
     }
   }
   return { found: false, isPublic: true, label: key };
-}
+};
 
-function main(): number {
+const main = async (): Promise<number> => {
   const args = process.argv.slice(2);
   let componentKey = "";
   let projectDir = process.cwd();
@@ -98,7 +100,7 @@ function main(): number {
 
   // Look up component to determine public/private
   console.log(`Looking up component: ${componentKey}`);
-  const component = findComponent(componentKey);
+  const component = await findComponent(componentKey);
 
   if (!component.found) {
     console.error(`Component "${componentKey}" not found in the Prismatic registry.`);
@@ -110,7 +112,7 @@ function main(): number {
   console.log(`Found: ${component.label} (${isPrivate ? "private" : "public"})`);
 
   // Use the project's lockfile-pinned spectral install.
-  const bin = resolveLocalBin(projectDir, "@prismatic-io/spectral", "cni-component-manifest");
+  const bin = await resolveLocalBin(projectDir, "@prismatic-io/spectral", "cni-component-manifest");
   if (!bin) {
     console.error("cni-component-manifest not found in the project's dependencies.");
     console.error("Install @prismatic-io/spectral (>= 10.6.0) in the project, then re-run.");
@@ -125,15 +127,19 @@ function main(): number {
 
   console.log(`Installing manifest to: ${join(projectDir, "src", "manifests", componentKey)}/`);
 
-  const result = spawnSync(bin.command, manifestArgs, {
-    cwd: projectDir,
-    encoding: "utf-8",
-    timeout: 120000,
-    stdio: "inherit",
-  });
+  let result: Output;
+  try {
+    result = await exec(bin.command, manifestArgs, {
+      timeout: 120000,
+      nodeOptions: { cwd: projectDir, stdio: "inherit" },
+    });
+  } catch (error) {
+    console.error(`Manifest installation failed: ${error}`);
+    return 3;
+  }
 
-  if (result.status !== 0) {
-    console.error(`Manifest installation failed (exit ${result.status})`);
+  if (result.exitCode !== 0) {
+    console.error(`Manifest installation failed (exit ${result.exitCode})`);
     return 3;
   }
 
@@ -147,6 +153,6 @@ function main(): number {
   }
 
   return 0;
-}
+};
 
-process.exit(main());
+process.exit(await main());

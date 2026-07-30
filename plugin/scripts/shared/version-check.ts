@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * version-check.ts — Report the loaded vs. on-disk plugin version
  *
@@ -8,7 +8,7 @@
  * status report.
  *
  * USAGE:
- *   npx tsx version-check.ts
+ *   node version-check.ts
  */
 
 import { readFileSync, readdirSync } from "node:fs";

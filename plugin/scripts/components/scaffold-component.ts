@@ -1,10 +1,10 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * scaffold-component.ts
  *
  * PURPOSE: Phase 3 - Create component structure using prism components:init
  *
- * USAGE: npx tsx scaffold-component.ts <COMPONENT_NAME>
+ * USAGE: node scaffold-component.ts <COMPONENT_NAME>
  *
  * EXIT CODES:
  *   0 - Success: Component directory created
@@ -23,11 +23,12 @@ import {
   statSync,
   unlinkSync,
 } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { join, relative } from "node:path";
 import { mkdtempSync } from "node:fs";
-import { getProjectRoot } from "../shared/project-directory.js";
-import { timedStep, printTimingSummary } from "../shared/timing.js";
+import { exec } from "../../vendor/tinyexec/main.mjs";
+import { getProjectRoot } from "../shared/project-directory.ts";
+import { isTimeoutError } from "../lib/subprocess.ts";
+import { printTimingSummary, timedStep, timedStepAsync } from "../shared/timing.ts";
 
 function toPascalCase(name: string): string {
   return name
@@ -58,8 +59,8 @@ function walkDir(dir: string): string[] {
   return results;
 }
 
-function scaffoldComponent(name: string): string | null {
-  return timedStep("Scaffold Component", () => {
+const scaffoldComponent = async (name: string): Promise<string | null> =>
+  timedStepAsync("Scaffold Component", async () => {
     const projectDir = getProjectRoot();
     const componentsDir = join(projectDir, "components");
     const componentPath = join(componentsDir, name);
@@ -78,13 +79,12 @@ function scaffoldComponent(name: string): string | null {
 
     const tempDir = mkdtempSync(join(componentsDir, ".tmp-"));
     try {
-      const result = spawnSync("prism", ["components:init", name], {
-        cwd: tempDir,
-        encoding: "utf-8",
+      const result = await exec("prism", ["components:init", name], {
         timeout: 120000,
+        nodeOptions: { cwd: tempDir },
       });
 
-      if (result.status !== 0) {
+      if (result.exitCode !== 0) {
         console.log("Component scaffolding failed");
         if (result.stderr) console.log("Error:", result.stderr.slice(0, 500));
         if (result.stdout) console.log("Output:", result.stdout.slice(0, 500));
@@ -107,7 +107,7 @@ function scaffoldComponent(name: string): string | null {
       console.log("Component scaffolded via prism CLI");
       return componentPath;
     } catch (e: unknown) {
-      if (e instanceof Error && e.message.includes("TIMEOUT")) {
+      if (isTimeoutError(e)) {
         console.log("Scaffolding timed out (2 minutes)");
       } else {
         console.log(`Error: ${e}`);
@@ -117,11 +117,10 @@ function scaffoldComponent(name: string): string | null {
       if (existsSync(tempDir)) rmSync(tempDir, { recursive: true });
     }
   });
-}
 
 function removeTestFiles(componentPath: string): void {
   timedStep("Remove Test Files", () => {
-    const filesToRemove = ["jest.config.js"];
+    const filesToRemove = ["jest.config.js", "vitest.config.ts"];
 
     // Find *.test.ts files
     const srcDir = join(componentPath, "src");
@@ -153,7 +152,7 @@ function removeTestFiles(componentPath: string): void {
         modified = true;
       }
 
-      const testDeps = ["@types/jest", "jest", "ts-jest"];
+      const testDeps = ["@types/jest", "jest", "ts-jest", "vitest"];
       if (pkg.devDependencies) {
         for (const dep of testDeps) {
           if (dep in pkg.devDependencies) {
@@ -196,16 +195,15 @@ function addSkeletonFiles(componentPath: string, componentName: string): void {
   });
 }
 
-function installNpmDependencies(componentPath: string): boolean {
-  return timedStep("Install Dependencies", () => {
+const installNpmDependencies = async (componentPath: string): Promise<boolean> =>
+  timedStepAsync("Install Dependencies", async () => {
     console.log("Installing npm dependencies...");
     try {
-      const result = spawnSync("npm", ["install", "--no-audit", "--no-fund"], {
-        cwd: componentPath,
-        encoding: "utf-8",
+      const result = await exec("npm", ["install", "--no-audit", "--no-fund"], {
         timeout: 180000,
+        nodeOptions: { cwd: componentPath },
       });
-      if (result.status === 0) {
+      if (result.exitCode === 0) {
         console.log("Dependencies installed");
         return true;
       }
@@ -222,16 +220,15 @@ function installNpmDependencies(componentPath: string): boolean {
       return false;
     }
   });
-}
 
-function main(): number {
+const main = async (): Promise<number> => {
   console.log("Component Builder - Scaffold Component");
   console.log("");
 
   if (process.argv.length < 3) {
     console.log("Missing component name");
     console.log("");
-    console.log("Usage: npx tsx scaffold-component.ts <COMPONENT_NAME>");
+    console.log("Usage: node scaffold-component.ts <COMPONENT_NAME>");
     return 1;
   }
 
@@ -243,7 +240,7 @@ function main(): number {
     return 1;
   }
 
-  const componentPath = scaffoldComponent(componentName);
+  const componentPath = await scaffoldComponent(componentName);
   if (!componentPath) {
     printTimingSummary();
     return 3;
@@ -251,7 +248,7 @@ function main(): number {
 
   removeTestFiles(componentPath);
   addSkeletonFiles(componentPath, componentName);
-  installNpmDependencies(componentPath);
+  await installNpmDependencies(componentPath);
 
   printTimingSummary();
 
@@ -265,6 +262,6 @@ function main(): number {
   console.log("Next: Phase 4 - Generate Code");
 
   return 0;
-}
+};
 
-process.exit(main());
+process.exit(await main());

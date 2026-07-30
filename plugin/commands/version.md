@@ -9,7 +9,7 @@ Check whether this session's plugin matches what's currently on disk.
 Run the version-check script and report its output verbatim:
 
 ```
-npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts version-check
+node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts version-check
 ```
 
 The script compares the load-time version snapshot (written by the SessionStart hook) against the current `plugin.json` and prints one of three statuses:

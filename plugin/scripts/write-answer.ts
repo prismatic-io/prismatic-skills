@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * write-answer.ts
  *
@@ -19,16 +19,16 @@
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { getSessionDirectory, getPluginRoot } from "./shared/project-directory.js";
-import { loadSpec } from "./shared/load-spec.js";
+import { getSessionDirectory, getPluginRoot } from "./shared/project-directory.ts";
+import { loadSpec } from "./shared/load-spec.ts";
 
 function main(): number {
   const args = process.argv.slice(2);
 
   if (args.length < 2) {
     console.log(
-      "Usage: npx tsx write-answer.ts <answers-file> [--flow <flow-id>] <question-id> <answer>\n" +
-        "       npx tsx write-answer.ts --session <name> [--type component|integration] [--flow <flow-id>] <question-id> <answer>",
+      "Usage: node write-answer.ts <answers-file> [--flow <flow-id>] <question-id> <answer>\n" +
+        "       node write-answer.ts --session <name> [--type component|integration] [--flow <flow-id>] <question-id> <answer>",
     );
     return 1;
   }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { exec } from "../../vendor/tinyexec/main.mjs";
 
 /**
  * detect-platform sniffs an export directory and reports its migration source — the
@@ -13,9 +13,9 @@ const SCRIPT = join(import.meta.dirname, "detect-platform.ts");
 const BOOMI_SAMPLE = join(import.meta.dirname, "..", "__fixtures__", "boomi");
 
 describe("detect-platform", () => {
-  test("classifies the Boomi sample export with high confidence", () => {
-    const r = spawnSync("npx", ["tsx", SCRIPT, BOOMI_SAMPLE], { encoding: "utf-8" });
-    expect(r.status).toBe(0);
+  test("classifies the Boomi sample export with high confidence", async () => {
+    const r = await exec("node", [SCRIPT, BOOMI_SAMPLE]);
+    expect(r.exitCode).toBe(0);
     const result = JSON.parse(r.stdout);
     expect(result.platform).toBe("boomi");
     expect(result.confidence).toBe("high");
@@ -23,10 +23,8 @@ describe("detect-platform", () => {
     expect(result.file_count).toBe(2);
   });
 
-  test("exits non-zero when the path does not exist", () => {
-    const r = spawnSync("npx", ["tsx", SCRIPT, join(BOOMI_SAMPLE, "does-not-exist")], {
-      encoding: "utf-8",
-    });
-    expect(r.status).not.toBe(0);
+  test("exits non-zero when the path does not exist", async () => {
+    const r = await exec("node", [SCRIPT, join(BOOMI_SAMPLE, "does-not-exist")]);
+    expect(r.exitCode).not.toBe(0);
   });
 });

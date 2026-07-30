@@ -1,9 +1,9 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, scripted, skillDir, TSC_PATH, withSkill } from "../_support.ts";
 
 // Type-checks the generated component with tsc against a staged tsconfig plus a
 // `@prismatic-io/spectral` type shim, catching syntax and local type errors that
-// grep-only checks miss. Opt-in `build-strict` loop: shells out to `bunx typescript`.
+// grep-only checks miss. The host assertion uses the repository's lockfile-pinned tsc.
 export default defineEvalCase({
   id: "component-patterns/api-key-compiles",
   prompt: withSkill(
@@ -27,7 +27,7 @@ component source so it type-checks.`,
     {
       type: "command-exits-zero",
       name: "generated TypeScript type-checks (tsc --noEmit)",
-      command: "bunx -y typescript@5 --noEmit -p tsconfig.eval.json",
+      command: `${JSON.stringify(process.execPath)} ${JSON.stringify(TSC_PATH)} --noEmit -p tsconfig.eval.json`,
       timeoutMs: 180_000,
       weight: 3,
     },
@@ -40,6 +40,6 @@ component source so it type-checks.`,
   ],
   meta: {
     skill: "component-patterns",
-    tags: ["component", "compile", "execution", "build-strict"],
+    tags: ["ci", "component", "compile", "execution", "build-strict"],
   },
 });

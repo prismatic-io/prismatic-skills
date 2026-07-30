@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { exec } from "../../vendor/tinyexec/main.mjs";
 
 /**
  * parse-cyclr-export turns a Cyclr JSON export into the structured shape the migration
@@ -20,9 +20,9 @@ interface ParsedCyclr {
 
 let out: ParsedCyclr;
 
-beforeAll(() => {
-  const r = spawnSync("npx", ["tsx", SCRIPT, FIXTURE], { encoding: "utf-8" });
-  expect(r.status).toBe(0);
+beforeAll(async () => {
+  const r = await exec("node", [SCRIPT, FIXTURE]);
+  expect(r.exitCode).toBe(0);
   out = JSON.parse(r.stdout) as ParsedCyclr;
 });
 

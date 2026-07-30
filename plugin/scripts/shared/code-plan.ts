@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * code-plan.ts
  *
@@ -18,8 +18,8 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { loadSpec } from "./load-spec.js";
-import { getSessionDirectory, getPluginRoot } from "./project-directory.js";
+import { loadSpec } from "./load-spec.ts";
+import { getSessionDirectory, getPluginRoot } from "./project-directory.ts";
 
 function isEmpty(value: unknown): boolean {
   return (
