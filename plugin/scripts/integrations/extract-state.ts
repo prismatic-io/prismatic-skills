@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * extract-state.ts
  *
@@ -9,9 +9,9 @@
  * then asks ONLY about what the user wants to change.
  *
  * USAGE:
- *   npx tsx extract-state.ts <path-or-name>
- *   npx tsx extract-state.ts .
- *   npx tsx extract-state.ts /absolute/path/to/project
+ *   node extract-state.ts <path-or-name>
+ *   node extract-state.ts .
+ *   node extract-state.ts /absolute/path/to/project
  *
  * OUTPUT (JSON):
  *   {
@@ -632,7 +632,7 @@ function main(): number {
   const args = process.argv.slice(2);
 
   if (args.length < 1) {
-    console.error("Usage: npx tsx extract-state.ts <path-or-name>");
+    console.error("Usage: node extract-state.ts <path-or-name>");
     return 1;
   }
 

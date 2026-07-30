@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * parse-boomi-export.ts
  *
@@ -7,7 +7,7 @@
  * and outputs JSON to stdout.
  *
  * Usage:
- *     npx tsx parse-boomi-export.ts <export-directory> [--summary]
+ *     node parse-boomi-export.ts <export-directory> [--summary]
  *
  * Input: Path to directory of Boomi Component XML files
  * Output: JSON to stdout with structured component data
@@ -22,41 +22,9 @@
  *     npm install @xmldom/xmldom
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
-import { createRequire } from "node:module";
-
-// Resolve @xmldom/xmldom with zero global install: from local node_modules
-// (createRequire since ESM has no bare `require`), else from the npx cache
-// populated by `npx --package=<pkg> tsx <script>`.
-function resolveNpxPackage(moduleName: string): unknown {
-  try {
-    return createRequire(import.meta.url)(moduleName);
-  } catch {
-    /* fall through to npx cache */
-  }
-
-  const npxBin = (process.env.PATH || "")
-    .split(process.platform === "win32" ? ";" : ":")
-    .find((p) => p.includes("_npx") && p.endsWith(".bin"));
-
-  if (npxBin) {
-    const nmPath = npxBin.replace(/[/\\]\.bin$/, "");
-    try {
-      return createRequire(join(nmPath, "_virtual.js"))(moduleName);
-    } catch {
-      /* fall through to error */
-    }
-  }
-
-  throw new Error(
-    `Cannot find ${moduleName}. Install it (\`npm install ${moduleName}\`) ` +
-      `or run via: npx --package=${moduleName} tsx <script>`,
-  );
-}
-
-import type { DOMParser as DOMParserType } from "@xmldom/xmldom";
-const { DOMParser } = resolveNpxPackage("@xmldom/xmldom") as { DOMParser: typeof DOMParserType };
+import { DOMParser } from "@xmldom/xmldom";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -517,10 +485,10 @@ interface ParsedComponent {
   root: Element;
 }
 
-function parseComponentFile(filepath: string): ParsedComponent | null {
+async function parseComponentFile(filepath: string): Promise<ParsedComponent | null> {
   let content: string;
   try {
-    content = readFileSync(filepath, "utf-8");
+    content = await readFile(filepath, "utf-8");
   } catch {
     console.error(`Warning: Failed to read ${filepath}`);
     return null;
@@ -1482,7 +1450,7 @@ function parseDocumentCache(root: Element): Omit<DocumentCache, "name"> | null {
 // Main export directory parser
 // ---------------------------------------------------------------------------
 
-function parseExportDirectory(exportDir: string): FullOutput {
+async function parseExportDirectory(exportDir: string): Promise<FullOutput> {
   const output: FullOutput = {
     platform: "boomi",
     source_directory: resolve(exportDir),
@@ -1511,20 +1479,18 @@ function parseExportDirectory(exportDir: string): FullOutput {
     },
   };
 
-  const xmlFiles = readdirSync(exportDir)
-    .filter((f) => f.endsWith(".xml"))
-    .sort();
+  const xmlFiles = (await readdir(exportDir)).filter((f) => f.endsWith(".xml")).sort();
 
   if (xmlFiles.length === 0) {
     console.error(`Error: No XML files found in ${exportDir}`);
-    process.exit(2);
+    throw new Error(`No XML files found in ${exportDir}`);
   }
 
   console.error(`Parsing ${xmlFiles.length} XML files from ${exportDir}`);
 
   for (const filename of xmlFiles) {
     const filepath = join(exportDir, filename);
-    const parsed = parseComponentFile(filepath);
+    const parsed = await parseComponentFile(filepath);
     if (parsed == null) continue;
 
     const compId = parsed.component_id;
@@ -1755,20 +1721,20 @@ function generateSummary(fullOutput: FullOutput): SummaryOutput {
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-function main(): number {
+async function main(): Promise<number> {
   const summaryMode = process.argv.includes("--summary");
   const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 
   if (args.length !== 1) {
-    console.error("Usage: npx tsx parse-boomi-export.ts <export-directory> [--summary]");
+    console.error("Usage: node parse-boomi-export.ts <export-directory> [--summary]");
     return 2;
   }
 
   const exportDir = args[0];
 
   try {
-    const stat = statSync(exportDir);
-    if (!stat.isDirectory()) {
+    const exportStat = await stat(exportDir);
+    if (!exportStat.isDirectory()) {
       console.error(`Error: ${exportDir} is not a directory`);
       return 2;
     }
@@ -1777,7 +1743,13 @@ function main(): number {
     return 2;
   }
 
-  const result = parseExportDirectory(exportDir);
+  let result: FullOutput;
+  try {
+    result = await parseExportDirectory(exportDir);
+  } catch (error) {
+    console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    return 2;
+  }
 
   if (summaryMode) {
     const summary = generateSummary(result);
@@ -1789,4 +1761,4 @@ function main(): number {
   return 0;
 }
 
-process.exit(main());
+process.exitCode = await main();

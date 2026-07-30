@@ -9,6 +9,8 @@
       "!**/.prismatic",
       "!.claude/settings.local.json",
       "!bun.lock",
+      "!plugin/scripts/migration/vendor",
+      "!plugin/vendor",
       "!plugin/templates/**/*.template",
       "!plugin/skills"
     ]

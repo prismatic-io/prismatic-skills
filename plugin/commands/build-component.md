@@ -15,9 +15,9 @@ Voice and narration style are defined in the agent instructions. Follow them.
     <never>Pre-decide what auth type or actions are needed. Never write answers before the sync script tells you to.</never>
   </rule>
   <rule name="build-commands">
-    <always>Use `npm run build --prefix <project-dir>` for builds</always>
+    <always>Use `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts build-component <project-dir>` for builds</always>
     <never>Run `npx webpack` or `npx tsc` directly</never>
-    <never>cd into the project directory — use `--prefix` for npm</never>
+    <never>cd into the project directory — pass it to the build tool</never>
   </rule>
   <rule name="answer-writing" critical="true">
     <always>Write ALL answers with key=value pairs in one command: `prismatic-tools record-choices --session <name> --type component key=value key2=value2`. JSON values are auto-parsed.</always>
@@ -34,7 +34,7 @@ Voice and narration style are defined in the agent instructions. Follow them.
 <procedure name="workflow">
 
   <step name="setup">
-    Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <name> --type component`. Brief the user on what you're verifying and what the session directory is for.
+    Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <name> --type component`. Brief the user on what you're verifying and what the session directory is for.
   </step>
 
   <step name="check-existing-component">
@@ -99,7 +99,7 @@ Voice and narration style are defined in the agent instructions. Follow them.
 
   <step name="scaffold">
     TaskCreate(subject: "Scaffold component") and mark in_progress.
-    Run: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-component <name>`
+    Run: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-component <name>`
     <rules>
       <never>Create directories or write files manually before the scaffold script runs</never>
       <never>Use MCP tools for scaffolding</never>
@@ -133,14 +133,14 @@ Voice and narration style are defined in the agent instructions. Follow them.
 
   <step name="build-publish">
     TaskCreate(subject: "Build component") and mark in_progress.
-    Build: `npm run build --prefix <project-dir>`
+    Build: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts build-component <project-dir>`
     Validate: `prismatic-tools validate-phase <project-dir> --phase build --type component`
     If build fails: run `prismatic-tools diagnose-build <project-dir> --type component` before attempting manual fixes.
     Mark completed.
 
     TaskCreate(subject: "Publish to Prismatic") and mark in_progress.
-    Publish: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts publish-component <project-dir>`
-    Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-component <project-dir>`
+    Publish: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts publish-component <project-dir>`
+    Validate: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-component <project-dir>`
     Mark completed.
   </step>
 

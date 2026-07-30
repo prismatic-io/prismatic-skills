@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { confineToProjectRoot } from "./project-directory.js";
+import { confineToProjectRoot } from "./project-directory.ts";
 
 let workspace: string;
 let outside: string;

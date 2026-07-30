@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * run.ts — Script dispatcher
  *
@@ -6,20 +6,21 @@
  * know which subdirectory a script lives in.
  *
  * USAGE:
- *   npx tsx run.ts <script-name> [args...]
- *   npx tsx run.ts record-choices reqs.json key=value
- *   npx tsx run.ts diagnose-build ./my-project --type integration
- *   npx tsx run.ts --list
+ *   node run.ts <script-name> [args...]
+ *   node run.ts record-choices reqs.json key=value
+ *   node run.ts diagnose-build ./my-project --type integration
+ *   node run.ts --list
  *
  * Script names are basenames without the .ts extension.
  * All arguments after the script name are forwarded as-is.
  */
 
-import { readdirSync, statSync } from "node:fs";
-import { join, basename } from "node:path";
-import { execFileSync } from "node:child_process";
+import { readdir, stat } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { exec } from "../vendor/tinyexec/main.mjs";
 
-const SCRIPTS_DIR = new URL(".", import.meta.url).pathname;
+const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 
 const SEARCH_DIRS = [
   SCRIPTS_DIR, // root scripts
@@ -30,13 +31,13 @@ const SEARCH_DIRS = [
 ];
 
 /** Build a map of script basename (no .ts) → full path. */
-function buildIndex(): Map<string, string> {
+const buildIndex = async (): Promise<Map<string, string>> => {
   const index = new Map<string, string>();
 
   for (const dir of SEARCH_DIRS) {
     let files: string[];
     try {
-      files = readdirSync(dir);
+      files = await readdir(dir);
     } catch {
       continue;
     }
@@ -47,7 +48,7 @@ function buildIndex(): Map<string, string> {
       const full = join(dir, f);
       // Skip directories and this file
       try {
-        if (!statSync(full).isFile()) continue;
+        if (!(await stat(full)).isFile()) continue;
       } catch {
         continue;
       }
@@ -62,18 +63,18 @@ function buildIndex(): Map<string, string> {
   }
 
   return index;
-}
+};
 
-function main(): number {
+const main = async (): Promise<number> => {
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args[0] === "--help") {
-    console.error("Usage: npx tsx run.ts <script-name> [args...]");
-    console.error("       npx tsx run.ts --list");
+    console.error("Usage: node run.ts <script-name> [args...]");
+    console.error("       node run.ts --list");
     return 2;
   }
 
-  const index = buildIndex();
+  const index = await buildIndex();
 
   if (args[0] === "--list") {
     const grouped: Record<string, string[]> = {};
@@ -111,15 +112,15 @@ function main(): number {
   }
 
   try {
-    execFileSync("npx", ["tsx", scriptPath, ...scriptArgs], {
-      stdio: "inherit",
+    const result = await exec(process.execPath, [scriptPath, ...scriptArgs], {
       timeout: 600_000,
+      nodeOptions: { stdio: "inherit" },
     });
-    return 0;
-  } catch (e) {
-    const err = e as { status?: number };
-    return err.status ?? 1;
+    return result.exitCode ?? 1;
+  } catch (error) {
+    console.error(`Unable to run "${scriptName}": ${error}`);
+    return 1;
   }
-}
+};
 
-process.exit(main());
+process.exit(await main());

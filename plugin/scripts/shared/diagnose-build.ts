@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * diagnose-build.ts
  *
@@ -6,7 +6,7 @@
  * Maps errors to missing files, broken imports, and incorrect patterns.
  *
  * USAGE:
- *   npx tsx diagnose-build.ts <project-dir> --type <component|integration> [--error <error-text>]
+ *   node diagnose-build.ts <project-dir> --type <component|integration> [--error <error-text>]
  *
  * If --error is not provided, attempts to re-run the build and capture the error.
  *
@@ -16,9 +16,11 @@
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { join, resolve, dirname } from "node:path";
-import { confineToProjectRoot } from "./project-directory.js";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { exec } from "../../vendor/tinyexec/main.mjs";
+import { confineToProjectRoot } from "./project-directory.ts";
+import { isTimeoutError } from "../lib/subprocess.ts";
 
 interface ErrorPattern {
   pattern: RegExp;
@@ -263,11 +265,11 @@ function checkStructuralIssues(projectDir: string, projectType: string): Finding
   return issues;
 }
 
-function runBuildAndCapture(
+const runBuildAndCapture = async (
   projectDir: string,
   projectType: string,
-): { errorText: string | null; err: string | null } {
-  const scriptDir = dirname(dirname(resolve(__filename)));
+): Promise<{ errorText: string | null; err: string | null }> => {
+  const scriptDir = dirname(dirname(fileURLToPath(import.meta.url)));
 
   const buildScript =
     projectType === "component"
@@ -279,12 +281,11 @@ function runBuildAndCapture(
   }
 
   try {
-    const result = spawnSync("npx", ["tsx", buildScript, projectDir], {
-      encoding: "utf-8",
+    const result = await exec(process.execPath, [buildScript, projectDir], {
       timeout: 120000,
     });
 
-    if (result.status === 0) {
+    if (result.exitCode === 0) {
       return { errorText: null, err: null };
     }
     return {
@@ -292,7 +293,7 @@ function runBuildAndCapture(
       err: null,
     };
   } catch (e) {
-    if (e instanceof Error && e.message.includes("TIMEOUT")) {
+    if (isTimeoutError(e)) {
       return {
         errorText: "Build timed out after 120 seconds",
         err: null,
@@ -300,9 +301,9 @@ function runBuildAndCapture(
     }
     return { errorText: null, err: String(e) };
   }
-}
+};
 
-function main(): number {
+const main = async (): Promise<number> => {
   const args = process.argv.slice(2);
 
   let projectDir: string | undefined;
@@ -321,7 +322,7 @@ function main(): number {
 
   if (!projectDir || !projectType) {
     console.error(
-      "Usage: npx tsx diagnose-build.ts <project-dir> --type <component|integration> [--error <error-text>]",
+      "Usage: node diagnose-build.ts <project-dir> --type <component|integration> [--error <error-text>]",
     );
     return 2;
   }
@@ -339,7 +340,7 @@ function main(): number {
   }
 
   if (!errorText) {
-    const buildResult = runBuildAndCapture(projectDir, projectType);
+    const buildResult = await runBuildAndCapture(projectDir, projectType);
     if (buildResult.err) {
       console.log(JSON.stringify({ error: buildResult.err }));
       return 2;
@@ -378,6 +379,6 @@ function main(): number {
   }
 
   return 0;
-}
+};
 
-process.exit(main());
+process.exit(await main());

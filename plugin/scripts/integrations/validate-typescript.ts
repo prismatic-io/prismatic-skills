@@ -1,24 +1,26 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * validate-typescript.ts
  *
  * PURPOSE: Validate TypeScript code without building (fast type checking)
  *
- * USAGE: npx tsx validate-typescript.ts <integration-dir>
+ * USAGE: node validate-typescript.ts <integration-dir>
  *
  * EXIT CODES:
  *   0 - Success: No TypeScript errors
  *   1 - Error: Invalid parameters or directory
  *   2 - Error: TypeScript validation failed
- *   3 - Error: npx/tsc not found
+ *   3 - Error: project-local tsc not found
  */
 
 import { existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { confineToProjectRoot } from "../shared/project-directory.js";
+import { exec } from "../../vendor/tinyexec/main.mjs";
+import { confineToProjectRoot } from "../shared/project-directory.ts";
+import { isTimeoutError } from "../lib/subprocess.ts";
+import { resolveLocalBin } from "../shared/local-bin.ts";
 
-function validateTypescript(integrationDir: string): number {
+const validateTypescript = async (integrationDir: string): Promise<number> => {
   if (!existsSync(join(integrationDir, "tsconfig.json"))) {
     console.log(`Not a TypeScript project: ${integrationDir}`);
     console.log("");
@@ -29,13 +31,18 @@ function validateTypescript(integrationDir: string): number {
   console.log("Validating TypeScript...");
 
   try {
-    const result = spawnSync("npx", ["tsc", "--noEmit"], {
-      cwd: integrationDir,
-      encoding: "utf-8",
+    const bin = await resolveLocalBin(integrationDir, "typescript", "tsc");
+    if (!bin) {
+      console.log("Project-local tsc not found");
+      console.log(`Run: node scripts/integrations/install-dependencies.ts ${integrationDir}`);
+      return 3;
+    }
+    const result = await exec(bin.command, [...bin.args, "--noEmit"], {
       timeout: 60000,
+      nodeOptions: { cwd: integrationDir },
     });
 
-    if (result.status === 0) {
+    if (result.exitCode === 0) {
       console.log("No type errors");
       return 0;
     } else {
@@ -44,25 +51,25 @@ function validateTypescript(integrationDir: string): number {
       return 2;
     }
   } catch (e) {
+    if (isTimeoutError(e)) {
+      console.log("Validation timeout (60s)");
+      return 2;
+    }
     if (e instanceof Error) {
-      if (e.message.includes("TIMEOUT")) {
-        console.log("Validation timeout (60s)");
-        return 2;
-      }
-      if (e.message.includes("ENOENT")) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") {
         console.log("tsc not found");
-        console.log(`Run: npx tsx scripts/install-dependencies.ts ${integrationDir}`);
+        console.log(`Run: node scripts/integrations/install-dependencies.ts ${integrationDir}`);
         return 3;
       }
     }
     console.log(`Error: ${e}`);
     return 2;
   }
-}
+};
 
-function main(): number {
+const main = async (): Promise<number> => {
   if (process.argv.length < 3) {
-    console.log("Usage: npx tsx validate-typescript.ts <integration-dir>");
+    console.log("Usage: node validate-typescript.ts <integration-dir>");
     console.log("");
     console.log("Benefits:");
     console.log("  - Fast validation (5-10 seconds vs full build)");
@@ -80,6 +87,6 @@ function main(): number {
   }
 
   return validateTypescript(integrationDir);
-}
+};
 
-process.exit(main());
+process.exit(await main());

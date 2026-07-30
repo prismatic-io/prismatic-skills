@@ -1,10 +1,10 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * install-dependencies.ts
  *
  * PURPOSE: Install npm dependencies for CNI project
  *
- * USAGE: npx tsx install-dependencies.ts <project-directory>
+ * USAGE: node install-dependencies.ts <project-directory>
  *
  * EXIT CODES:
  *   0 - Success: Dependencies installed
@@ -13,11 +13,12 @@
  */
 
 import { existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { confineToProjectRoot } from "../shared/project-directory.js";
+import { exec } from "../../vendor/tinyexec/main.mjs";
+import { confineToProjectRoot } from "../shared/project-directory.ts";
+import { isTimeoutError } from "../lib/subprocess.ts";
 
-function installDependencies(projectDir: string): number {
+const installDependencies = async (projectDir: string): Promise<number> => {
   if (!existsSync(join(projectDir, "package.json"))) {
     console.log(`package.json not found in ${projectDir}`);
     console.log("");
@@ -34,15 +35,14 @@ function installDependencies(projectDir: string): number {
   const startTime = performance.now();
 
   try {
-    const result = spawnSync("npm", ["install"], {
-      cwd: projectDir,
-      encoding: "utf-8",
+    const result = await exec("npm", ["install"], {
       timeout: 300000,
+      nodeOptions: { cwd: projectDir },
     });
 
     const elapsed = (performance.now() - startTime) / 1000;
 
-    if (result.status === 0) {
+    if (result.exitCode === 0) {
       console.log(`Dependencies installed successfully (${elapsed.toFixed(1)}s)`);
       console.log("");
       if (result.stdout) {
@@ -53,7 +53,7 @@ function installDependencies(projectDir: string): number {
       }
       console.log("");
       console.log("Next steps:");
-      console.log(`  npx tsx build-integration.ts ${projectDir}`);
+      console.log(`  node build-integration.ts ${projectDir}`);
       return 0;
     } else {
       console.log(`npm install failed (${elapsed.toFixed(1)}s)`);
@@ -73,7 +73,7 @@ function installDependencies(projectDir: string): number {
       return 2;
     }
   } catch (e) {
-    if (e instanceof Error && e.message.includes("TIMEOUT")) {
+    if (isTimeoutError(e)) {
       console.log("npm install timed out (5 minutes)");
       console.log("");
       console.log("The installation took longer than expected.");
@@ -88,12 +88,12 @@ function installDependencies(projectDir: string): number {
     console.log(`Unexpected error: ${e}`);
     return 2;
   }
-}
+};
 
-function main(): number {
+const main = async (): Promise<number> => {
   if (process.argv.length < 3) {
     console.log("No project directory provided");
-    console.log("Usage: npx tsx install-dependencies.ts <project-directory>");
+    console.log("Usage: node install-dependencies.ts <project-directory>");
     return 1;
   }
 
@@ -106,6 +106,6 @@ function main(): number {
   }
 
   return installDependencies(projectDir);
-}
+};
 
-process.exit(main());
+process.exit(await main());

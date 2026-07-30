@@ -1,11 +1,11 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * deploy-integration.ts
  *
  * PURPOSE: Deploy built integration to the platform, then surface the
  *          test instance details so the agent can guide configuration + testing.
  *
- * USAGE: npx tsx deploy-integration.ts <project-directory>
+ * USAGE: node deploy-integration.ts <project-directory>
  *
  * EXIT CODES:
  *   0 - Success: Integration deployed
@@ -14,26 +14,21 @@
  *   3 - Error: Import failed
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { join, basename } from "node:path";
-import { ensureAuthenticated, graphql, GraphQLError } from "../shared/graphql.js";
-import { runPrismMutation, runPrismQuery } from "../shared/prism-retry.js";
-import { confineToProjectRoot } from "../shared/project-directory.js";
-
-function sleepSync(ms: number): void {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    // busy wait — acceptable for short CLI delays
-  }
-}
+import { setTimeout as sleep } from "node:timers/promises";
+import { ensureAuthenticated, graphql, GraphQLError } from "../shared/graphql.ts";
+import { runPrismMutation, runPrismQuery } from "../shared/prism-retry.ts";
+import { confineToProjectRoot } from "../shared/project-directory.ts";
 
 /**
  * Find the integration ID by name using `prism integrations:list`.
  * More reliable than regex on import stdout.
  */
-function findIntegrationId(projectName: string): string | null {
+const findIntegrationId = async (projectName: string): Promise<string | null> => {
   try {
-    const result = runPrismQuery(
+    const result = await runPrismQuery(
       ["prism", "integrations:list", "--output", "json", "--extended"],
       15,
     );
@@ -55,7 +50,7 @@ function findIntegrationId(projectName: string): string | null {
   } catch {
     return null;
   }
-}
+};
 
 interface TestInstanceInfo {
   instance_id: string;
@@ -68,9 +63,9 @@ interface TestInstanceInfo {
 /**
  * Find the system/test instance and return its config status + designer URL.
  */
-function getTestInstanceInfo(integrationId: string): TestInstanceInfo | null {
+const getTestInstanceInfo = async (integrationId: string): Promise<TestInstanceInfo | null> => {
   try {
-    const data = graphql(`{
+    const data = (await graphql(`{
       instances(integration: "${integrationId}", isSystem: true) {
         nodes {
           id
@@ -94,7 +89,7 @@ function getTestInstanceInfo(integrationId: string): TestInstanceInfo | null {
           }
         }
       }
-    }`) as Record<string, unknown>;
+    }`)) as Record<string, unknown>;
 
     const instances = data?.instances as { nodes: Array<Record<string, unknown>> } | undefined;
     if (!instances?.nodes?.length) return null;
@@ -143,9 +138,9 @@ function getTestInstanceInfo(integrationId: string): TestInstanceInfo | null {
   } catch {
     return null;
   }
-}
+};
 
-function deployIntegration(projectDir: string): number {
+const deployIntegration = async (projectDir: string): Promise<number> => {
   if (!existsSync(projectDir)) {
     console.log(`Project directory not found: ${projectDir}`);
     return 1;
@@ -156,7 +151,7 @@ function deployIntegration(projectDir: string): number {
     console.log("Build artifacts not found");
     console.log("");
     console.log("You need to build the integration first.");
-    console.log(`Run: npx tsx scripts/integrations/build-integration.ts ${projectDir}`);
+    console.log(`Run: node scripts/integrations/build-integration.ts ${projectDir}`);
     return 1;
   }
 
@@ -164,7 +159,7 @@ function deployIntegration(projectDir: string): number {
   console.log("");
 
   try {
-    ensureAuthenticated();
+    await ensureAuthenticated();
   } catch (e) {
     if (e instanceof GraphQLError) {
       console.log(e.message);
@@ -178,7 +173,7 @@ function deployIntegration(projectDir: string): number {
   console.log("");
 
   try {
-    const result = runPrismMutation(cmd, { timeout: 60, cwd: projectDir });
+    const result = await runPrismMutation(cmd, { timeout: 60, cwd: projectDir });
 
     if (result.returncode === 0) {
       console.log("Integration deployed successfully!");
@@ -188,7 +183,7 @@ function deployIntegration(projectDir: string): number {
 
       console.log("");
       console.log("Waiting 5 seconds for integration to be fully available...");
-      sleepSync(5000);
+      await sleep(5000);
 
       // --- Reliable integration ID extraction (B) ---
       const projectName = basename(projectDir) || "unknown";
@@ -196,15 +191,15 @@ function deployIntegration(projectDir: string): number {
 
       if (!integrationId || integrationId === "unknown") {
         // Fallback: search by name
-        integrationId = findIntegrationId(projectName);
+        integrationId = await findIntegrationId(projectName);
       }
 
       if (!integrationId) {
         // Last resort: try package.json name
         try {
-          const pkg = JSON.parse(readFileSync(join(projectDir, "package.json"), "utf-8"));
+          const pkg = JSON.parse(await readFile(join(projectDir, "package.json"), "utf-8"));
           if (pkg.name) {
-            integrationId = findIntegrationId(pkg.name);
+            integrationId = await findIntegrationId(pkg.name);
           }
         } catch {
           /* ignore */
@@ -214,7 +209,7 @@ function deployIntegration(projectDir: string): number {
       // --- Test instance info (A) ---
       let testInstance: TestInstanceInfo | null = null;
       if (integrationId) {
-        testInstance = getTestInstanceInfo(integrationId);
+        testInstance = await getTestInstanceInfo(integrationId);
       }
 
       // --- Emit structured deploy result ---
@@ -279,7 +274,7 @@ function deployIntegration(projectDir: string): number {
 
       console.log("");
       console.log("Troubleshooting:");
-      console.log("  - Ensure you're authenticated: npx tsx scripts/shared/check-prism-access.ts");
+      console.log("  - Ensure you're authenticated: node scripts/shared/check-prism-access.ts");
       console.log("  - Verify build succeeded: check dist/ directory");
       console.log("  - Check for validation errors in your integration definition");
       return 3;
@@ -293,12 +288,12 @@ function deployIntegration(projectDir: string): number {
     console.log(`Unexpected error: ${e}`);
     return 3;
   }
-}
+};
 
-function main(): number {
+const main = async (): Promise<number> => {
   if (process.argv.length < 3) {
     console.log("No project directory provided");
-    console.log("Usage: npx tsx deploy-integration.ts <project-directory>");
+    console.log("Usage: node deploy-integration.ts <project-directory>");
     return 1;
   }
 
@@ -311,6 +306,6 @@ function main(): number {
   }
 
   return deployIntegration(projectDir);
-}
+};
 
-process.exit(main());
+process.exit(await main());

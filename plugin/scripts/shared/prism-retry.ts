@@ -2,7 +2,8 @@
  * prism-retry.ts — Reusable retry mechanism with exponential backoff + jitter.
  */
 
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
+import { exec } from "../../vendor/tinyexec/main.mjs";
 
 const NETWORK_ERROR_PATTERNS = [
   "enotfound",
@@ -28,17 +29,17 @@ const AUTH_ERROR_PATTERNS = [
   "prism login",
 ];
 
-export function isNetworkError(errorText: string): boolean {
+export const isNetworkError = (errorText: string): boolean => {
   const lower = errorText.toLowerCase();
   return NETWORK_ERROR_PATTERNS.some((p) => lower.includes(p));
-}
+};
 
-export function isAuthError(errorText: string): boolean {
+export const isAuthError = (errorText: string): boolean => {
   const lower = errorText.toLowerCase();
   return AUTH_ERROR_PATTERNS.some((p) => lower.includes(p));
-}
+};
 
-function isRetryableError(stderr: string): boolean {
+const isRetryableError = (stderr: string): boolean => {
   const lower = stderr.toLowerCase();
   if (isAuthError(lower)) return false;
   if (lower.includes("404") || lower.includes("not found")) return false;
@@ -47,28 +48,21 @@ function isRetryableError(stderr: string): boolean {
   if (lower.includes("500") || lower.includes("502") || lower.includes("503")) return true;
   if (lower.includes("timeout")) return true;
   return false;
-}
+};
 
-function calculateBackoff(
+const calculateBackoff = (
   attempt: number,
   baseDelay = 1.0,
   maxDelay = 10.0,
   jitter = true,
-): number {
+): number => {
   let delay = baseDelay * 2 ** attempt;
   delay = Math.min(delay, maxDelay);
   if (jitter) {
     delay *= 0.5 + Math.random() * 0.5;
   }
   return delay;
-}
-
-function sleep(seconds: number): void {
-  const end = Date.now() + seconds * 1000;
-  while (Date.now() < end) {
-    // busy wait — spawnSync blocks anyway, this is fine for CLI scripts
-  }
-}
+};
 
 export interface PrismResult {
   returncode: number;
@@ -76,7 +70,7 @@ export interface PrismResult {
   stderr: string;
 }
 
-export function runPrismCommand(
+export const runPrismCommand = async (
   command: string[],
   options: {
     maxAttempts?: number;
@@ -86,7 +80,7 @@ export function runPrismCommand(
     timeout?: number;
     cwd?: string;
   } = {},
-): PrismResult {
+): Promise<PrismResult> => {
   const {
     maxAttempts = 5,
     baseDelay = 1.0,
@@ -96,60 +90,56 @@ export function runPrismCommand(
     cwd,
   } = options;
 
-  let lastResult: SpawnSyncReturns<string> | null = null;
+  let lastResult: PrismResult = { returncode: 1, stdout: "", stderr: "" };
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    lastResult = spawnSync(command[0], command.slice(1), {
-      encoding: "utf-8",
-      timeout: timeout * 1000,
-      stdio: ["pipe", "pipe", "pipe"],
-      cwd,
-    });
-
-    if (lastResult.status === 0) {
-      return {
-        returncode: 0,
-        stdout: lastResult.stdout ?? "",
-        stderr: lastResult.stderr ?? "",
+    try {
+      const result = await exec(command[0], command.slice(1), {
+        timeout: timeout * 1000,
+        nodeOptions: { stdio: ["pipe", "pipe", "pipe"], cwd },
+      });
+      lastResult = {
+        returncode: result.exitCode ?? 1,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      };
+    } catch (error) {
+      lastResult = {
+        returncode: 1,
+        stdout: "",
+        stderr: error instanceof Error ? error.message : String(error),
       };
     }
 
-    const stderr = lastResult.stderr ?? "";
-    if (!isRetryableError(stderr) || attempt === maxAttempts - 1) {
-      return {
-        returncode: lastResult.status ?? 1,
-        stdout: lastResult.stdout ?? "",
-        stderr,
-      };
+    if (lastResult.returncode === 0) return lastResult;
+
+    if (!isRetryableError(lastResult.stderr) || attempt === maxAttempts - 1) {
+      return lastResult;
     }
 
     if (showRetryFeedback) {
       const delay = calculateBackoff(attempt, baseDelay, maxDelay);
       console.error(`Retrying (${attempt + 1}/${maxAttempts}) in ${delay.toFixed(1)}s...`);
-      sleep(delay);
+      await sleep(delay * 1000);
     }
   }
 
-  return {
-    returncode: lastResult?.status ?? 1,
-    stdout: lastResult?.stdout ?? "",
-    stderr: lastResult?.stderr ?? "",
-  };
-}
+  return lastResult;
+};
 
-export function runPrismQuery(command: string[], timeout = 30): PrismResult {
+export const runPrismQuery = (command: string[], timeout = 30): Promise<PrismResult> => {
   return runPrismCommand(command, {
     maxAttempts: 5,
     baseDelay: 1.0,
     maxDelay: 10.0,
     timeout,
   });
-}
+};
 
-export function runPrismMutation(
+export const runPrismMutation = (
   command: string[],
   options: { timeout?: number; cwd?: string } = {},
-): PrismResult {
+): Promise<PrismResult> => {
   const { timeout = 60, cwd } = options;
   return runPrismCommand(command, {
     maxAttempts: 5,
@@ -158,12 +148,12 @@ export function runPrismMutation(
     timeout,
     cwd,
   });
-}
+};
 
-export function runPrismDownload(
+export const runPrismDownload = (
   command: string[],
   options: { timeout?: number; cwd?: string } = {},
-): PrismResult {
+): Promise<PrismResult> => {
   const { timeout = 120, cwd } = options;
   return runPrismCommand(command, {
     maxAttempts: 5,
@@ -172,4 +162,4 @@ export function runPrismDownload(
     timeout,
     cwd,
   });
-}
+};

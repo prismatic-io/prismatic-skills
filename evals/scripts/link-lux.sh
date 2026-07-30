@@ -24,11 +24,4 @@ NM="$EVALS_DIR/node_modules/@prismatic-io"
 mkdir -p "$NM"
 ln -sfn "$LUX_DIR/packages/lux" "$NM/lux"
 
-# A raw symlink to a built lib doesn't carry the executable bit npm would set
-# on a published bin; set it ourselves so `.bin/lux` is directly runnable.
-chmod +x "$LUX_DIR/packages/lux/lib/cli/bin.js"
-
-mkdir -p "$EVALS_DIR/node_modules/.bin"
-ln -sfn "$LUX_DIR/packages/lux/lib/cli/bin.js" "$EVALS_DIR/node_modules/.bin/lux"
-
 echo "linked @prismatic-io/lux from $LUX_DIR into $EVALS_DIR/node_modules/@prismatic-io"

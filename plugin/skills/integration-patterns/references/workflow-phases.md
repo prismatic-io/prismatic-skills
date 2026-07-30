@@ -23,7 +23,7 @@ Legend:
 ### Running Setup
 
 ```bash
-npx tsx scripts/prerequisites.ts <INTEGRATION_NAME> --type integration
+node scripts/prerequisites.ts <INTEGRATION_NAME> --type integration
 ```
 
 The script:
@@ -337,7 +337,7 @@ Error: Scoped config variable with stableKey 'xxx' not found
 1. Ensure the component is published: `npm run publish` in component directory
 2. Create the organization connection using `create-organization-connection.ts`:
    ```bash
-   npx tsx scripts/integrations/create-organization-connection.ts \
+   node scripts/integrations/create-organization-connection.ts \
      --component-key <component> \
      --connection-key <connection> \
      --name "My Connection" \
@@ -373,7 +373,7 @@ If build fails:
 ### Step 4.2: Deploy
 
 ```bash
-npx tsx scripts/integrations/deploy-integration.ts <project-dir>
+node scripts/integrations/deploy-integration.ts <project-dir>
 ```
 
 The deploy script validates the build exists, retries with exponential backoff (5 attempts, 2-20s), and waits for the integration to stabilize.
@@ -475,7 +475,7 @@ The agent MUST create `test-data/` directory with trigger metadata and payload f
 ### Create Package (if requested)
 
 ```bash
-npx tsx scripts/integrations/package-for-download.ts <project-dir> [version]
+node scripts/integrations/package-for-download.ts <project-dir> [version]
 ```
 
 The script handles smart exclusions (.env, node_modules, .git), zip-with-tar-fallback, versioned filenames, and size formatting.

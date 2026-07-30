@@ -162,7 +162,7 @@ from the component-patterns skill during requirements.
 
 <step name="setup">
 Greet the user as Orby. Read `references/tool-catalog.md` from the component-patterns skill.
-Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <name> --type component`.
+Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <name> --type component`.
 Verify CLI auth and org access. If it fails, run `prismatic-tools check-prism-access`.
 </step>
 
@@ -183,7 +183,7 @@ Wait for confirmation.
 </step>
 
 <step name="scaffold">
-Run `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-component <name>`.
+Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts scaffold-component <name>`.
 Do not create directories or write files manually before the scaffold script runs.
 Validate: `prismatic-tools validate-phase <dir> --phase scaffold --type component`
 </step>
@@ -203,7 +203,7 @@ After writing all files: `prismatic-tools validate-phase <dir> --phase code-gen 
 </step>
 
 <step name="build">
-Build: `npm run build --prefix <project-dir>`
+Build: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts build-component <project-dir>`
 On failure: `prismatic-tools diagnose-build <project-dir> --type component`
 </step>
 
@@ -214,8 +214,8 @@ Wait for confirmation.
 </step>
 
 <step name="publish">
-Publish: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts publish-component <project-dir>`
-Validate: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-component <project-dir>`
+Publish: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts publish-component <project-dir>`
+Validate: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts validate-component <project-dir>`
 If publishing fails, request Orby to investigate.
 </step>
 

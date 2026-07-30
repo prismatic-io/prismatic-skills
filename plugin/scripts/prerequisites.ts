@@ -1,12 +1,12 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * prerequisites.ts
  *
  * Unified Phase 1 setup - Verify environment for any Prismatic workflow.
  *
  * USAGE:
- *   npx tsx prerequisites.ts <name> --type component
- *   npx tsx prerequisites.ts <name> --type integration
+ *   node prerequisites.ts <name> --type component
+ *   node prerequisites.ts <name> --type integration
  *
  * EXIT CODES:
  *   0 - Success
@@ -14,11 +14,12 @@
  *   2 - Error: Not authenticated
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { confineToProjectRoot, ensureSessionDirectory } from "./shared/project-directory.js";
-import { timedStep, printTimingSummary } from "./shared/timing.js";
+import { exec } from "../vendor/tinyexec/main.mjs";
+import { confineToProjectRoot, ensureSessionDirectory } from "./shared/project-directory.ts";
+import { printTimingSummary, timedStepAsync } from "./shared/timing.ts";
 
 const SESSION_TYPE_MAP: Record<string, string> = {
   component: "components",
@@ -37,14 +38,11 @@ function validateName(name: string): boolean {
   return /^[a-z][a-z0-9-]*[a-z0-9]$|^[a-z]$/.test(name);
 }
 
-function checkPrismInstalled(): string | null {
-  return timedStep("Check Prism CLI", () => {
+const checkPrismInstalled = async (): Promise<string | null> =>
+  timedStepAsync("Check Prism CLI", async () => {
     try {
-      const result = spawnSync("prism", ["--version"], {
-        encoding: "utf-8",
-        timeout: 10000,
-      });
-      if (result.status === 0) {
+      const result = await exec("prism", ["--version"], { timeout: 10000 });
+      if (result.exitCode === 0) {
         const version = result.stdout.trim();
         console.log(`Prism CLI installed: ${version}`);
         return version;
@@ -54,16 +52,12 @@ function checkPrismInstalled(): string | null {
     }
     return null;
   });
-}
 
-function checkLoggedIn(): Record<string, string> | null {
-  return timedStep("Verify Authentication", () => {
+const checkLoggedIn = async (): Promise<Record<string, string> | null> =>
+  timedStepAsync("Verify Authentication", async () => {
     try {
-      const result = spawnSync("prism", ["me"], {
-        encoding: "utf-8",
-        timeout: 30000,
-      });
-      if (result.status === 0) {
+      const result = await exec("prism", ["me"], { timeout: 30000 });
+      if (result.exitCode === 0) {
         const userInfo: Record<string, string> = {};
         for (const line of result.stdout.trim().split("\n")) {
           const colonIdx = line.indexOf(":");
@@ -86,9 +80,8 @@ function checkLoggedIn(): Record<string, string> | null {
       return null;
     }
   });
-}
 
-function main(): number {
+const main = async (): Promise<number> => {
   // Parse args manually (matches Python argparse contract)
   const args = process.argv.slice(2);
   let name = "";
@@ -109,7 +102,7 @@ function main(): number {
 
   if (!name || !workflowType || !["component", "integration"].includes(workflowType)) {
     console.error(
-      "Usage: npx tsx prerequisites.ts <name> --type <component|integration> [--existing <dir>]",
+      "Usage: node prerequisites.ts <name> --type <component|integration> [--existing <dir>]",
     );
     return 1;
   }
@@ -148,7 +141,7 @@ function main(): number {
     }
 
     try {
-      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+      const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
       const deps = { ...pkg.dependencies, ...pkg.devDependencies };
       if (!("@prismatic-io/spectral" in deps)) {
         console.log(`\nNot a Prismatic project: @prismatic-io/spectral not in dependencies`);
@@ -172,7 +165,7 @@ function main(): number {
 
   // Check Prism CLI
   printSection("Checking Prism CLI");
-  const version = checkPrismInstalled();
+  const version = await checkPrismInstalled();
 
   if (!version) {
     // Can't prompt interactively in agent context — just fail
@@ -182,7 +175,7 @@ function main(): number {
 
   if (allPassed || version) {
     printSection("Verifying Authentication");
-    userInfo = checkLoggedIn();
+    userInfo = await checkLoggedIn();
     if (!userInfo) {
       console.log("\nNot logged in to Prismatic. Please run: prism login");
       allPassed = false;
@@ -209,7 +202,7 @@ function main(): number {
   if (allPassed && sessionDir) {
     const requirementsFile = `${sessionDir}/requirements.json`;
     if (!existsSync(requirementsFile)) {
-      writeFileSync(requirementsFile, JSON.stringify({}, null, 2));
+      await writeFile(requirementsFile, JSON.stringify({}, null, 2));
     }
     const output: Record<string, unknown> = {
       status: "ready",
@@ -248,6 +241,6 @@ function main(): number {
   }
 
   return 0;
-}
+};
 
-process.exit(main());
+process.exit(await main());

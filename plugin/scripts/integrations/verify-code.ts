@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * verify-code.ts
  *
@@ -17,7 +17,7 @@
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { getSessionDirectory } from "../shared/project-directory.js";
+import { getSessionDirectory } from "../shared/project-directory.ts";
 
 // ---------------------------------------------------------------------------
 // Types

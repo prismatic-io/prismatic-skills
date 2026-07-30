@@ -22,7 +22,7 @@ prismatic-tools code-plan --session <name> --type component
 
 ## Explicit scripts (require confirmation or visibility)
 
-Invoke with: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts <script-name> [args...]`
+Invoke with: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts <script-name> [args...]`
 
 ```
 # Setup & requirements:

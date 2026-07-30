@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * schema-to-answers.ts
  *
@@ -25,8 +25,8 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadSpec } from "../shared/load-spec.js";
-import { getPluginRoot, ensureSessionDirectory } from "../shared/project-directory.js";
+import { loadSpec } from "../shared/load-spec.ts";
+import { getPluginRoot, ensureSessionDirectory } from "../shared/project-directory.ts";
 
 /** Escape a string for safe use in XML attributes and text content. */
 function escapeXml(s: string): string {

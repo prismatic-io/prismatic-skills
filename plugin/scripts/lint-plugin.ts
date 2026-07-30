@@ -1,8 +1,8 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * lint-plugin.ts — Static manifest-integrity linter for the Prismatic plugin.
  *
- * Run: npx tsx plugin/scripts/lint-plugin.ts
+ * Run: node plugin/scripts/lint-plugin.ts
  *
  * Validates cross-references otherwise only caught at runtime (or not at all). Exits
  * non-zero, printing `file:line: message` per defect, when:

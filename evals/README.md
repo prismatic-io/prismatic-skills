@@ -8,6 +8,9 @@ Claude Code plugin. Cases are grouped by skill, agent, or command under `cases/`
 Build a local Lux checkout:
 
 ```bash
+cd /path/to/prismatic-skills
+bun install --frozen-lockfile
+
 cd /path/to/lux
 bun install
 bun run build
@@ -41,11 +44,19 @@ Tags:
 
 - `ci` — a small, fast, high-signal subset.
 - `hitl` — persona-driven cases; grade the interaction, not just the files.
-- `build-strict` — type-check generated code with `tsc` (`bunx typescript`, needs network).
+- `build-strict` — type-check generated code with the repository's lockfile-pinned `tsc`.
 
-Runs use the local Claude subscription and are pinned to Claude Haiku 4.5 at low
-effort for both the subject and rubric/persona calls. Results are gitignored under
-`.lux-runs/`.
+Runs use the local Claude subscription. Subject defaults live in
+`cases/_support.ts`; rubric/persona defaults live in `lux.config.ts`. Both currently
+use Claude Sonnet 5 at medium effort. Results are gitignored under `.lux-runs/`.
+
+Every shared Claude Code run uses Lux workspace isolation. The subject works from a
+disposable copy of its staged fixtures; Claude memory, `CLAUDE.md` discovery, hooks,
+prompt history, session persistence, unrelated home-directory state, and prior
+`.lux-runs` are unavailable. Only collected source artifacts are retained, so
+dependency and build trees are discarded. Live network access remains enabled for
+current documentation and package registries; the suite does not use documentation
+snapshots yet.
 
 **Interrupts do not fire against this driver:** a headless `claude --print` session
 is never offered the `AskUserQuestion` tool, so the agent asks in prose and no `ask`

@@ -31,7 +31,7 @@ Migrate an integration from $ARGUMENTS to a Prismatic Code Native Integration.
   </step>
 
   <step name="setup">
-    Run: `npx tsx ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <session-name> --type integration`
+    Run: `node ${CLAUDE_PLUGIN_ROOT}/scripts/run.ts prerequisites <session-name> --type integration`
     This creates the session directory.
   </step>
 

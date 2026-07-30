@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * locate-project.ts
  *
@@ -7,10 +7,10 @@
  * before making changes.
  *
  * USAGE:
- *   npx tsx locate-project.ts <path-or-name>
- *   npx tsx locate-project.ts .                    # search current directory
- *   npx tsx locate-project.ts my-integration       # search by name
- *   npx tsx locate-project.ts /absolute/path       # use exact path
+ *   node locate-project.ts <path-or-name>
+ *   node locate-project.ts .                    # search current directory
+ *   node locate-project.ts my-integration       # search by name
+ *   node locate-project.ts /absolute/path       # use exact path
  *
  * OUTPUT (JSON):
  *   {
@@ -215,7 +215,7 @@ function main(): number {
   const args = process.argv.slice(2);
 
   if (args.length < 1) {
-    console.error("Usage: npx tsx locate-project.ts <path-or-name>");
+    console.error("Usage: node locate-project.ts <path-or-name>");
     return 1;
   }
 

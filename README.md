@@ -4,9 +4,9 @@ Claude Code plugin for building and managing [Prismatic](https://www.prismatic.i
 
 ## Prerequisites
 
-- **Prism CLI**: Install via `npm install -g @prismatic-io/prism` (also provides the bundled MCP server)
+- **Prism CLI**: Install via `npm install -g @prismatic-io/prism` (the MCP server is provisioned automatically from the plugin config)
 - **Prismatic Account**: Active account with integration/component permissions
-- **Node.js 18+**: Required for workflow scripts (run via `tsx`)
+- **Node.js 22.18+**: Required for native TypeScript workflow scripts
 - **Claude Code**: CLI or extension with plugin support
 
 ## Installation
@@ -167,7 +167,7 @@ The plugin includes eight knowledge bases that agents draw on:
 
 ## Scripts
 
-Builder agents are driven by TypeScript scripts in `scripts/` that handle every phase of the workflow. Agents call these scripts via `npx tsx` rather than performing platform operations directly.
+Builder agents are driven by TypeScript scripts in `scripts/` that handle every phase of the workflow. Agents call these scripts with Node.js 22.18+'s built-in TypeScript support rather than performing platform operations directly.
 
 **Workflow scripts** (root level):
 

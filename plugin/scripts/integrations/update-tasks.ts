@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * update-tasks.ts
  *
@@ -50,8 +50,8 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { loadSpec } from "../shared/load-spec.js";
-import { getSessionDirectory, getPluginRoot } from "../shared/project-directory.js";
+import { loadSpec } from "../shared/load-spec.ts";
+import { getSessionDirectory, getPluginRoot } from "../shared/project-directory.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -873,8 +873,8 @@ function main(): number {
 
   if (!sessionName && positional.length < 2) {
     console.error(
-      "Usage: npx tsx sync-task-list.ts <spec.yaml> <answers.json> [--mode build|modify] [--extracted-state <file>] [--scope <scopes>]\n" +
-        "       npx tsx sync-task-list.ts --session <name> [--type component|integration] --actionable [--mode build|modify]",
+      "Usage: node update-tasks.ts <spec.yaml> <answers.json> [--mode build|modify] [--extracted-state <file>] [--scope <scopes>]\n" +
+        "       node update-tasks.ts --session <name> [--type component|integration] --actionable [--mode build|modify]",
     );
     return 2;
   }

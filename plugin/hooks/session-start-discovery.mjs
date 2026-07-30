@@ -62,7 +62,7 @@ ${syntheticLines}
 <explicit-tools>
 ## Explicit Tools (require confirmation)
 
-These must be invoked via \`npx tsx \${CLAUDE_PLUGIN_ROOT}/scripts/run.ts <name> [args]\`.
+These must be invoked via \`node \${CLAUDE_PLUGIN_ROOT}/scripts/run.ts <name> [args]\`.
 Do NOT use the \`prismatic-tools\` prefix for these — they need user confirmation.
 
 ${explicitLines}

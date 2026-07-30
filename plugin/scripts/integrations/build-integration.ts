@@ -1,10 +1,10 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * build-integration.ts
  *
  * PURPOSE: Compile TypeScript CNI code to JavaScript
  *
- * USAGE: npx tsx build-integration.ts <project-directory>
+ * USAGE: node build-integration.ts <project-directory>
  *
  * EXIT CODES:
  *   0 - Success: Build completed
@@ -13,11 +13,12 @@
  */
 
 import { existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { confineToProjectRoot } from "../shared/project-directory.js";
+import { exec } from "../../vendor/tinyexec/main.mjs";
+import { confineToProjectRoot } from "../shared/project-directory.ts";
+import { isTimeoutError } from "../lib/subprocess.ts";
 
-function parseTypescriptErrors(stderr: string): string {
+const parseTypescriptErrors = (stderr: string): string => {
   if (!stderr) return "";
 
   const lines = stderr.split("\n");
@@ -41,9 +42,9 @@ function parseTypescriptErrors(stderr: string): string {
   }
 
   return errors.length > 0 ? errors.join("\n\n") : stderr;
-}
+};
 
-function buildIntegration(projectDir: string): number {
+const buildIntegration = async (projectDir: string): Promise<number> => {
   if (!existsSync(join(projectDir, "package.json"))) {
     console.log(`package.json not found in ${projectDir}`);
     console.log("");
@@ -53,7 +54,7 @@ function buildIntegration(projectDir: string): number {
 
   if (!existsSync(join(projectDir, "node_modules"))) {
     console.log("Dependencies not installed");
-    console.log(`Run: npx tsx scripts/shared/install-dependencies.ts ${projectDir}`);
+    console.log(`Run: node scripts/integrations/install-dependencies.ts ${projectDir}`);
     return 1;
   }
 
@@ -69,13 +70,12 @@ function buildIntegration(projectDir: string): number {
   console.log("Building...");
 
   try {
-    const result = spawnSync("npm", ["run", "build"], {
-      cwd: projectDir,
-      encoding: "utf-8",
-      timeout: 120000,
+    const result = await exec("npm", ["run", "build"], {
+      timeout: 120_000,
+      nodeOptions: { cwd: projectDir },
     });
 
-    if (result.status === 0) {
+    if (result.exitCode === 0) {
       const distPath = join(projectDir, "dist");
       console.log(`Build complete: ${distPath}/`);
       return 0;
@@ -87,11 +87,11 @@ function buildIntegration(projectDir: string): number {
       } else if (result.stdout) {
         console.log(result.stdout);
       }
-      console.log(`Validate: npx tsx scripts/shared/validate-typescript.ts ${projectDir}`);
+      console.log(`Validate: node scripts/integrations/validate-typescript.ts ${projectDir}`);
       return 2;
     }
   } catch (e: unknown) {
-    if (e instanceof Error && e.message.includes("TIMEOUT")) {
+    if (isTimeoutError(e)) {
       console.log("Build timed out (2 minutes)");
       console.log("");
       console.log("The build took longer than expected.");
@@ -100,12 +100,12 @@ function buildIntegration(projectDir: string): number {
     console.log(`Unexpected error: ${e}`);
     return 2;
   }
-}
+};
 
-function main(): number {
+const main = async (): Promise<number> => {
   if (process.argv.length < 3) {
     console.log("No project directory provided");
-    console.log("Usage: npx tsx build-integration.ts <project-directory>");
+    console.log("Usage: node build-integration.ts <project-directory>");
     return 1;
   }
 
@@ -118,6 +118,6 @@ function main(): number {
   }
 
   return buildIntegration(projectDir);
-}
+};
 
-process.exit(main());
+process.exit(await main());

@@ -2,7 +2,7 @@ import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
 import { claudeCode, PLUGIN_DIR, pluginVersion, scripted } from "../_support.ts";
 
 // Read from the manifest at load time so the case tracks version bumps.
-const VERSION = pluginVersion();
+const VERSION = await pluginVersion();
 
 // Pins that /version dispatches the real `run.ts version-check` script and reports the
 // version plugin.json pins. That version isn't in the prompt, so the regex isn't an

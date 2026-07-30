@@ -1,10 +1,10 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * check-prism-access.ts
  *
  * PURPOSE: Test network connectivity and authentication to Prismatic API
  *
- * USAGE: npx tsx check-prism-access.ts
+ * USAGE: node check-prism-access.ts
  *
  * EXIT CODES:
  *   0 - Success: Prism CLI is accessible and authenticated
@@ -13,7 +13,7 @@
  *   3 - Other error
  */
 
-import { isAuthError, isNetworkError, runPrismQuery } from "./prism-retry.js";
+import { isAuthError, isNetworkError, runPrismQuery } from "./prism-retry.ts";
 
 function printNetworkGuidance(): void {
   console.log("To fix network access issues:");
@@ -59,12 +59,12 @@ function printAuthGuidance(): void {
   console.log("For more details: https://prismatic.io/docs/cli/");
 }
 
-function checkPrismAccess(): number {
+const checkPrismAccess = async (): Promise<number> => {
   console.log("Testing Prism CLI connectivity...");
   console.log("");
 
   try {
-    const result = runPrismQuery(["prism", "me"], 30);
+    const result = await runPrismQuery(["prism", "me"], 30);
 
     if (result.returncode === 0) {
       console.log("Prism CLI is accessible and authenticated");
@@ -116,6 +116,6 @@ function checkPrismAccess(): number {
     console.log(`Unexpected error: ${e}`);
     return 3;
   }
-}
+};
 
-process.exit(checkPrismAccess());
+process.exit(await checkPrismAccess());

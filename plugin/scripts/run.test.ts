@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { readdir } from "node:fs/promises";
 import { basename, join } from "node:path";
+import { exec } from "../vendor/tinyexec/main.mjs";
 
 /**
  * run.ts is the dispatcher every synthetic tool goes through. Two things must hold: it
@@ -18,9 +18,9 @@ const SEARCH_DIRS = ["", "integrations", "shared", "components", "migration"].ma
 );
 
 describe("run.ts dispatcher", () => {
-  test("--list enumerates real scripts and omits colocated tests", () => {
-    const r = spawnSync("npx", ["tsx", RUN, "--list"], { encoding: "utf-8" });
-    expect(r.status).toBe(0);
+  test("--list enumerates real scripts and omits colocated tests", async () => {
+    const r = await exec("node", [RUN, "--list"]);
+    expect(r.exitCode).toBe(0);
     const listed = r.stdout;
     for (const name of [
       "detect-platform",
@@ -35,21 +35,21 @@ describe("run.ts dispatcher", () => {
     expect(listed).not.toContain(".test");
   });
 
-  test("an unknown script name exits non-zero with a suggestion", () => {
+  test("an unknown script name exits non-zero with a suggestion", async () => {
     // "detect" is not a script, but fuzzy-matches detect-platform.
-    const r = spawnSync("npx", ["tsx", RUN, "detect"], { encoding: "utf-8" });
-    expect(r.status).not.toBe(0);
+    const r = await exec("node", [RUN, "detect"]);
+    expect(r.exitCode).not.toBe(0);
     expect(r.stderr).toContain("Unknown script");
     expect(r.stderr).toContain("detect-platform");
   });
 
-  test("no basename collides across the dispatcher's search dirs", () => {
+  test("no basename collides across the dispatcher's search dirs", async () => {
     const seen = new Map<string, string>();
     const collisions: string[] = [];
     for (const dir of SEARCH_DIRS) {
       let files: string[];
       try {
-        files = readdirSync(dir);
+        files = await readdir(dir);
       } catch {
         continue;
       }
