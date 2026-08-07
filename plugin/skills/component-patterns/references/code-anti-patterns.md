@@ -199,10 +199,10 @@ const listItems = action({
 
 ## Polling Triggers
 
-<anti-pattern name="component-polling-trigger">
+<anti-pattern name="component-polling-with-plain-trigger">
 <wrong>
 ```typescript
-const pollingTrigger = trigger({
+const pollForChanges = trigger({
   display: { label: "Poll for Changes", description: "Check for new items periodically" },
   inputs: { connection: connectionInput },
   perform: async (context, payload) => {
@@ -213,20 +213,19 @@ const pollingTrigger = trigger({
 });
 ```
 </wrong>
-<why>Polling is an integration-level concern, not a component trigger. Components provide the actions (e.g., "List Items Since Timestamp") that the integration's polling flow calls. The integration handles schedule, state, and cursor tracking via `context.polling`.</why>
+<why>A component polling trigger must use the `pollingTrigger()` factory, not `trigger()`. Only `pollingTrigger()` provides `context.polling.getState()/setState()` for the cursor a poll needs to track across runs, and it sets `scheduleSupport` implicitly. A plain `trigger()` has no polling state, so `lastTimestamp` above has nowhere to come from. See [trigger-patterns.md](trigger-patterns.md) → "Polling Triggers". (This is for reusable components consumed by low-code/EWB — a CNI polls differently; see "Where does polling live?" in that file.)</why>
 <right>
 ```typescript
-// Component provides the action
-const listItemsSince = action({
-  display: { label: "List Items Since", description: "List items created after a timestamp" },
-  inputs: {
-    connection: connectionInput,
-    since: input({ label: "Since", type: "string", required: true, clean: util.types.toString }),
-  },
-  perform: async (context, params) => {
-    const client = new MyClient({ connection: params.connection });
-    const items = await client.items.listSince(params.since);
-    return { data: items };
+const pollForChanges = pollingTrigger({
+  display: { label: "Poll for Changes", description: "Check for new items periodically" },
+  inputs: { connection: connectionInput },
+  perform: async (context, payload, { connection }) => {
+    const client = createClient(connection, context.debug.enabled);
+    const state = context.polling.getState();
+    const since = (state.lastChecked as string) || new Date(0).toISOString();
+    const items = await client.items.listSince(since);
+    context.polling.setState({ lastChecked: new Date().toISOString() });
+    return { payload: { ...payload, body: { data: items } }, polledNoChanges: items.length === 0 };
   },
 });
 ```

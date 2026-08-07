@@ -24,6 +24,10 @@ The requirements spec uses a split-file architecture. Load progressively — not
   <domain file="integration/queue-config.yaml" group="queue_config">
     <skip-when>Defaults to concurrency 1. Load for FIFO, throttling, or singleton.</skip-when>
   </domain>
+  <domain file="integration/batch-config.yaml" group="batch_config">
+    <skip-when answer="trigger_type" equals="ai_agent">Batching does not apply to ai_agent flows.</skip-when>
+    <skip-when>Load on any batching signal, even without the word "batch": an initial or historical load of records, large or unbounded volume, per-record independence, or one unit of downstream work per record. Skip when none are present — the flow processes its whole payload in one execution.</skip-when>
+  </domain>
   <domain file="integration/lifecycle-hooks.yaml" group="lifecycle_hooks">
     <skip-when>Load if webhook auto-registration or resource setup is needed.</skip-when>
   </domain>

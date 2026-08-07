@@ -300,3 +300,97 @@ flow({
 ```
 </right>
 </anti-pattern>
+
+<anti-pattern name="batchconfig-without-batched-trigger">
+<wrong>
+```typescript
+flow({
+  name: "Sync Orders",
+  batchConfig: { batchSize: 10, concurrentBatchLimit: 5 },
+  onExecution: async (context, params) => { ... },
+})
+```
+</wrong>
+<why>`batchConfig` and the batched `trigger` are a coupled pair. The trigger returns the `{ items, paginationState? }` the platform chunks into batches, so `batchConfig` without it has nothing to batch — the flow fails to typecheck and to build.</why>
+<right>
+```typescript
+flow({
+  name: "Sync Orders",
+  schedule: { value: "*/15 * * * *" },
+  batchConfig: { batchSize: 10, concurrentBatchLimit: 5 },
+  trigger: batchFlowTrigger<Order, { cursor: string }>({
+    onTrigger: async (context, payload) => {
+      const page = await fetchOrders(payload.paginationState?.cursor);
+      return { items: page.orders, paginationState: page.nextCursor ? { cursor: page.nextCursor } : null };
+    },
+  }),
+  onExecution: async (context, params) => { ... },
+})
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="flat-ontrigger-on-batched-flow">
+<wrong>
+```typescript
+flow({
+  batchConfig: { batchSize: 10, concurrentBatchLimit: 5 },
+  trigger: batchFlowTrigger({ onTrigger: async () => ({ items: [] }) }),
+  onTrigger: async (context, payload) => ({ payload }), // ❌
+  onExecution: async () => ({ data: null }),
+})
+```
+</wrong>
+<why>On a batched flow the fire lives inside `trigger`, so the flat `onTrigger`/`onDeployTrigger` are typed `never`. Fetch logic belongs in the batched trigger's `onTrigger`, and a deploy-time backfill in its `onDeploy`.</why>
+<right>
+```typescript
+flow({
+  batchConfig: { batchSize: 10, concurrentBatchLimit: 5 },
+  trigger: batchFlowTrigger<Order>({
+    onTrigger: async (context, payload) => ({ items: await fetchOrders() }),
+  }),
+  onExecution: async () => ({ data: null }),
+})
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="unbounded-batch-concurrency">
+<wrong>
+```typescript
+batchConfig: { batchSize: 1 }
+```
+</wrong>
+<why>Omitted, a fire's batches dispatch with unlimited parallelism — a large fetch such as an initial sync produces hundreds of batches that take the tenant's execution slots from its other flows. Bound it to what the destination absorbs.</why>
+<right>
+```typescript
+batchConfig: { batchSize: 1, concurrentBatchLimit: 5 }
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="hand-rolled-chunking-in-onexecution">
+<wrong>
+```typescript
+onExecution: async (context, params) => {
+  const records = params.onTrigger.results.body.data as Order[];
+  for (let i = 0; i < records.length; i += 50) {
+    await bulkInsert(records.slice(i, i + 50)); // ❌ one execution does all the work
+  }
+  return { data: null };
+}
+```
+</wrong>
+<why>Chunking inside `onExecution` keeps every chunk in one execution: one timeout, one retry, and a failure that loses the whole run's progress. `batchConfig` gives each chunk its own execution with independent retries and isolated failures.</why>
+<right>
+```typescript
+batchConfig: { batchSize: 50, concurrentBatchLimit: 5 },
+trigger: batchFlowTrigger<Order, { cursor: string }>({ onTrigger: fetchPage }),
+onExecution: async (context, params) => {
+  const records = params.onTrigger.results.body.data as Order[]; // one 50-record slice
+  await bulkInsert(records);
+  return { data: { count: records.length } };
+}
+```
+</right>
+</anti-pattern>
