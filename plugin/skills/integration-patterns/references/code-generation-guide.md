@@ -325,8 +325,18 @@ The `src/flows.ts` file contains the actual integration logic - what happens whe
   - Import the trigger from the manifest: e.g., `import { shopifyEventTopicWebhookGql } from "./manifests/shopify/triggers/eventTopicWebhookGql"`
   - Pattern: `onTrigger: shopifyEventTopicWebhookGql({ input: { configVar: "..." } })`
 - **Manual flows** → Simple `onExecution` handler (no schedule, no onTrigger)
+- **Batched flows** (CNI-only) → `batchConfig` + `trigger: batchFlowTrigger(...)` + `onExecution`
+  - Use when one trigger fetch yields many records that should each (or in small groups) be a separate execution — independent retries, isolated failures, parallelism
+  - The trigger fire returns `{ items, paginationState? }`; the platform chunks `items` by `batchConfig.batchSize` and dispatches each batch. `onExecution` sees `params.onTrigger.results.body.data` as `TItem | TItem[]`
+  - **Always set `concurrentBatchLimit`** — omitting it means unlimited concurrency, and one large fire can consume the tenant's execution slots and starve other flows/instances. It's a tenant-safety guardrail; bound it to the destination's tolerance
+  - Return `paginationState` to page through a fetch WITHIN one fire (re-invoked with it on `payload.paginationState`); `null`/omit stops. It is not a cross-run watermark — incremental "only new since last run" filtering is the flow's own query/state concern. Pagination applies to ANY batched flow, not only scheduled/polling (a webhook flow's `onDeploy` initial sync paginates too)
+  - Pair with a `schedule` (periodic pull) or a webhook (split an incoming array). Requires spectral 10.22.0+
+  - **Initial / historical sync**: usually not a separate mechanism. If the initial load and the ongoing poll read the **same source**, the first invocation runs the big sync (paginate + batch) and later runs are smaller — no `onDeploy`. If they read **different sources** (e.g. initial reads a users table; poll reads a change table and resolves users), or it's a **webhook** flow (no poll to backfill from), the backfill needs its own fetch → `onDeploy`. When ambiguous, **ask**.
+  - See [answer-to-code-cookbook.md](answer-to-code-cookbook.md) → "batch_config" and [cni-examples/batch-flows.md](cni-examples/batch-flows.md)
 
-> **⚠️ IMPORTANT:** `pollingTrigger` (the Spectral helper) is NOT supported in CNI. If a component uses `pollingTrigger`, use a webhook trigger if the API supports it (preferred), or a scheduled trigger with polling logic in `onExecution`.
+> **⚠️ IMPORTANT:** `pollingTrigger` (the Spectral helper) is NOT supported in CNI. A CNI flow polls via a scheduled trigger with polling logic in `onExecution` (`context.polling` state), or a **batched flow** (`batchConfig` + `batchFlowTrigger`) when a fetch fans records out into independent executions (preferred over hand-rolled chunking); use a webhook trigger instead when the API supports it. If a component exposes a `pollingTrigger()`, do NOT reference it from the CNI flow. Full component-vs-CNI decision: [component-patterns → trigger-patterns.md "Where does polling live?"](../../component-patterns/references/trigger-patterns.md#where-does-polling-live).
+
+> **⚠️ CRITICAL (batched flows):** `batchConfig` and the batched `trigger` are a coupled pair. `batchConfig` present **requires** a `trigger` built with `batchFlowTrigger`, and the flat `onTrigger`/`onDeployTrigger` are **forbidden** — the fire lives inside the trigger. `batchSize` must be an integer ≥ 1.
 
 ### Trigger Decision Tree
 
@@ -336,6 +346,7 @@ Use this to determine the correct trigger pattern for each flow:
 2. **Scheduled** (runs on cron) → Add `schedule: { value: "cron expression" }` or `schedule: { configVar: "Schedule Config Var" }`. No `onTrigger`.
 3. **Component trigger** (e.g., Shopify managed webhooks, HMAC verification) → Add `onTrigger` with component trigger reference imported from manifest. No custom webhook parsing needed.
 4. **Component trigger + schedule** (polling via component) → Add BOTH `onTrigger` with component reference AND `schedule` property.
+5. **Batched** (one fetch → many per-batch executions) → Add `batchConfig: { batchSize, concurrentBatchLimit }` AND `trigger: batchFlowTrigger<TItem, TPaginationState>({ onTrigger, onDeploy? })`. **Always set `concurrentBatchLimit`** (unbounded concurrency can starve the tenant). Add a `schedule` to fire the pull (or use a webhook to split an array). Paginate via `paginationState` when the fetch has multiple pages — including a webhook flow's `onDeploy` initial sync. Do NOT add a flat `onTrigger` — it is forbidden on batched flows.
 
 ### Flow Definition Structure
 

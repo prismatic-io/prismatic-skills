@@ -118,6 +118,30 @@ Load this reference at the start of the code generation phase.
   </rule>
 </polling-rules>
 
+<batched-flow-rules>
+  <rule name="batch-coupled-pair">
+    <always>`batchConfig` and a `trigger` built with `batchFlowTrigger` appear together — one without the other fails to build</always>
+    <forbidden>A flat `onTrigger`/`onDeployTrigger` on a batched flow — the fire lives inside `trigger`</forbidden>
+  </rule>
+  <rule name="batch-sizing">
+    <always>`batchSize`: integer >= 1 (1 = one execution per item; > 1 = a slice per execution)</always>
+    <always>Set `concurrentBatchLimit` (integer >= 1) every time — omitted means unlimited parallelism</always>
+    <why>An unbounded fire can take the tenant's concurrent execution slots from other flows and instances</why>
+  </rule>
+  <rule name="batch-pagination">
+    <always>Return `paginationState` to fetch the next page; `null`/omit ends the fire. Read the cursor from `payload.paginationState`</always>
+    <forbidden>Looping the source's pages inside one fire — return the cursor and let the platform re-invoke</forbidden>
+    <always>Treat it as intra-fire paging, NOT a cross-run watermark — "only new since last run" is the flow's own query or state</always>
+  </rule>
+  <rule name="batch-ondeploy">
+    <always>Add `onDeploy` only when the backfill reads a different source/query than steady state, or for a webhook flow (no fetch of its own to backfill from)</always>
+    <forbidden>Adding `onDeploy` for an initial sync that reads the SAME source as the ongoing fetch — the first fire already does it with an empty cursor</forbidden>
+  </rule>
+  <rule name="batch-execution-payload">
+    <always>`onExecution` reads `params.onTrigger.results.body.data` — a single `TItem` when `batchSize` is 1, `TItem[]` when > 1</always>
+  </rule>
+</batched-flow-rules>
+
 <registry-rules>
   <rule name="manifest-imports">
     <always>Import: `import slack from "./manifests/slack"` (component key as variable name)</always>

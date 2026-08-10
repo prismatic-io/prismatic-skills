@@ -76,7 +76,10 @@ queue_singleton_executions:
     For scheduled flows, if an execution takes longer than the schedule interval (e.g., a
     5-minute sync that takes 7 minutes), the next scheduled run would normally start while
     the first is still running. Singleton mode prevents this overlap — the next run waits
-    until the current one finishes. Essential for flows that modify shared state.
+    until the current one finishes. Essential for flows that modify shared state. Recommend it
+    (not forced) for a long-running poll — especially a BATCHED polling flow whose first
+    invocation runs a big initial sync (many paginated batches): without it, the next scheduled
+    poll can fire before that large run drains and the two overlap. Mutually exclusive with FIFO.
   implications:
     "Yes": >
       If a run is still executing when the next trigger fires, the new run queues until the

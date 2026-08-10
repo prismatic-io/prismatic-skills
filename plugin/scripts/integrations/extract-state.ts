@@ -79,6 +79,9 @@ interface FlowState {
   queue_concurrency_limit?: string;
   queue_singleton_executions?: string;
   queue_dedupe_field?: string;
+  batch_enabled?: string;
+  batch_size?: string;
+  batch_concurrent_limit?: string;
   endpoint_security?: string;
   organization_api_keys?: string;
   schedule_value?: string;
@@ -390,6 +393,20 @@ function extractFlowProperties(content: string): FlowState {
     }
   } else {
     state.queue_fifo_enabled = "No"; // default
+  }
+
+  // --- Batch config ---
+  const batchConfig = parseConfigBlock(content, "batchConfig");
+  if (batchConfig) {
+    state.batch_enabled = "Yes";
+    if (batchConfig.batchSize) {
+      state.batch_size = batchConfig.batchSize;
+    }
+    if (batchConfig.concurrentBatchLimit) {
+      state.batch_concurrent_limit = batchConfig.concurrentBatchLimit;
+    }
+  } else {
+    state.batch_enabled = "No"; // default
   }
 
   // --- Endpoint security ---

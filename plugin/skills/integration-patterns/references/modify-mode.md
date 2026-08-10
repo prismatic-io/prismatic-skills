@@ -5,7 +5,7 @@ Load this reference only when `--mode modify` is active.
 **Mental model:** Build = empty → requirements → scaffold → generate. Modify = existing → extract state → capture delta → targeted edits.
 
 ## Phase 1: Extract State
-Run `prismatic-tools extract-state` for the "before" snapshot. Present as structured summary: flow count/names, trigger types, components, connections, error handling, retry, queue config, lifecycle hooks, state management, extraction_gaps.
+Run `prismatic-tools extract-state` for the "before" snapshot. Present as structured summary: flow count/names, trigger types, components, connections, error handling, retry, queue config, batch config, lifecycle hooks, state management, extraction_gaps.
 
 ## Phase 2: Capture Delta
 Read `modify-integration.yaml` for intent. Based on modification_scope:

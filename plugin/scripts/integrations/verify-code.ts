@@ -211,6 +211,32 @@ function buildMappings(answers: Record<string, unknown>): VerifyMapping[] {
     });
   }
 
+  // --- batch_enabled ---
+  const batchEnabled = val("batch_enabled");
+  if (batchEnabled === "Yes") {
+    mappings.push({
+      answerKey: "batch_enabled",
+      value: "Yes",
+      target: "flows",
+      pattern: /batchConfig\s*:\s*\{/,
+      fix: "Add `batchConfig: { batchSize, concurrentBatchLimit }` to the flow.",
+    });
+    mappings.push({
+      answerKey: "batch_enabled",
+      value: "Yes (batched trigger)",
+      target: "flows",
+      pattern: /batchFlowTrigger/,
+      fix: "Build the flow's `trigger` with `batchFlowTrigger` — batchConfig requires it.",
+    });
+    mappings.push({
+      answerKey: "batch_concurrent_limit",
+      value: val("batch_concurrent_limit") ?? "set",
+      target: "flows",
+      pattern: /concurrentBatchLimit\s*:\s*\d+/,
+      fix: "Add `concurrentBatchLimit` to batchConfig — omitting it dispatches batches with no concurrency ceiling.",
+    });
+  }
+
   // --- needs_deploy_hooks ---
   const deployHooks = val("needs_deploy_hooks");
   if (deployHooks === "Yes") {

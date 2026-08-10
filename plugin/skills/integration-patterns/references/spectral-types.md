@@ -66,6 +66,7 @@ interface StandardFlow extends FlowBase {
   triggerType?: "standard";                             // default
   schedule?: { value: string; timezone?: string } | { configVar: string };
   onTrigger?: TriggerReference | TriggerPerformFunction;  // optional — default passes payload through
+  onDeployTrigger?: TriggerPerformFunction;             // optional one-time fire on instance deploy
 }
 ```
 
@@ -78,8 +79,60 @@ interface PollingFlow extends FlowBase {
     | { value: string; timezone?: string }
     | { configVar: string; timezone?: string };
   onTrigger: PollingTriggerPerformFunction;             // REQUIRED — has context.polling.getState/setState
+  onDeployTrigger?: TriggerPerformFunction;             // optional one-time fire on instance deploy
 }
 ```
+
+### BatchFlow (CNI-only — `batchConfig` + `batchFlowTrigger`)
+
+A batched flow turns one trigger fetch into many per-batch executions. `batchConfig` and the
+batched `trigger` are a coupled pair (discriminated union): when `batchConfig` is present a
+batched `trigger` is **required**, and the flat `onTrigger`/`onDeployTrigger` are **forbidden**.
+Requires spectral **10.22.0+**. Pair with a `schedule` so the pull fires periodically (or a
+webhook to split an incoming array).
+
+```typescript
+interface BatchFlow<TItem, TPaginationState> extends FlowBase {
+  batchConfig: BatchConfig;                             // REQUIRED for a batched flow
+  trigger: BatchTrigger<TItem, TPaginationState>;       // REQUIRED — built with batchFlowTrigger
+  schedule?: { value: string; timezone?: string } | { configVar: string };  // fires the pull
+  onTrigger?: never;                                    // forbidden — fire lives in `trigger`
+  onDeployTrigger?: never;                              // forbidden — use trigger.onDeploy
+  // onExecution's payload: params.onTrigger.results.body.data is TItem | TItem[]
+}
+
+interface BatchConfig {
+  batchSize: number;                                    // integer >= 1. 1 = one execution per item; > 1 = grouped TItem[]
+  concurrentBatchLimit?: number;                        // integer >= 1. Caps concurrent batches per fire; omitted = unlimited
+}
+
+// Built with batchFlowTrigger<TItem, TPaginationState>({ onTrigger, onDeploy? })
+interface BatchTrigger<TItem, TPaginationState extends Record<string, unknown> = Record<string, unknown>> {
+  onTrigger: (context, payload) => Promise<BatchedTriggerReturn<TItem, TPaginationState>>;
+  onDeploy?: (context, payload) => Promise<BatchedTriggerReturn<TItem, TPaginationState>>;  // one-time backfill on deploy
+}
+
+interface BatchedTriggerReturn<TItem, TPaginationState> {
+  items: TItem[];                                       // records to dispatch (chunked by batchSize)
+  paginationState?: TPaginationState | null;            // next-page cursor; null/omit stops the pagination loop
+  response?: HttpResponse;                              // optional HTTP response to the invoking request
+}
+```
+
+**Behavior:** the platform chunks `items` into batches of `batchSize`, dispatches each batch as
+its own execution (independent retry/error handling), and re-invokes the trigger with the
+returned `paginationState` on `payload.paginationState` until it returns `null`. `paginationState`
+pages **within a single fire** — it is not a watermark that persists across scheduled runs, so
+incremental "only new since last run" filtering remains the flow's own concern (a time-windowed
+query or author-managed state). Pagination applies to any batched flow (including a webhook flow's
+`onDeploy` initial sync), not just scheduled/polling ones. The initial/historical sync usually
+needs no special handling when it reads the same source as the ongoing poll — the first poll's
+empty cursor returns the full initial set, which batching fans out. `onDeploy` is an optional
+second fire for when the backfill reads a **different source/query** than steady state, or for a
+**webhook** flow (no poll to backfill from). **Set `concurrentBatchLimit`** — it caps how many
+batches of a single fire run concurrently, and omitting it (unlimited) lets one large fire consume
+the tenant's execution slots and starve other flows/instances. Invalid `batchSize`/
+`concurrentBatchLimit` (< 1) throw at build.
 
 ## StepErrorConfig (flow.errorConfig)
 

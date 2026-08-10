@@ -200,3 +200,22 @@ Key differences from webhook `trigger()`:
 - `scheduleSupport` is implicit (polling triggers always run on a schedule)
 - No `onInstanceDeploy`/`onInstanceDelete` needed (no webhook registration)
 - Optional `pollAction` property to reference an existing component action for the polling logic
+
+---
+
+## Where does polling live?
+
+Polling is implemented in one of two places, using different mechanisms. Pick by what you are building:
+
+- **Building a reusable component** (consumed by low-code or EWB/workflow builders) → define a
+  component polling trigger with `pollingTrigger()`, as shown above. Low-code and EWB consume it
+  directly; this is how Salesforce, HubSpot, Freshservice, Jira, and dozens of published
+  components poll.
+- **Building a Code Native Integration (CNI)** → a CNI flow cannot use `pollingTrigger()`.
+  Implement polling as a **scheduled flow** with `triggerType: "polling"` and
+  `context.polling.getState()/setState()` in `onExecution`, or a **batched flow**
+  (`batchFlowTrigger`) when each polled record should fan out into its own execution. See
+  [integration-patterns → code-generation-guide.md](../../integration-patterns/references/code-generation-guide.md).
+- **A component already exposes a `pollingTrigger()`, but you're writing a CNI** → do not
+  reference that component trigger from the CNI flow (the types are incompatible). Implement the
+  CNI polling path above — scheduled flow + `context.polling` state, or a batched flow.
