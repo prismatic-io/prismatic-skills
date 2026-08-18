@@ -1,4 +1,3 @@
-import { fileURLToPath } from "node:url";
 import type { LuxConfig } from "@prismatic-io/lux";
 
 const config: LuxConfig = {
@@ -7,7 +6,7 @@ const config: LuxConfig = {
   runsRoot: "./.lux-runs",
   defaultAnswerer: {
     name: "scripted",
-    config: { fixturePath: fileURLToPath(new URL("./fixtures/default.yaml", import.meta.url)) },
+    config: { answers: [] },
   },
   harness: {
     provider: "claude-code",
