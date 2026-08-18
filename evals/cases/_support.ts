@@ -15,7 +15,7 @@ export const TSC_PATH = resolve(REPO_ROOT, "node_modules", "typescript", "bin", 
 export const scripted = {
   answerer: {
     name: "scripted" as const,
-    config: { fixturePath: resolve(here, "..", "fixtures", "default.yaml") },
+    config: { answers: [] },
   },
 };
 

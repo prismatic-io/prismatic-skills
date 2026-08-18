@@ -45,5 +45,5 @@ bun run lux run boomi-migration/
 bun run lux run
 ```
 
-See `evals/README.md` for prerequisites (lux must be linked locally via `bun link`).
+See `evals/README.md` for prerequisites and setup.
 </evals>

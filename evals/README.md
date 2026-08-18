@@ -5,21 +5,13 @@ Claude Code plugin. Cases are grouped by skill, agent, or command under `cases/`
 
 ## Setup
 
-Build a local Lux checkout:
+Install the repository and eval-suite dependencies:
 
 ```bash
 cd /path/to/prismatic-skills
 bun install --frozen-lockfile
-
-cd /path/to/lux
-bun install
-bun run build
-```
-
-Then link it into this suite:
-
-```bash
-LUX_DIR=/path/to/lux evals/scripts/link-lux.sh   # defaults to ../lux
+cd evals
+bun install --frozen-lockfile
 ```
 
 ## Running
@@ -29,6 +21,7 @@ cd evals
 
 bun run lux run                                              # every case under cases/
 bun run lux run --list                                       # preview matches, run nothing
+bun run lux doctor                                           # validate config and every discovered case
 bun run lux run component-patterns/                          # one skill (path substring)
 bun run lux run cases/component-patterns/api-key-component.ts # one case
 bun run lux run --tag ci                                     # a curated subset (comma-separated, repeatable)
