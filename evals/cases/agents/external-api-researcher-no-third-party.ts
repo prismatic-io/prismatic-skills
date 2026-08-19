@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { AGENTS_DIR, claudeCode, scripted } from "../_support.ts";
+import { AGENTS_DIR, claudeCode } from "../_support.ts";
 
 // Pins the Source Restrictions: research stays on the official docs domain, never
 // integration platforms (Zapier/Workato/Make/Tray) or Stack Overflow.
@@ -17,7 +17,6 @@ question — don't fetch anything yet.`,
     idleTimeoutMs: 120_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

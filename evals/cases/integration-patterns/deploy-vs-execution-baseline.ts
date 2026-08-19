@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins cross-flow state (crossFlowState or integrationState) as the cursor handoff
 // from onInstanceDeploy to the scheduled onExecution (instanceState is unavailable in
@@ -23,7 +23,6 @@ deploy or check my auth.`,
     idleTimeoutMs: 240_000,
     maxInterrupts: 3,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

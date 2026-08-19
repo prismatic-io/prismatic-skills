@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the documented OAuth2 connection example (find + cite). Non-tautology: the prompt
 // says "helper function" / "enum" but never oauth2Connection or
@@ -17,7 +17,6 @@ the example uses, plus a link to the doc.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 3,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

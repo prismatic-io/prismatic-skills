@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Non-tautology: the prompt never names from_path/to_path/type or properties.email, and
 // the fixture itself uses source_path/target_path — so `from_path` in the transcript can
@@ -20,7 +20,6 @@ platform tools; use only the parsed export that is already present.`,
     maxInterrupts: 2,
   }),
   fixtures: { kind: "dir", path: "cyclr-parsed-export" },
-  ...scripted,
   assertions: [
     {
       type: "glob-count",

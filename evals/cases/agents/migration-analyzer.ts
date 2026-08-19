@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { AGENTS_DIR, claudeCode, scripted, skillDir } from "../_support.ts";
+import { AGENTS_DIR, claudeCode, skillDir } from "../_support.ts";
 
 // Pins deterministic-first (read the staged parsed-export.json, run no parsers) and
 // no-component-preemption (report systems/auth/API only, never pick a component).
@@ -18,7 +18,6 @@ already present.`,
     maxInterrupts: 2,
   }),
   fixtures: { kind: "dir", path: "analyzer-parsed-export" },
-  ...scripted,
   assertions: [
     { type: "glob-count", glob: "**/parsed-export.json", min: 1, name: "parsed export was staged" },
     { type: "tool-called", name: "Read", minTimes: 1 },

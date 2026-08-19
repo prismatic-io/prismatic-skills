@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Non-tautology: the prompt says "disabled"/"failed state" in plain English; the
 // enabled and inFailedState symbols come only from the skill, and the schema has no
@@ -18,7 +18,6 @@ call any MCP or prism commands.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

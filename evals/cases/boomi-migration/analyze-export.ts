@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 export default defineEvalCase({
   id: "boomi-migration/analyze-export",
@@ -16,7 +16,6 @@ anything; describe the workflow.`,
     idleTimeoutMs: 150_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

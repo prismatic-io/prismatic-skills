@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins schema-to-answers mapping: error_handling.strategy maps retry->retry, stop->fail,
 // continue->ignore into error_handler_type; unmapped strategies ("log") surface in
@@ -26,7 +26,6 @@ run anything against the platform.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

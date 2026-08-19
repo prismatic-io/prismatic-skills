@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCalls } from "@prismatic-io/lux";
-import { AGENTS_DIR, claudeCode, scripted } from "../_support.ts";
+import { AGENTS_DIR, claudeCode } from "../_support.ts";
 
 // Hermetic tool-discipline check: docs are staged locally, so the researcher must Read
 // them (never Bash/WebFetch). The asserted identifiers exist only in the staged HTML,
@@ -17,7 +17,6 @@ webhook details into a structured JSON specification. Write the JSON to
     maxInterrupts: 2,
   }),
   fixtures: { kind: "dir", path: "api-docs-sample" },
-  ...scripted,
   assertions: [
     {
       type: "glob-count",

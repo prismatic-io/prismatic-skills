@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir } from "../_support.ts";
 
 // Pins the cni-builder connection rule: build-only connections must not ship to production.
 // Non-tautology: "customer_activated" never appears in the prompt (which supplies only the
@@ -17,7 +17,6 @@ recommend? Just advise — don't run any scripts and don't check my account.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

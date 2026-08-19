@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 export default defineEvalCase({
   id: "component-patterns/api-key-component",
@@ -11,7 +11,6 @@ rawRequest action. Write the files into the current directory. Follow
 Prismatic conventions exactly.`,
   ),
   driver: claudeCode({ readDirs: [skillDir("component-patterns")], idleTimeoutMs: 240_000 }),
-  ...scripted,
   assertions: [
     { type: "glob-count", glob: "**/*.ts", min: 2 },
     { type: "tool-called", name: "Write", minTimes: 1 },

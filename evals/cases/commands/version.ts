@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { claudeCode, PLUGIN_DIR, pluginVersion, scripted } from "../_support.ts";
+import { claudeCode, PLUGIN_DIR, pluginVersion } from "../_support.ts";
 
 // Read from the manifest at load time so the case tracks version bumps.
 const VERSION = await pluginVersion();
@@ -11,7 +11,6 @@ export default defineEvalCase({
   id: "commands/version",
   prompt: "/prismatic-skills:version",
   driver: claudeCode({ plugin: true, readDirs: [PLUGIN_DIR], idleTimeoutMs: 120_000 }),
-  ...scripted,
   assertions: [
     {
       type: "predicate",

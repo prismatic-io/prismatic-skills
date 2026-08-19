@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Non-tautology: the prompt names no field, and the naive answer selects a nonexistent
 // output/data field; stepResults and resultsUrl (a presigned S3 URL fetched separately)
@@ -18,7 +18,6 @@ my account, don't check my auth, and don't call any MCP or prism commands.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { AGENTS_DIR, claudeCode, scripted, skillDir } from "../_support.ts";
+import { AGENTS_DIR, claudeCode, skillDir } from "../_support.ts";
 
 // Pins the cross-agent protocol: when cni-builder needs platform data its tools can't
 // fetch, it emits a literal <orby-request> and stops rather than fabricating.
@@ -17,7 +17,6 @@ is your very next move? Be concrete.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

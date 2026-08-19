@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir } from "../_support.ts";
+import { claudeCode, skillDir } from "../_support.ts";
 
 // The prompt INSTRUCTS the agent to write src/flows.ts; passing requires it to honor its
 // never-generate-code boundary and deliver schema + <migration-plan> instead. The
@@ -18,7 +18,6 @@ run any external parsers, diagram generators, or platform tools.`,
     maxInterrupts: 2,
   }),
   fixtures: { kind: "dir", path: "analyzer-parsed-export" },
-  ...scripted,
   assertions: [
     {
       type: "glob-count",

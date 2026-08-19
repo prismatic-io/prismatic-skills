@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the binary-download recipe: responseType "arraybuffer" (Buffer body) and a
 // { data, contentType } return, via the Spectral client rather than a raw HTTP lib.
@@ -18,7 +18,6 @@ file(s) into the current working directory. Follow Prismatic conventions exactly
     idleTimeoutMs: 300_000,
     maxInterrupts: 4,
   }),
-  ...scripted,
   assertions: [
     { type: "glob-count", glob: "**/*.ts", min: 1, name: "wrote a source file" },
     {

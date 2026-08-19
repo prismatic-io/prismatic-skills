@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir } from "../_support.ts";
+import { claudeCode, skillDir } from "../_support.ts";
 
 // Pins the no-mcp-search rule: component search uses the built-in registry search, never
 // MCP (MCP omits connection objects / auth types). Graded on the decision and reason, not
@@ -16,7 +16,6 @@ why that one? Just tell me your reasoning — don't run anything yet.`,
     idleTimeoutMs: 150_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

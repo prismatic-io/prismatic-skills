@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, PLUGIN_DIR, scripted } from "../_support.ts";
+import { calledPlatform, claudeCode, PLUGIN_DIR } from "../_support.ts";
 
 // The prompt withholds the project path and contains none of the asserted strings, so
 // the regexes only pass when the discovery method comes from the command's Phase 1
@@ -17,7 +17,6 @@ commands yet — just explain the method you'll use to find it.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

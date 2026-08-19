@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Component-level webhook trigger with register/teardown lifecycle hooks.
 // Non-tautology: the asserted symbols (onInstanceDeploy/onInstanceDelete,
@@ -20,7 +20,6 @@ into the current working directory. Follow Prismatic conventions exactly.`,
     idleTimeoutMs: 300_000,
     maxInterrupts: 4,
   }),
-  ...scripted,
   assertions: [
     { type: "glob-count", glob: "**/*.ts", min: 1, name: "wrote a trigger source file" },
     {

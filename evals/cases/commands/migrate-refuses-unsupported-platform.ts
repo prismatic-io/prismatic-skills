@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, PLUGIN_DIR, scripted } from "../_support.ts";
+import { calledPlatform, claudeCode, PLUGIN_DIR } from "../_support.ts";
 
 // Scope refusal: the prompt names only "Workato" — "Boomi"/"Cyclr" land only by reading
 // the command's detect-platform step, so the regexes aren't echoes. The predicate proves
@@ -17,7 +17,6 @@ want to know whether Workato is in scope.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

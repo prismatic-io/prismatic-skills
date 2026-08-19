@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // The prompt supplies only Boomi tokens (disk-sdk, LIST/GET/CREATE); the SFTP component
 // and the download/upload action names come only from the Connector Type Mapping table.
@@ -18,7 +18,6 @@ mapping rules only — do not run any tools and do not check my platform auth.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

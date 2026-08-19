@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 export default defineEvalCase({
   id: "component-patterns/data-source",
@@ -10,7 +10,6 @@ projects the authenticated user can pick from in the Prismatic UI. Write the
 file(s) into the current directory.`,
   ),
   driver: claudeCode({ readDirs: [skillDir("component-patterns")], idleTimeoutMs: 180_000 }),
-  ...scripted,
   assertions: [
     { type: "glob-count", glob: "**/*.ts", min: 1 },
     {

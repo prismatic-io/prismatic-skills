@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Client Credentials grant: server-to-server, no user consent. Non-tautology: the
 // prompt names no SDK symbol; the discriminators are the OAuth2Type.ClientCredentials
@@ -19,7 +19,6 @@ the current working directory; keep it minimal.`,
     idleTimeoutMs: 300_000,
     maxInterrupts: 4,
   }),
-  ...scripted,
   assertions: [
     { type: "glob-count", glob: "**/*.ts", min: 1, name: "wrote a TypeScript connection file" },
     {

@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the skill's data-safety rule: updateInstanceConfigVariables updates only the
 // named vars, while updateInstance replaces ALL config vars on the instance.
@@ -16,7 +16,6 @@ the correct mutation to use, and what should I avoid?`,
     idleTimeoutMs: 120_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

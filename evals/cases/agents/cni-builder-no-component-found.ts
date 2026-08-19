@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir } from "../_support.ts";
 
 // Pins the no-component-found rule: surface both paths (custom component vs direct HTTP)
 // and defer the architectural choice to the user. Non-tautology: the prompt never says
@@ -15,7 +15,6 @@ now — just walk me through what happens next and how you want to proceed.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

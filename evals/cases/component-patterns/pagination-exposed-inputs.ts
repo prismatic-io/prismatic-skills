@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the exposed_inputs pagination recipe: cursor + page-size inputs (the numeric
 // one with a util.types.to* clean fn), a { data } return, all through createClient.
@@ -20,7 +20,6 @@ Follow Prismatic conventions exactly.`,
     idleTimeoutMs: 300_000,
     maxInterrupts: 4,
   }),
-  ...scripted,
   assertions: [
     { type: "glob-count", glob: "**/*.ts", min: 1, name: "wrote a source file" },
     {

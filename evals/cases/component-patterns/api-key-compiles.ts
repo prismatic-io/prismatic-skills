@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, TSC_PATH, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, TSC_PATH, withSkill } from "../_support.ts";
 
 // Type-checks the generated component with tsc against a staged tsconfig plus a
 // `@prismatic-io/spectral` type shim, catching syntax and local type errors that
@@ -19,7 +19,6 @@ component source so it type-checks.`,
     maxInterrupts: 3,
   }),
   fixtures: { kind: "dir", path: "ts-strict" },
-  ...scripted,
   assertions: [
     // the staged shim is one .ts; min 2 means the agent added ≥1 source file
     { type: "glob-count", glob: "**/*.ts", min: 2, name: "writes component source" },

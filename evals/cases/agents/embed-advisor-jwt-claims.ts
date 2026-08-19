@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { AGENTS_DIR, claudeCode, scripted, skillDir } from "../_support.ts";
+import { AGENTS_DIR, claudeCode, skillDir } from "../_support.ts";
 
 // Pins the JWT endpoint contract: all required claims (sub, organization, customer, iat,
 // exp), RS256, env-loaded key, 10-minute (exp = currentTime + 600) lifetime.
@@ -14,7 +14,6 @@ mints tokens for the Prismatic embedded marketplace. Show me the endpoint code.`
     idleTimeoutMs: 240_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

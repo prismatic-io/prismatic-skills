@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the Next.js App Router pattern: server-side RS256 signing plus "use client"
 // on the marketplace file. Non-tautology: the prompt names no framework symbol; both
@@ -18,7 +18,6 @@ not install any packages.`,
     idleTimeoutMs: 300_000,
     maxInterrupts: 4,
   }),
-  ...scripted,
   assertions: [
     {
       type: "glob-count",

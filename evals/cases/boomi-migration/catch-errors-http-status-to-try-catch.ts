@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // The prompt supplies only Boomi vocabulary plus createClient; the asserted isAxiosError
 // guard and error.response-based status read come only from the skill, so a naive answer
@@ -19,7 +19,6 @@ the code shape. Do not run anything or touch my platform.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

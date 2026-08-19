@@ -11,14 +11,6 @@ export const SKILLS_DIR = resolve(PLUGIN_DIR, "skills");
 export const AGENTS_DIR = resolve(PLUGIN_DIR, "agents");
 export const TSC_PATH = resolve(REPO_ROOT, "node_modules", "typescript", "bin", "tsc");
 
-/** Default response fixture for non-HITL cases. */
-export const scripted = {
-  answerer: {
-    name: "scripted" as const,
-    config: { answers: [] },
-  },
-};
-
 /**
  * Prompt preamble for a knowledge case: hands the agent the skill's files to
  * follow. Measures the skill's prose, not its activation/hooks — for those,

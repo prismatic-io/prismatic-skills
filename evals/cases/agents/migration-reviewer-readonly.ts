@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { AGENTS_DIR, claudeCode, scripted, skillDir } from "../_support.ts";
+import { AGENTS_DIR, claudeCode, skillDir } from "../_support.ts";
 
 // Pins the read-only review contract: migration-reviewer emits <review-result> and changes
 // nothing. The fixture plants an untranslated Groovy script (TODO) and a fabricated
@@ -16,7 +16,6 @@ using your checklist and produce your review findings.`,
     maxInterrupts: 2,
   }),
   fixtures: { kind: "dir", path: "migration-review" },
-  ...scripted,
   assertions: [
     { type: "tool-called", name: "Read", minTimes: 1 },
     {

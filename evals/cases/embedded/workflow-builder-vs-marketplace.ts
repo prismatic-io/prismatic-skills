@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the builder API surface: prismatic.showWorkflows (list) and showWorkflow (open one
 // directly), plus the WORKFLOW_ENABLED / WORKFLOW_DISABLED events (not marketplace
@@ -21,7 +21,6 @@ on or off.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 3,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the exact prismatic.init config keys from theming-and-i18n.md. Non-tautology:
 // the prompt is natural-language only and contains none of fontConfiguration,
@@ -18,7 +18,6 @@ configuration that does all of this. Don't run anything against my account.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 3,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",
