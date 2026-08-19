@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCalls } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Companion to batch-flow-trigger.ts, but pins the batchSize > 1 path: grouped batches
 // (onExecution receives an array) plus a concurrency cap. Pins the three numbers to the
@@ -25,7 +25,6 @@ Prismatic auth — just produce the code.`,
     idleTimeoutMs: 300_000,
     maxInterrupts: 6,
   }),
-  ...scripted,
   assertions: [
     {
       type: "command-exits-zero",

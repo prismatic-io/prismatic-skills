@@ -4,10 +4,6 @@ const config: LuxConfig = {
   casesRoot: "./cases",
   fixturesRoot: "./fixtures",
   runsRoot: "./.lux-runs",
-  defaultAnswerer: {
-    name: "scripted",
-    config: { answers: [] },
-  },
   harness: {
     provider: "claude-code",
     model: "claude-sonnet-5",

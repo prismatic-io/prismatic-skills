@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted } from "../_support.ts";
+import { claudeCode } from "../_support.ts";
 
 // The staged doc offers OAuth2 and an API key with equal prominence; selecting OAuth2 as
 // `recommended` is forced only by the agent's auth priority order (OAuth2 > API Key >
@@ -17,7 +17,6 @@ directory.`,
     maxInterrupts: 2,
   }),
   fixtures: { kind: "dir", path: "api-docs-oauth-priority" },
-  ...scripted,
   assertions: [
     {
       type: "file-matches",

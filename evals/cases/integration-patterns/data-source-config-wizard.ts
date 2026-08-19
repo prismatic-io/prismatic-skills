@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the dataSourceConfigVar wrapper and literal dataSourceType: "picklist" for a
 // paginated dropdown. Non-tautology: the prompt says only "dropdown"/"cursor", so a
@@ -20,7 +20,6 @@ check my auth.`,
     idleTimeoutMs: 300_000,
     maxInterrupts: 6,
   }),
-  ...scripted,
   assertions: [
     {
       type: "command-exits-zero",

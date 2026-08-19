@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the custom-marketplace pattern: fetch data via the marketplaceIntegrations
 // GraphQL query, delegate first-time setup to prismatic.configureInstance and inline
@@ -24,7 +24,6 @@ my auth.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 3,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

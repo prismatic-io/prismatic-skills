@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins SKILL.md's Critical Security Rule: JWTs are signed on the backend and the
 // private signing key never reaches the frontend. Posed as the tempting anti-pattern.
@@ -16,7 +16,6 @@ key available to the app.`,
     idleTimeoutMs: 120_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

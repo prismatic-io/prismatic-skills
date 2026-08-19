@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir } from "../_support.ts";
+import { claudeCode, skillDir } from "../_support.ts";
 
 // Pins token lifetime: JWTs are short-lived (10 min, exp = currentTime + 600) with a
 // re-auth timer that re-calls prismatic.authenticate ~60s before expiry.
@@ -15,7 +15,6 @@ code. Is that fine?`,
     idleTimeoutMs: 150_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

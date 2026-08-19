@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the documented code-native agentic-flow example. Non-tautology: the prompt says
 // only "AI agent" / "tool" / "property" — isAgentFlow and schemas.invoke come only from
@@ -18,7 +18,6 @@ example and cite where it comes from.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 3,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

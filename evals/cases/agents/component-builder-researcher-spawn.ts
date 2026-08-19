@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { AGENTS_DIR, claudeCode, scripted, skillDir } from "../_support.ts";
+import { AGENTS_DIR, claudeCode, skillDir } from "../_support.ts";
 
 // Pins the API Research handoff: with the docs URL known and no existing component,
 // component-builder spawns external-api-researcher with BOTH the URL and the
@@ -18,7 +18,6 @@ actually spawn anything yet, and don't ask me to confirm.`,
     idleTimeoutMs: 150_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

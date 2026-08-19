@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the workflow-contexts surface: create a pre-configured workflow from an org-defined
 // context via prismatic.createWorkflow (contextStableKey + contextData + externalId), open
@@ -25,7 +25,6 @@ my auth.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 3,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

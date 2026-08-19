@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir } from "../_support.ts";
 
 // Hermetic: Orby is platform-coupled, so it gets a GraphQL-construction question
 // answerable purely from the prismatic-api skill, with nothing run against an account.
@@ -15,7 +15,6 @@ text so I can reuse it — do NOT run anything against my account and don't chec
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

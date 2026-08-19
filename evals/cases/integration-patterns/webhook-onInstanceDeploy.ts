@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 export default defineEvalCase({
   id: "integration-patterns/webhook-onInstanceDeploy",
@@ -15,7 +15,6 @@ file(s) into the current directory.`,
     idleTimeoutMs: 240_000,
     maxInterrupts: 6,
   }),
-  ...scripted,
   assertions: [
     { type: "glob-count", glob: "**/*.ts", min: 1 },
     {

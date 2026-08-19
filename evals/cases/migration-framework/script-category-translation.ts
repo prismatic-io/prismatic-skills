@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // The prompt names the field "category" but supplies neither value. The two values
 // (mapping / processing), the CNI symbol onExecution, and the single-document /
@@ -18,7 +18,6 @@ during code generation? Just explain — do not run anything against the platfor
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { defineEvalCase, type Run } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // The agent may answer in prose or scaffold files, so init/authenticate evidence
 // can land in the transcript or an artifact; collect both. Call ordering is graded
@@ -35,7 +35,6 @@ including the JWT token flow.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 3,
   }),
-  ...scripted,
   assertions: [
     {
       type: "predicate",

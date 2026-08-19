@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Non-tautology: the asserted TS idioms (randomUUID, JSON.stringify) appear nowhere in
 // the prompt, so producing them requires applying the guide's Common-translations table;
@@ -26,7 +26,6 @@ def result = new JsonBuilder([id: recordId, mode: jobMode, count: parsed.size()]
     idleTimeoutMs: 240_000,
     maxInterrupts: 3,
   }),
-  ...scripted,
   assertions: [
     {
       type: "file-matches",

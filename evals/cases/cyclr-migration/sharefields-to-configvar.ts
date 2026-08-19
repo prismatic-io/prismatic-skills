@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Non-tautology: the prompt never names configVar(/stableKey or the field names, and
 // hubspot_owner_id exists only in the staged parsed-export.json — matching it proves the
@@ -21,7 +21,6 @@ present.`,
     maxInterrupts: 2,
   }),
   fixtures: { kind: "dir", path: "cyclr-parsed-export" },
-  ...scripted,
   assertions: [
     {
       type: "glob-count",

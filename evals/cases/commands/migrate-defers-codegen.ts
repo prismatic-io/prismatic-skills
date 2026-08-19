@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, PLUGIN_DIR, scripted } from "../_support.ts";
+import { calledPlatform, claudeCode, PLUGIN_DIR } from "../_support.ts";
 
 // Adversarial: the prompt demands flow TypeScript now, but the command's
 // never-generate-directly rule defers codegen to the build phase. The dir starts clean,
@@ -16,7 +16,6 @@ platform tools or check my auth; I only want you to start on the flow code.)`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "glob-count",

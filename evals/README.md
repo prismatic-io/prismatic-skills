@@ -60,9 +60,9 @@ over the transcript, not with `interrupt-count`.
 
 Add `cases/<skill>/<name>.ts` using the helpers in `_support.ts`:
 
-- `withSkill(skill, task)` + `...scripted` for a deterministic case.
-- `...withPersona("…")` in place of `...scripted` for a HITL case (grade the
-  interaction with a `rubric` over the transcript — see the interrupt note above).
+- `withSkill(skill, task)` for a knowledge case.
+- A `persona` plus a transcript `rubric` for a HITL case (see the interrupt note
+  above).
 - `fixtures: { kind: "dir", path: "<dir under fixtures/>" }` stages input (a
   migration export, a project skeleton, a tsconfig + type shim) into the working
   directory before the agent starts.

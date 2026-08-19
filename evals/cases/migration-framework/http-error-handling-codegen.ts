@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // The prompt describes the Boomi anti-pattern (a Decision shape inspects the returned
 // status code); correct output must instead try/catch the throwing Spectral/axios client
@@ -21,7 +21,6 @@ Do NOT run anything against my Prismatic account or check auth — just produce 
     idleTimeoutMs: 240_000,
     maxInterrupts: 3,
   }),
-  ...scripted,
   assertions: [
     {
       type: "file-matches",

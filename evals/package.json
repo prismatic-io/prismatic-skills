@@ -8,6 +8,6 @@
     "lux": "lux"
   },
   "dependencies": {
-    "@prismatic-io/lux": "0.0.2-preview.14"
+    "@prismatic-io/lux": "0.0.2-preview.15"
   }
 }

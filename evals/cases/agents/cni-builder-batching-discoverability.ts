@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir } from "../_support.ts";
 
 // Pins batching discoverability from symptom language: a high-volume sync with an "initial sync of
 // all existing records" must surface batchConfig + batchFlowTrigger during planning. The initial
@@ -21,7 +21,6 @@ existing records versus the ongoing checks.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

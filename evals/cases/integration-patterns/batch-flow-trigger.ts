@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCalls } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the CNI-only batched-flow shape: flow.batchConfig + a trigger built with
 // batchFlowTrigger whose fire returns { items, paginationState? }. Non-tautology: the prompt
@@ -24,7 +24,6 @@ directory. Do NOT deploy the integration and do NOT check my Prismatic auth — 
     idleTimeoutMs: 300_000,
     maxInterrupts: 6,
   }),
-  ...scripted,
   assertions: [
     {
       type: "command-exits-zero",

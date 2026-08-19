@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Per-shape mapping with the LISTEN->webhook discriminator: the prompt names no shape or
 // target, so "webhook" requires reading shape1's actionType=LISTEN in the staged XML (a
@@ -19,7 +19,6 @@ to. Do not run external tools — just read the file and apply the mapping rules
     maxInterrupts: 2,
   }),
   fixtures: { kind: "dir", path: "boomi-export-sample" },
-  ...scripted,
   assertions: [
     { type: "tool-called", name: "Read", minTimes: 1 },
     {

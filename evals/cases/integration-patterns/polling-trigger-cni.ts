@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCalls } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins the literal triggerType: "polling" discriminant and the
 // context.polling.getState/setState cursor API. Non-tautology: the prompt is behavioral
@@ -21,7 +21,6 @@ Prismatic auth — just produce the code.`,
     idleTimeoutMs: 300_000,
     maxInterrupts: 6,
   }),
-  ...scripted,
   assertions: [
     {
       type: "command-exits-zero",

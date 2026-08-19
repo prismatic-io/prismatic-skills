@@ -5,7 +5,7 @@
     "": {
       "name": "@prismatic-io/prismatic-skills-evals",
       "dependencies": {
-        "@prismatic-io/lux": "0.0.2-preview.14",
+        "@prismatic-io/lux": "0.0.2-preview.15",
       },
     },
   },
@@ -64,7 +64,7 @@
 
     "@oxc-project/types": ["@oxc-project/types@0.142.0", "", {}, "sha512-7W+2q5AKQVU36fkaryontrHn3YDt1RyUYXatw9i5H8ocYe2sPKSFB6eS8WNPeRKiN1qAWWZUPm7gwFzJGrccqQ=="],
 
-    "@prismatic-io/lux": ["@prismatic-io/lux@0.0.2-preview.14", "", { "dependencies": { "@modelcontextprotocol/sdk": "^1.30.0", "@vscode/windows-process-tree": "0.8.0", "commander": "^15.0.0", "oxc-parser": "^0.142.0", "tempy": "^3.2.0", "tinyexec": "1.2.4", "tinyglobby": "^0.2.17", "xstate": "5.32.0", "zod": "^4.4.3" }, "bin": { "lux": "lib/cli/bin.js" } }, "sha512-8ahmHVvH4vHwg9U2x6fHtN5FeMOXkcwvTvr/e1mFFG49bfrMTlJewJ/2qU9b53GfVxsF1JXjA+BGEF2KBj7Ufw=="],
+    "@prismatic-io/lux": ["@prismatic-io/lux@0.0.2-preview.15", "", { "dependencies": { "@modelcontextprotocol/sdk": "^1.30.0", "@vscode/windows-process-tree": "0.8.0", "commander": "^15.0.0", "oxc-parser": "^0.142.0", "tempy": "^3.2.0", "tinyexec": "1.2.4", "tinyglobby": "^0.2.17", "xstate": "5.32.0", "zod": "^4.4.3" }, "bin": { "lux": "lib/cli/bin.js" } }, "sha512-I1At+LKpdQmWeW4PWYGmZx6VKVh5s6akAJKJ7K6AVK5ji/z7ktnGr+YAUh9T1j7I8lCcHa3Nf1VZENq9SYIq1w=="],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.3", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg=="],
 

@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCalls } from "@prismatic-io/lux";
-import { calledPlatform, claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { calledPlatform, claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Non-tautology: the prompt never contains components:list, --filter=public=true, or
 // createClient — those come from the skill's connector-mapping guidance, and the connector
@@ -21,7 +21,6 @@ export that is present.`,
     maxInterrupts: 2,
   }),
   fixtures: { kind: "dir", path: "cyclr-parsed-export" },
-  ...scripted,
   assertions: [
     {
       type: "glob-count",

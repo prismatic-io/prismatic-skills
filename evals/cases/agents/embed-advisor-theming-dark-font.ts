@@ -1,5 +1,5 @@
 import { defineEvalCase, type Run, toolCallInputs, toolCalls } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir } from "../_support.ts";
+import { claudeCode, skillDir } from "../_support.ts";
 
 // Pins theming: theme: "DARK" + fontConfiguration in code, actual colors in org settings,
 // and no WebFetch of Prismatic docs. Non-tautology: the prompt says "dark mode" / "Inter"
@@ -16,7 +16,6 @@ anything against my org — just show me the code and explain.`,
     idleTimeoutMs: 180_000,
     maxInterrupts: 2,
   }),
-  ...scripted,
   assertions: [
     {
       type: "regex",

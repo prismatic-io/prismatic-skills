@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Pins both retry layers: immediate step retry (errorConfig.errorHandlerType, seconds)
 // and delayed whole-flow re-invocation (retryConfig, minutes). Non-tautology: the SDK
@@ -21,7 +21,6 @@ deploy or run anything against my account.`,
     idleTimeoutMs: 300_000,
     maxInterrupts: 6,
   }),
-  ...scripted,
   assertions: [
     {
       type: "command-exits-zero",

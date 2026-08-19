@@ -1,5 +1,5 @@
 import { defineEvalCase } from "@prismatic-io/lux";
-import { claudeCode, scripted, skillDir, withSkill } from "../_support.ts";
+import { claudeCode, skillDir, withSkill } from "../_support.ts";
 
 // Fixture-grounded analysis: a tiny Boomi export is staged via lux fixtures, and the
 // asserted names (Order Sync, NormalizeOrder) exist only in the staged files, so the
@@ -20,7 +20,6 @@ files contain.`,
     maxInterrupts: 2,
   }),
   fixtures: { kind: "dir", path: "boomi-export-sample" },
-  ...scripted,
   assertions: [
     { type: "glob-count", glob: "**/*.{xml,groovy}", min: 3, name: "export files were staged" },
     // for tool-called, `name` is the tool name and doubles as the label
