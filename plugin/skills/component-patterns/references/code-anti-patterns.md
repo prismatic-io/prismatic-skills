@@ -232,6 +232,92 @@ const pollForChanges = pollingTrigger({
 </right>
 </anti-pattern>
 
+<anti-pattern name="internal-page-loop-instead-of-pagination-state">
+<wrong>
+```typescript
+// Drains every page inside one perform before anything can batch.
+perform: async (context, payload, { connection }) => {
+  const all: Record[] = [];
+  let cursor: string | undefined;
+  do {
+    const { records, nextCursor } = await fetchOnePage(connection, cursor);
+    all.push(...records);
+    cursor = nextCursor;
+  } while (cursor);
+  return { payload: { ...payload, body: { data: all } } };
+},
+```
+</wrong>
+<why>A batched trigger paginates through `getNextPaginationState`, not a `while` loop. Draining every page inside one `perform` materializes the whole result set in trigger memory before `resolveItems` runs, so batching gives no memory relief and a large poll can exhaust the trigger. Returning one page and the next cursor lets the platform re-invoke `perform` per page and batch each page as it arrives. See [batching-triggers.md](batching-triggers.md) → "Pagination".</why>
+<right>
+```typescript
+triggerResolver: {
+  resolveItems: (_context, { payload }) => (payload.body.data as Record[]) ?? [],
+  getNextPaginationState: (_context, { payload }) => (payload.paginationState as PageCursor | undefined) ?? null,
+},
+perform: async (context, payload, { connection }) => {
+  const cursor = payload.paginationState as PageCursor | undefined;
+  const { records, nextCursor } = await fetchOnePage(connection, cursor);
+  return { payload: { ...payload, body: { data: records }, paginationState: nextCursor ?? undefined } };
+},
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="unbounded-batch-concurrency">
+<wrong>
+```typescript
+// No concurrentBatchLimit — a large poll dispatches unlimited concurrent executions.
+batchConfig: { batchSize: 1 },
+```
+</wrong>
+<why>Omitting `concurrentBatchLimit` means *unlimited* concurrency. One large poll — especially a first-run backfill — can consume the tenant's execution slots and starve every other flow and instance in that tenant, not just this one. Set it; `1` (serial) is safe on any destination, and it is raised deliberately to the destination's rate limit or connection-pool size.</why>
+<right>
+```typescript
+batchConfig: { batchSize: 1, concurrentBatchLimit: 1 },
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="converting-resolver-for-net-new-trigger">
+<wrong>
+```typescript
+// A net-new "required" trigger whose perform returns { createdRecords, updatedRecords },
+// forcing resolveItems to reshape data the author controls the shape of.
+triggerResolverSupport: "required",
+perform: async (context, payload) => ({ payload: { ...payload, body: { data: { createdRecords, updatedRecords } } } }),
+triggerResolver: { resolveItems: (_c, { payload }) => flattenEnvelope(payload.body.data) },
+```
+</wrong>
+<why>Converting `resolveItems` is for a *retrofit* — a published trigger whose envelope deployed flows depend on. On a net-new `"required"` trigger you control `perform`, so emit the item shape directly and let `resolveItems` pass through. Reshaping data you just built adds a layer that can silently diverge from `perform`.</why>
+<right>
+```typescript
+triggerResolverSupport: "required",
+perform: async (context, payload) => ({ payload: { ...payload, body: { data: records } } }), // already item-shaped
+triggerResolver: { resolveItems: (_c, { payload }) => (payload.body.data as Record[]) ?? [] },
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="batching-to-fix-trigger-memory">
+<wrong>
+```typescript
+// "perform runs out of memory on large accounts, so add batching."
+batchConfig: { batchSize: 50, concurrentBatchLimit: 5 },
+```
+</wrong>
+<why>Batching splits the *executions*, not the fetch. `perform` still materializes its full result before `resolveItems` runs, so `batchConfig` changes nothing about trigger memory. A `perform` that runs out of memory needs pagination (`getNextPaginationState`, one page per invocation), not batching.</why>
+<right>
+```typescript
+triggerResolver: {
+  resolveItems: (_c, { payload }) => (payload.body.data as Record[]) ?? [],
+  getNextPaginationState: (_c, { payload }) => (payload.paginationState as PageCursor | undefined) ?? null,
+},
+// perform fetches ONE page and returns the next cursor — see internal-page-loop-instead-of-pagination-state
+```
+</right>
+</anti-pattern>
+
 ---
 
 ## Client Architecture

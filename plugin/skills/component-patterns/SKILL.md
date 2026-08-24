@@ -90,6 +90,7 @@ The references below are the full set available — load per the agent's guidanc
 **Conditional references for Phase 4 (load based on requirements):**
 - If webhook triggers: `references/trigger-patterns.md` - Webhook trigger lifecycle and implementation
 - If polling triggers: `references/trigger-patterns.md` - Polling trigger with `pollingTrigger()`, `context.polling` state management
+- If batching a trigger (high-volume poll, per-record executions, initial/historical sync): `references/batching-triggers.md` - `triggerResolver` + `batchConfig`, pagination, look-back vs `onDeployPerform` initial sync, webhook backfill
 - If OAuth2 auth: `references/oauth2-connection-guide.md` - Deep dive on OAuth2 connections (use `oauth2Connection()` from spectral, NOT `connection()`)
 - If data sources: `references/data-source-patterns.md` - Data source implementation patterns
 - Always for connectors: `references/client-patterns.md` - HTTP client helper patterns
@@ -113,6 +114,7 @@ Full reference list for manual lookup:
 - `references/oauth2-connection-guide.md` - Deep dive on OAuth2 connections
 - `references/spectral-component-quickstart.md` - Spectral SDK basics
 - `references/trigger-patterns.md` - Webhook trigger lifecycle
+- `references/batching-triggers.md` - Batched component triggers: `triggerResolver`, `batchConfig`, pagination, initial sync
 - `references/data-source-patterns.md` - Data source patterns
 - `references/client-patterns.md` - HTTP client helper patterns
 - `references/troubleshooting-errors.md` - Build/publish failure solutions

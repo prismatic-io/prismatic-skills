@@ -94,3 +94,188 @@ polling_support:
     no: >
       No polling trigger. Integrations must use external scheduling to invoke actions
       directly. The component provides only actions and data sources.
+
+# ── Trigger batching (component trigger surface) ────────────────────────────
+# Maps to a pollingTrigger()/trigger() with triggerResolver + batchConfig (spectral 10.26.1+;
+# primitives available back to 10.23.0). The component-trigger sibling of a CNI batched flow.
+# Full patterns: references/batching-triggers.md. Cookbook: "answer: trigger batching".
+
+trigger_batching:
+  question: "Should this polling trigger batch-dispatch its records? (one poll → many per-record executions)"
+  type: choice
+  choices: [yes, no]
+  inference: allowed
+  scope: component
+  depends_on: [polling_support]
+  condition:
+    polling_support: yes
+  default: yes
+  maps_to: "triggerResolverSupport + batchConfig + triggerResolver.resolveItems"
+  cookbook_section: "answer: trigger batching"
+  docs:
+    - https://prismatic.io/docs/custom-connectors/triggers/#large-data-syncs
+  agent_context: >
+    Batching (the docs call it a "large data sync") turns one poll into many smaller executions:
+    resolveItems returns the array of records to split into batches, the platform slices them by
+    batchSize, and the flow's steps run once per batch, in parallel, with independent retries and
+    isolated failures. Best when a poll returns many records that need per-record work (one API
+    call / one upsert per record), when a bad record shouldn't fail the whole run, or when the
+    first poll backfills a large history. For a NET-NEW
+    polling trigger, lean yes — batching costs three fields plus a passthrough resolver and gives
+    builders a per-flow opt-in. Choose no only for a payload that must be handled as a whole set
+    (reconciliation, diffing, aggregate computation, a single file/blob) — splitting those
+    silently changes their meaning.
+  implications:
+    yes: >
+      The trigger declares triggerResolverSupport, batchConfig, and triggerResolver.resolveItems.
+      Downstream receives one record (batchSize 1) or an array (batchSize > 1) per execution.
+      Follow-up questions cover resolver support level, batch size, concurrency, pagination, and
+      initial sync.
+    no: >
+      A plain polling trigger returns the whole poll as one payload processed in one execution.
+
+trigger_resolver_support:
+  question: "Is this a net-new trigger (batching always on) or a retrofit of a published trigger (batching opt-in)?"
+  type: choice
+  choices: [net_new, retrofit]
+  inference: allowed
+  scope: component
+  depends_on: [trigger_batching]
+  condition:
+    trigger_batching: yes
+  default: net_new
+  maps_to: "triggerResolverSupport: required | valid"
+  agent_context: |
+    <present-as>
+      <option value="net_new">Net-new trigger — nothing depends on its payload yet. Use triggerResolverSupport: "required": batching is always on, and perform returns records already in item shape so resolveItems is a passthrough.</option>
+      <option value="retrofit">Retrofit of a published trigger — deployed flows depend on its current payload. Use triggerResolverSupport: "valid": batching is opt-in, the unbatched payload is unchanged, and resolveItems converts the existing envelope into items when a flow enables batching.</option>
+    </present-as>
+    The support level protects deployed flows. "required" forces the resolver and is safe only
+    when no flow depends on the old shape (a net-new trigger). "valid" keeps the current payload
+    the default and batching an opt-in, which is the only safe choice for a trigger already in use.
+  implications:
+    net_new: >
+      triggerResolverSupport: "required". Design perform to emit the final item shape; resolveItems
+      just unwraps payload.body.data. No conversion, no payload-compatibility concern.
+    retrofit: >
+      triggerResolverSupport: "valid". The unbatched payload is unchanged; resolveItems flattens the
+      existing envelope (e.g. { createdRecords, updatedRecords }) into tagged items, tolerating an
+      absent envelope and individually absent arrays.
+
+trigger_batch_size:
+  question: "How many records per batch?"
+  type: text
+  inference: allowed
+  scope: component
+  depends_on: [trigger_batching]
+  condition:
+    trigger_batching: yes
+  default: "1"
+  maps_to: "batchConfig.batchSize"
+  suggestions: ["1", "25", "50", "100"]
+  note: >
+    Integer >= 1. On a component trigger this is the default the platform seeds; a builder may
+    override it per instance, so it only needs a sane starting point.
+  agent_context: >
+    batchSize 1 gives the strongest isolation — one record fails, only that execution retries — at
+    the cost of more executions; pick it for per-record work (one API call / one upsert per record).
+    A larger size (25–100) processes records in slices for bulk operations that accept an array, at
+    the cost of retrying a whole slice on failure.
+
+trigger_batch_concurrency:
+  question: "How many batches may run concurrently? (strongly recommended — leaving this unbounded can saturate the tenant's execution concurrency)"
+  type: text
+  inference: prohibited
+  scope: component
+  depends_on: [trigger_batching]
+  condition:
+    trigger_batching: yes
+  default: "1"
+  maps_to: "batchConfig.concurrentBatchLimit"
+  suggestions: ["1", "2", "5", "10"]
+  note: >
+    Integer >= 1. 1 is the safe starting point (batches run serially). Omitting it means UNLIMITED
+    concurrency — surface this every time and do not silently omit it.
+  agent_context: >
+    concurrentBatchLimit caps how many of a single poll's batches run at once. Unbounded dispatch is
+    the main way a batched trigger harms its tenant: one large poll — especially a first-run backfill
+    — can grab all of the tenant's concurrent execution slots and starve every other flow and
+    instance. Start at 1 (serial, safe on any destination) and raise it deliberately to the
+    destination's tolerance (its rate limit or connection-pool size). Treat an unbounded answer as a
+    guardrail gap to talk through, not a default.
+
+trigger_pagination:
+  question: "Does a poll return more records than one request can fetch? If so, what identifies the next page? (a cursor, page number, or keyset)"
+  type: text
+  inference: allowed
+  scope: component
+  skippable: true
+  depends_on: [trigger_batching]
+  condition:
+    trigger_batching: yes
+  maps_to: "triggerResolver.getNextPaginationState + payload.paginationState"
+  agent_context: >
+    Pagination splits the FETCH (batching splits the executions). perform returns one page and the
+    next cursor on payload.paginationState; getNextPaginationState surfaces it; a non-null return
+    re-invokes perform for the next page until it returns null. Every page's items are batched as
+    they arrive. This paging is WITHIN one poll — it is not the cross-run "only since last time"
+    watermark, which lives in context.polling.setState and advances only once the final page drains.
+    Describe the source's paging mechanism (cursor token, page number, keyset) so the cursor type and
+    stop condition are correct. If one request returns everything, skip this.
+
+trigger_initial_sync:
+  question: "Should the trigger sync records that already existed before it was deployed? If so, from where?"
+  type: choice
+  choices: [look_back_date, deploy_primitive, none]
+  inference: allowed
+  scope: component
+  depends_on: [trigger_batching]
+  condition:
+    trigger_batching: yes
+  default: look_back_date
+  maps_to: "look-back input | onDeployPerform + onDeployResolver | (neither)"
+  agent_context: |
+    A steady-state poll only sees changes AFTER it starts, so pre-existing records need an explicit
+    initial sync. Ask which path fits — do not assume.
+    <present-as>
+      <option value="look_back_date">Look-back date (same source) — a Look-back Date input; the first poll (no cursor yet) backfills from that date using the same query as the ongoing poll, then polls incrementally. No onDeployPerform. Choose when the backfill and the ongoing poll read the same source.</option>
+      <option value="deploy_primitive">Deploy-time primitive (different source) — onDeployPerform fires once on instance deploy and onDeployResolver batches the backfill. Choose when the backfill reads a DIFFERENT source than steady state (e.g. the ongoing poll reads a change feed that never reports records that already existed, so the backfill must read the full entity table).</option>
+      <option value="none">None — the trigger only reports go-forward changes; pre-existing records are out of scope.</option>
+    </present-as>
+  implications:
+    look_back_date: >
+      Adds an optional Look-back Date input. First poll seeds its window from that date and backfills
+      once (paged + batched); later polls are incremental. Empty look-back → first poll starts at now.
+    deploy_primitive: >
+      Adds onDeployPerform (the backfill fetch) and onDeployResolver (batches it through the shared
+      batchConfig). 10.26.1+ onDeployResolver.inputs carries backfill-only inputs (start date, page
+      size) passed to onDeployPerform. Steady-state perform handles only ongoing changes.
+    none: >
+      No backfill. The first poll defaults its window to now and returns nothing historical.
+
+webhook_initial_sync:
+  question: "Should this webhook trigger sync historical records once when an instance is deployed?"
+  type: choice
+  choices: [yes, no]
+  inference: allowed
+  scope: component
+  depends_on: [webhook_support]
+  condition:
+    webhook_support: yes
+  default: no
+  maps_to: "onDeployPerform + onDeployResolver on the webhook trigger"
+  cookbook_section: "answer: trigger batching"
+  agent_context: >
+    A webhook only ever delivers go-forward events, so a historical sync is possible only through
+    onDeployPerform — it fires once on instance deploy and pulls the records the webhook will never
+    resend, batched through onDeployResolver. Pair it so the live webhook and the backfill emit the
+    SAME complete record shape: a webhook event usually carries only an id and event type, so the
+    trigger's perform should FETCH the referenced record(s) for the event, and onDeployPerform pulls
+    the full entity table the same way. Downstream then gets whole records from both sources and never
+    branches on where a record came from.
+  implications:
+    yes: >
+      The webhook trigger gains onDeployPerform (fetch existing records, paged + batched) and
+      onDeployResolver. Its perform fetches full records for each event id before emitting them.
+    no: >
+      The webhook trigger emits only live events. Pre-existing records are out of scope.

@@ -24,7 +24,7 @@
 #   component/overview.yaml          — component_type, component_name, component_description
 #   component/connector-config.yaml  — api_name, api_docs_url, auth_type, base_url
 #   component/resources.yaml         — confirm_resources, resource_actions, pagination_strategy
-#   component/triggers.yaml          — webhook_support, webhook_events, webhook_security, polling_support
+#   component/triggers.yaml          — webhook_support, webhook_events, webhook_security, polling_support, trigger batching (resolver/batchConfig/pagination/initial-sync)
 #   component/data-sources.yaml      — data_source_support, data_source_resources
 #   component/utility-config.yaml    — utility_actions, utility_inputs
 #   component/additional.yaml        — error_handling_strategy, additional_requirements
@@ -70,7 +70,7 @@ groups:
     label: "Triggers & Webhooks"
     docs:
       - https://prismatic.io/docs/custom-connectors/triggers.md
-    items: [webhook_support, webhook_events, webhook_security, polling_support]
+    items: [webhook_support, webhook_events, webhook_security, webhook_initial_sync, polling_support, trigger_batching, trigger_resolver_support, trigger_batch_size, trigger_batch_concurrency, trigger_pagination, trigger_initial_sync]
 
   - id: data_sources
     label: "Data Sources"
