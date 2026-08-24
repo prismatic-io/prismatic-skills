@@ -309,6 +309,59 @@ component? A CNI flow cannot use `pollingTrigger()` — follow the CNI path in t
 
 ---
 
+## answer: trigger batching → triggerResolver + batchConfig
+
+`trigger_batching: yes` adds batching to a trigger — the capability the Prismatic docs call a
+[large data sync](https://prismatic.io/docs/custom-connectors/triggers/#large-data-syncs). Declare
+three coupled fields; the platform splits `resolveItems`' records into batches of
+`batchConfig.batchSize` and runs the flow's steps once per batch, in parallel. Requires spectral
+10.26.1+ (primitives exist back to 10.23.0). Full patterns, initial-sync paths, and the webhook
+backfill: [batching-triggers.md](batching-triggers.md).
+
+**Net-new (`trigger_resolver_support: net_new`) → `"required"`, passthrough resolver.** Design
+`perform` to emit the final item shape; `resolveItems` just unwraps it.
+
+```typescript
+triggerResolverSupport: "required",
+batchConfig: { batchSize: 1, concurrentBatchLimit: 1 }, // concurrency: 1 is the safe default
+triggerResolver: { resolveItems: (_context, { payload }) => (payload.body.data as Record[]) ?? [] },
+```
+
+**Retrofit (`trigger_resolver_support: retrofit`) → `"valid"`, converting resolver.** Batching
+is opt-in; the unbatched payload is unchanged; `resolveItems` flattens the published envelope,
+tolerating an absent envelope and absent arrays.
+
+```typescript
+triggerResolverSupport: "valid",
+batchConfig: { batchSize: 50, concurrentBatchLimit: 1 },
+triggerResolver: {
+  resolveItems: (_context, { payload }) => {
+    const changes = (payload.body.data as ChangesObject | undefined) ?? {};
+    return [
+      ...(changes.createdRecords ?? []).map((record) => ({ changeType: "created" as const, record })),
+      ...(changes.updatedRecords ?? []).map((record) => ({ changeType: "updated" as const, record })),
+    ];
+  },
+},
+```
+
+**`trigger_pagination` → `getNextPaginationState` + `payload.paginationState`.** `perform`
+returns one page and the next cursor; a non-null `getNextPaginationState` re-invokes `perform`
+until it returns `null`. This is intra-poll paging, not the cross-run watermark
+(`context.polling.setState`, advanced only on the final page).
+
+**`trigger_initial_sync` / `webhook_initial_sync` → look-back input or `onDeployPerform`.**
+Look-back date (same source): an optional `lookBackDate` input the first poll starts its window
+from. Deploy primitive (different source, or a webhook): `onDeployPerform` + `onDeployResolver`
+fire once on deploy. A webhook trigger's `perform` fetches full records for each event id so the
+live feed and the backfill emit the same shape. See
+[batching-triggers.md](batching-triggers.md) → "Initial sync" and "Webhook triggers".
+
+Anti-patterns (internal page loops, unbounded concurrency, converting when a passthrough would
+do, batching to fix memory): [code-anti-patterns.md](code-anti-patterns.md) → "Polling Triggers".
+
+---
+
 ## answer: pagination_strategy → client pattern
 
 ### pagination_strategy: "internal_loop"

@@ -232,6 +232,167 @@ const pollForChanges = pollingTrigger({
 </right>
 </anti-pattern>
 
+<anti-pattern name="internal-page-loop-instead-of-pagination-state">
+<wrong>
+```typescript
+// Drains every page inside one perform before anything can batch.
+perform: async (context, payload, { connection }) => {
+  const all: Record[] = [];
+  let cursor: string | undefined;
+  do {
+    const { records, nextCursor } = await fetchOnePage(connection, cursor);
+    all.push(...records);
+    cursor = nextCursor;
+  } while (cursor);
+  return { payload: { ...payload, body: { data: all } } };
+},
+```
+</wrong>
+<why>A batched trigger paginates through `getNextPaginationState`, not a `while` loop. Draining every page inside one `perform` materializes the whole result set in trigger memory before `resolveItems` runs, so batching gives no memory relief and a large poll can exhaust the trigger. Returning one page and the next cursor lets the platform re-invoke `perform` per page and batch each page as it arrives. See [batching-triggers.md](batching-triggers.md) → "Pagination".</why>
+<right>
+```typescript
+triggerResolver: {
+  resolveItems: (_context, { payload }) => (payload.body.data as Record[]) ?? [],
+  getNextPaginationState: (_context, { payload }) => (payload.paginationState as PageCursor | undefined) ?? null,
+},
+perform: async (context, payload, { connection }) => {
+  const cursor = payload.paginationState as PageCursor | undefined;
+  const { records, nextCursor } = await fetchOnePage(connection, cursor);
+  return { payload: { ...payload, body: { data: records }, paginationState: nextCursor ?? undefined } };
+},
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="unbounded-batch-concurrency">
+<wrong>
+```typescript
+// No concurrentBatchLimit — a large poll dispatches unlimited concurrent executions.
+batchConfig: { batchSize: 1 },
+```
+</wrong>
+<why>Omitting `concurrentBatchLimit` means *unlimited* concurrency. One large poll — especially a first-run backfill — can consume the tenant's execution slots and starve every other flow and instance in that tenant, not just this one. Set it; `1` (serial) is safe on any destination, and it is raised deliberately to the destination's rate limit or connection-pool size.</why>
+<right>
+```typescript
+batchConfig: { batchSize: 1, concurrentBatchLimit: 1 },
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="converting-resolver-for-net-new-trigger">
+<wrong>
+```typescript
+// A net-new "required" trigger whose perform returns { createdRecords, updatedRecords },
+// forcing resolveItems to reshape data the author controls the shape of.
+triggerResolverSupport: "required",
+perform: async (context, payload) => ({ payload: { ...payload, body: { data: { createdRecords, updatedRecords } } } }),
+triggerResolver: { resolveItems: (_c, { payload }) => flattenEnvelope(payload.body.data) },
+```
+</wrong>
+<why>Converting `resolveItems` is for a *retrofit* — a published trigger whose envelope deployed flows depend on. On a net-new `"required"` trigger you control `perform`, so emit the item shape directly and let `resolveItems` pass through. Reshaping data you just built adds a layer that can silently diverge from `perform`.</why>
+<right>
+```typescript
+triggerResolverSupport: "required",
+perform: async (context, payload) => ({ payload: { ...payload, body: { data: records } } }), // already item-shaped
+triggerResolver: { resolveItems: (_c, { payload }) => (payload.body.data as Record[]) ?? [] },
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="batching-to-fix-trigger-memory">
+<wrong>
+```typescript
+// "perform runs out of memory on large accounts, so add batching."
+batchConfig: { batchSize: 50, concurrentBatchLimit: 5 },
+```
+</wrong>
+<why>Batching splits the *executions*, not the fetch. `perform` still materializes its full result before `resolveItems` runs, so `batchConfig` changes nothing about trigger memory. A `perform` that runs out of memory needs pagination (`getNextPaginationState`, one page per invocation), not batching.</why>
+<right>
+```typescript
+triggerResolver: {
+  resolveItems: (_c, { payload }) => (payload.body.data as Record[]) ?? [],
+  getNextPaginationState: (_c, { payload }) => (payload.paginationState as PageCursor | undefined) ?? null,
+},
+// perform fetches ONE page and returns the next cursor — see internal-page-loop-instead-of-pagination-state
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="required-resolver-on-retrofit">
+<wrong>
+```typescript
+// Retrofitting a PUBLISHED trigger — this forces batching onto every deployed flow.
+triggerResolverSupport: "required",
+batchConfig: { batchSize: 50, concurrentBatchLimit: 1 },
+triggerResolver: { resolveItems: (_c, { payload }) => resolveRecordChanges(payload.body.data as ChangesObject) },
+```
+</wrong>
+<why>`"required"` forces the resolver on every flow, changing what already-deployed flows receive — exactly what a retrofit must not do. On a published trigger, batching is opt-in: use `"valid"` so the unbatched payload stays the default and batching is inert until a flow enables it. `"required"` is for net-new triggers only. See [retrofit-batching-triggers.md](retrofit-batching-triggers.md).</why>
+<right>
+```typescript
+triggerResolverSupport: "valid",
+batchConfig: { batchSize: 50, concurrentBatchLimit: 1 },
+triggerResolver: { resolveItems: (_c, { payload }) => resolveRecordChanges(payload.body.data as ChangesObject) },
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="renamed-trigger-export-on-retrofit">
+<wrong>
+```typescript
+// Renaming the existing export while adding a batched variant.
+export const pollChangesUnbatchedTrigger = pollingTrigger({ /* the original */ });
+export const pollChangesTrigger = pollingTrigger({ /* the new batched one */ });
+```
+</wrong>
+<why>The export name is the trigger key. Renaming it silently breaks every deployed flow that references it — no build error, no runtime warning. Keep the original export name exactly; a batched sibling takes a genuinely new key (`pollChangesBatchedTrigger`). Adding a key is safe; renaming one is not.</why>
+<right>
+```typescript
+export const pollChangesTrigger = pollingTrigger({ /* original, now with the three batching fields added in place */ });
+// or, for the paginated conversion, a sibling with a NEW key:
+export const pollChangesBatchedTrigger = pollingTrigger({ /* ... */ });
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="watermark-advanced-mid-drain">
+<wrong>
+```typescript
+// Advancing the cross-run watermark on every page while a paginated drain is still in flight.
+context.polling.setState({ lastPolledAt: new Date().toISOString() });
+return { payload: { ...payload, body: { data }, paginationState: nextCursor ?? undefined } };
+```
+</wrong>
+<why>Rounds 2..N re-enter the same `perform` while pages are still draining. A watermark advanced mid-drain moves the "since" forward past records still in flight on later pages, silently dropping them. Commit the watermark only when the drain finishes (`getNextPaginationState` returns `null`), and keep the incoming watermark fixed across the drain.</why>
+<right>
+```typescript
+if (nextCursor === null) {
+  context.polling.setState({ lastPolledAt: windowEnd }); // only on the final page
+}
+return { payload: { ...payload, body: { data }, paginationState: nextCursor ?? undefined } };
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="pollednochanges-on-paginated-round">
+<wrong>
+```typescript
+// Reporting polledNoChanges on a platform-driven (paginated) round.
+return { payload: { ...payload, body: { data }, paginationState: nextCursor ?? undefined }, polledNoChanges: data.length === 0 };
+```
+</wrong>
+<why>On a platform-driven round (one re-invoked via `payload.paginationState`), reporting `polledNoChanges` skips the resolver dispatch that marks discovery complete, hanging the batch barrier at zero. Report it only on a self-initiated round with no cursor and no records.</why>
+<right>
+```typescript
+const isPlatformDrivenRound = Boolean(payload.paginationState);
+return {
+  payload: { ...payload, body: { data }, paginationState: nextCursor ?? undefined },
+  polledNoChanges: data.length === 0 && nextCursor === null && !isPlatformDrivenRound,
+};
+```
+</right>
+</anti-pattern>
+
 ---
 
 ## Client Architecture

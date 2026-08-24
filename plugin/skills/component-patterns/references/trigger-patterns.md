@@ -201,6 +201,10 @@ Key differences from webhook `trigger()`:
 - No `onInstanceDeploy`/`onInstanceDelete` needed (no webhook registration)
 - Optional `pollAction` property to reference an existing component action for the polling logic
 
+**Batching a polling (or webhook) trigger** — fan one poll into many per-record executions with
+`triggerResolver` + `batchConfig`, page the fetch with `getNextPaginationState`, and backfill
+history with a look-back date or `onDeployPerform`: [batching-triggers.md](batching-triggers.md).
+
 ---
 
 ## Where does polling live?
