@@ -128,7 +128,8 @@ across sibling triggers.
 
 `triggerResolverSupport` decides whether batching is forced or optional, and it drives how
 much work `resolveItems` does. Pick by whether the trigger is **net-new** or a **retrofit of a
-published trigger**.
+published trigger**. This page covers net-new; for the backward-compatible retrofit of a trigger
+already in use, see [retrofit-batching-triggers.md](retrofit-batching-triggers.md).
 
 **Net-new trigger → `"required"`, and `resolveItems` is a passthrough.** Batching is always on,
 so design `perform` to return the records already in their final item shape. `resolveItems`

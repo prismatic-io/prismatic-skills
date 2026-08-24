@@ -318,6 +318,81 @@ triggerResolver: {
 </right>
 </anti-pattern>
 
+<anti-pattern name="required-resolver-on-retrofit">
+<wrong>
+```typescript
+// Retrofitting a PUBLISHED trigger — this forces batching onto every deployed flow.
+triggerResolverSupport: "required",
+batchConfig: { batchSize: 50, concurrentBatchLimit: 1 },
+triggerResolver: { resolveItems: (_c, { payload }) => resolveRecordChanges(payload.body.data as ChangesObject) },
+```
+</wrong>
+<why>`"required"` forces the resolver on every flow, changing what already-deployed flows receive — exactly what a retrofit must not do. On a published trigger, batching is opt-in: use `"valid"` so the unbatched payload stays the default and batching is inert until a flow enables it. `"required"` is for net-new triggers only. See [retrofit-batching-triggers.md](retrofit-batching-triggers.md).</why>
+<right>
+```typescript
+triggerResolverSupport: "valid",
+batchConfig: { batchSize: 50, concurrentBatchLimit: 1 },
+triggerResolver: { resolveItems: (_c, { payload }) => resolveRecordChanges(payload.body.data as ChangesObject) },
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="renamed-trigger-export-on-retrofit">
+<wrong>
+```typescript
+// Renaming the existing export while adding a batched variant.
+export const pollChangesUnbatchedTrigger = pollingTrigger({ /* the original */ });
+export const pollChangesTrigger = pollingTrigger({ /* the new batched one */ });
+```
+</wrong>
+<why>The export name is the trigger key. Renaming it silently breaks every deployed flow that references it — no build error, no runtime warning. Keep the original export name exactly; a batched sibling takes a genuinely new key (`pollChangesBatchedTrigger`). Adding a key is safe; renaming one is not.</why>
+<right>
+```typescript
+export const pollChangesTrigger = pollingTrigger({ /* original, now with the three batching fields added in place */ });
+// or, for the paginated conversion, a sibling with a NEW key:
+export const pollChangesBatchedTrigger = pollingTrigger({ /* ... */ });
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="watermark-advanced-mid-drain">
+<wrong>
+```typescript
+// Advancing the cross-run watermark on every page while a paginated drain is still in flight.
+context.polling.setState({ lastPolledAt: new Date().toISOString() });
+return { payload: { ...payload, body: { data }, paginationState: nextCursor ?? undefined } };
+```
+</wrong>
+<why>Rounds 2..N re-enter the same `perform` while pages are still draining. A watermark advanced mid-drain moves the "since" forward past records still in flight on later pages, silently dropping them. Commit the watermark only when the drain finishes (`getNextPaginationState` returns `null`), and keep the incoming watermark fixed across the drain.</why>
+<right>
+```typescript
+if (nextCursor === null) {
+  context.polling.setState({ lastPolledAt: windowEnd }); // only on the final page
+}
+return { payload: { ...payload, body: { data }, paginationState: nextCursor ?? undefined } };
+```
+</right>
+</anti-pattern>
+
+<anti-pattern name="pollednochanges-on-paginated-round">
+<wrong>
+```typescript
+// Reporting polledNoChanges on a platform-driven (paginated) round.
+return { payload: { ...payload, body: { data }, paginationState: nextCursor ?? undefined }, polledNoChanges: data.length === 0 };
+```
+</wrong>
+<why>On a platform-driven round (one re-invoked via `payload.paginationState`), reporting `polledNoChanges` skips the resolver dispatch that marks discovery complete, hanging the batch barrier at zero. Report it only on a self-initiated round with no cursor and no records.</why>
+<right>
+```typescript
+const isPlatformDrivenRound = Boolean(payload.paginationState);
+return {
+  payload: { ...payload, body: { data }, paginationState: nextCursor ?? undefined },
+  polledNoChanges: data.length === 0 && nextCursor === null && !isPlatformDrivenRound,
+};
+```
+</right>
+</anti-pattern>
+
 ---
 
 ## Client Architecture
