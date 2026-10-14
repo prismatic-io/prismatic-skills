@@ -1,5 +1,8 @@
 # Prismatic Skills
 
+> [!NOTE]
+> We've moved our skills to [Prismatic agent skills](https://github.com/prismatic-io/agent-skills) and expanded support to more coding assistants! Get started with `npx skills add prismatic-io/agent-skills`.
+
 Claude Code plugin for building and managing [Prismatic](https://www.prismatic.io) integrations through conversation. Build custom components, generate Code Native Integrations, migrate integrations from other platforms, embed Prismatic in your app, explore your environment, and operate the platform — all from your editor.
 
 ## Prerequisites
